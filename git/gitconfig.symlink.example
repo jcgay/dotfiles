@@ -1,0 +1,50 @@
+[user]
+	name = AUTHORNAME
+	email = AUTHOREMAIL
+[credential]
+	helper = GIT_CREDENTIAL_HELPER
+[color]
+	ui = auto
+[alias]
+	st = status
+	ci = commit
+	lg = log --graph --pretty=tformat:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%an %cr)%Creset'
+	standup = !git-standup
+	export = "!f() { git archive --format zip --output $1 $2; }; f"
+    ulg = !(git fetch && git lg ..@{u})
+	llg = !(git lg @{u}..)
+	ignored = clean -ndX
+	ready = rebase -i @{u}
+[core]
+	pager = cat
+	whitespace = -trailing-space
+	# excludesfile = https://help.github.com/articles/ignoring-files
+	excludesfile = ~/.gitignore_global
+	# editor = 'C:/Program Files/Notepad++/notepad++.exe' -multiInst -notabbar -nosession -noPlugin
+	editor = mate -w
+	# editor = gedit -w -s
+[diff]
+	mnemonicPrefix = true
+	wordRegex = .
+[fetch]
+	recurseSubmodules = on-demand
+[grep]
+	extendedRegexp = true
+[log]
+	abbrevCommit = true
+[merge]
+	conflictStyle = diff3
+	tool = p4merge
+[mergetool]
+	keepBackup = false
+	keepTemporaries = false
+	prompt = false
+[pull]
+	rebase = true
+[push]
+	default = upstream
+[rerere]
+	autoupdate = true
+	enabled = true
+[status]
+	submoduleSummary = true
