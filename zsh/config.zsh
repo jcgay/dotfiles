@@ -3,7 +3,7 @@ fpath=($ZSH/functions $fpath)
 autoload -U $ZSH/functions/*(:t)
 
 # Path to your oh-my-zsh configuration.
-OMZSH=$HOME/.oh-my-zsh
+ZSH=$HOME/.oh-my-zsh
 
 # Set name of the theme to load.
 # Look in ~/.oh-my-zsh/themes/
@@ -16,6 +16,6 @@ ZSH_THEME="robbyrussell"
 # Example format: plugins=(rails git textmate ruby lighthouse)
 plugins=(git brew)
 
-source $OMZSH/oh-my-zsh.sh
+source $ZSH/oh-my-zsh.sh
 
 
