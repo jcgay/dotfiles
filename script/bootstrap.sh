@@ -120,16 +120,6 @@ install_dotfiles () {
   done
 }
 
-# If we're on a Mac, let's install and setup homebrew.
-if [ "$(uname -s)" == "Darwin" ]
-then
-	if test ! $(which brew)
-	then
-  		echo "  Installing Homebrew for you."
-		ruby -e "$(curl -fsSL https://raw.github.com/mxcl/homebrew/go)" > /tmp/homebrew-install.log
-	fi
-fi
-
 setup_gitconfig
 install_dotfiles
 
