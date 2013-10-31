@@ -1,5 +1,5 @@
 #!/bin/sh
 
-brew install wget
+brew install wget htop-osx markdown terminal-notifier
 
 exit 0
