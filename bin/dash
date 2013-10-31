@@ -1,0 +1,3 @@
+#!/bin/sh
+
+open dash://$1
