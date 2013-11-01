@@ -1,0 +1,1 @@
+export MAVEN_OPTS="-javaagent:$HOME/.m2/maven-color/3.0.x/maven-color-agent.jar"
