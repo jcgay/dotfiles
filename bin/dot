@@ -1,0 +1,20 @@
+#!/bin/sh
+#
+# dot
+#
+# `dot` handles installation, updates, things like that. Run it periodically
+# to make sure you're on the latest and greatest.
+
+# Upgrade homebrew
+brew update
+
+# Upgrade tools
+echo "\033[0;34mUpgrading jEnv...\033[0m"
+(cd ~/.jenv && git pull)
+echo "\033[0;34mUpgrading oh-my-zsh...\033[0m"
+(cd ~/.oh-my-zsh && git pull)
+(cd ~/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting && git pull)
+
+# show brew outdated packages
+echo "\033[0;34mOutdated packages: \033[0m"
+brew outdated
