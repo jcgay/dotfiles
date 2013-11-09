@@ -1,6 +1,6 @@
-fpath=($ZSH/functions $fpath)
+fpath=($DOTFILES/functions $fpath)
 
-autoload -U $ZSH/functions/*(:t)
+autoload -U $DOTFILES/functions/*(:t)
 
 # Path to your oh-my-zsh configuration.
 ZSH=$HOME/.oh-my-zsh
