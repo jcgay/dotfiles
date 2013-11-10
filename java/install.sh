@@ -9,4 +9,7 @@ hash git >/dev/null && /usr/bin/env git clone https://github.com/gcuisinier/jenv
 wget -P $TMPDIR --no-cookies --header "Cookie: gpw_e24=http%3A%2F%2Fwww.oracle.com" "http://download.oracle.com/otn-pub/java/jdk/7u45-b18/jdk-7u45-macosx-x64.dmg"
 open $TMPDIR/jdk-7u45-macosx-x64.dmg
 
+wget -P $TMPDIR --no-cookies --header "Cookie: gpw_e24=http%3A%2F%2Fwww.oracle.com" "http://www.java.net/download/jdk8/archive/b114/binaries/jdk-8-ea-bin-b114-macosx-x86_64-31_oct_2013.dmg"
+open $TMPDIR/jdk-8-ea-bin-b114-macosx-x86_64-31_oct_2013.dmg
+
 exit 0
