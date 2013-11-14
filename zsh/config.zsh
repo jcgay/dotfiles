@@ -18,4 +18,11 @@ plugins=(git brew mvn textmate extract gitignore gradle history sbt scala z zsh-
 
 source $ZSH/oh-my-zsh.sh
 
+# Antigen
+source "$HOME/.antigen/antigen.zsh"
 
+antigen-use oh-my-zsh
+antigen-bundle arialdomartini/oh-my-git
+antigen theme arialdomartini/oh-my-git-themes arialdo-pathinline
+
+antigen-apply
