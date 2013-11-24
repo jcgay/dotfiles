@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/zsh
 #
 # dot
 #
@@ -14,6 +14,10 @@ echo "\033[0;34mUpgrading jEnv...\033[0m"
 echo "\033[0;34mUpgrading oh-my-zsh...\033[0m"
 (cd ~/.oh-my-zsh && git pull)
 (cd ~/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting && git pull)
+echo "\033[0;34mUpgrading antigen...\033[0m"
+source "$HOME/.antigen/antigen.zsh"
+antigen selfupdate
+antigen update
 
 # show brew outdated packages
 echo "\033[0;34mOutdated packages: \033[0m"
