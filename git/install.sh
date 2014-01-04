@@ -1,5 +1,5 @@
 #!/bin/sh
 
-brew install tig hub
+brew install git tig hub
 
 exit 0
