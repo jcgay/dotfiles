@@ -5,15 +5,22 @@
 # `dot` handles installation, updates, things like that. Run it periodically
 # to make sure you're on the latest and greatest.
 
+function git_update {
+	pull=$(git pull)
+	if [[ $pull != 'Current branch master is up to date.' ]]
+		then git lg ORIG_HEAD..
+	fi
+}
+
 # Upgrade homebrew
 brew update
 
 # Upgrade tools
 echo "\033[0;34mUpgrading jEnv...\033[0m"
-(cd ~/.jenv && git pull)
+(cd ~/.jenv && git_update)
 echo "\033[0;34mUpgrading oh-my-zsh...\033[0m"
-(cd ~/.oh-my-zsh && git pull)
-(cd ~/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting && git pull)
+(cd ~/.oh-my-zsh && git_update)
+(cd ~/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting && git_update)
 echo "\033[0;34mUpgrading antigen...\033[0m"
 source "$HOME/.antigen/antigen.zsh"
 antigen selfupdate
