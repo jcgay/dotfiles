@@ -40,7 +40,7 @@
 	keepTemporaries = false
 	prompt = false
 [pull]
-	rebase = true
+	rebase = preserve
 [push]
 	default = upstream
 [rerere]
@@ -48,3 +48,5 @@
 	enabled = true
 [status]
 	submoduleSummary = true
+[rebase]
+	autostash = true
