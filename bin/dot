@@ -12,6 +12,8 @@ function git_update {
 	fi
 }
 
+export PATH=/usr/local/bin:$PATH
+
 # Upgrade homebrew
 brew update
 
