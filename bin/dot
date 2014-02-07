@@ -31,3 +31,6 @@ antigen update
 # show brew outdated packages
 echo "\033[0;34mOutdated packages: \033[0m"
 brew outdated
+
+# show apple update
+softwareupdate -l
