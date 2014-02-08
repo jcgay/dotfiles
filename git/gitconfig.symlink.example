@@ -23,6 +23,9 @@
 	# editor = 'C:/Program Files/Notepad++/notepad++.exe' -multiInst -notabbar -nosession -noPlugin
 	editor = mate -w
 	# editor = gedit -w -s
+	# Make `git rebase` safer on OS X
+	# More info: <http://www.git-tower.com/blog/make-git-rebase-safe-on-osx/>
+	trustctime = false
 [diff]
 	mnemonicPrefix = true
 	wordRegex = .
