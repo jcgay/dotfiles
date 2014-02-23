@@ -19,3 +19,8 @@ alias cleanup="find . -type f -name '*.DS_Store' -ls -delete"
 # Show/hide hidden files in Finder
 alias show="defaults write com.apple.finder AppleShowAllFiles -bool true && killall Finder"
 alias hide="defaults write com.apple.finder AppleShowAllFiles -bool false && killall Finder"
+
+## find which pid is listening on port
+function useport {
+	lsof -n -i4TCP:"$@" | grep LISTEN
+}
