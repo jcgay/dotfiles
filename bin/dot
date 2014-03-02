@@ -20,11 +20,8 @@ brew update
 # Upgrade tools
 echo "\033[0;34mUpgrading jEnv...\033[0m"
 (cd ~/.jenv && git_update)
-echo "\033[0;34mUpgrading oh-my-zsh...\033[0m"
-(cd ~/.oh-my-zsh && git_update)
-(cd ~/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting && git_update)
 echo "\033[0;34mUpgrading antigen...\033[0m"
-source "$HOME/.antigen/antigen.zsh"
+source "$HOME/.dotfiles/antigen/antigen.zsh"
 antigen selfupdate
 antigen update
 
