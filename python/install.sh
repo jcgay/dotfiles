@@ -10,5 +10,7 @@ pip install pelican
 pip install Markdown
 pip install beautifulsoup4
 pip install typogrify
+pip install webassets
+pip install cssmin
 
 exit 0
