@@ -10,7 +10,7 @@ installcask chromium
 installcask controlplane
 installcask dash
 installcask dropbox
-installcask cyberduck
+installcask filezilla
 installcask firefox
 installcask gimp
 installcask google-chrome
@@ -47,6 +47,7 @@ installcask quicklook-csv
 installcask betterzipql
 installcask webp-quicklook
 installcask suspicious-package
+installcask retinizer
 
 exit 0
 
