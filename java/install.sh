@@ -6,10 +6,10 @@ hash git >/dev/null && /usr/bin/env git clone https://github.com/gcuisinier/jenv
   exit
 }
 
-wget -P $TMPDIR --no-cookies --header "Cookie: gpw_e24=http%3A%2F%2Fwww.oracle.com" "http://download.oracle.com/otn-pub/java/jdk/7u51-b13/jdk-7u51-macosx-x64.dmg"
+wget -P $TMPDIR --no-check-certificate --no-cookies --header "Cookie: oraclelicense=accept-securebackup-cookie" "http://download.oracle.com/otn-pub/java/jdk/7u51-b13/jdk-7u51-macosx-x64.dmg"
 open $TMPDIR/jdk-7u51-macosx-x64.dmg
 
-wget -P $TMPDIR --no-cookies --header "Cookie: gpw_e24=http%3A%2F%2Fwww.oracle.com" "http://www.java.net/download/jdk8/archive/b129/binaries/jdk-8-fcs-bin-b129-macosx-x86_64-07_feb_2014.dmg"
-open $TMPDIR/jdk-8-fcs-bin-b129-macosx-x86_64-07_feb_2014.dmg
+wget -P $TMPDIR --no-check-certificate --no-cookies --header "Cookie: oraclelicense=accept-securebackup-cookie" "http://download.oracle.com/otn-pub/java/jdk/8-b132/jdk-8-macosx-x64.dmg"
+open $TMPDIR/jdk-8-macosx-x64.dmg
 
 exit 0
