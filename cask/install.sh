@@ -15,7 +15,7 @@ installcask firefox
 installcask gimp
 installcask google-chrome
 installcask google-hangouts
-installcask intellij-idea-ultimate
+installcask intellij-idea
 installcask iterm2
 installcask lastpass-universal
 installcask mou
