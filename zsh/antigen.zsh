@@ -16,7 +16,7 @@ gradle
 history
 sbt
 scala
-z
+rupa/z
 arialdomartini/oh-my-git
 supercrabtree/k
 zsh-users/zsh-history-substring-search
