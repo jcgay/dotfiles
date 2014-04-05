@@ -21,7 +21,7 @@ brew update
 echo "\033[0;34mUpgrading jEnv...\033[0m"
 (cd ~/.jenv && git_update)
 echo "\033[0;34mUpgrading antigen...\033[0m"
-source "$HOME/.dotfiles/antigen/antigen.zsh"
+source "$HOME/.dotfiles/zsh/antigen.zsh"
 antigen selfupdate
 antigen update
 
