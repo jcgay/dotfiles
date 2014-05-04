@@ -13,7 +13,7 @@ then
 		ruby -e "$(curl -fsSL https://raw.github.com/Homebrew/homebrew/go/install)" > /tmp/homebrew-install.log
 	fi
 	brew tap homebrew/versions
-	brew tap phinze/homebrew-cask
+	brew tap caskroom/cask
 	brew install brew-cask
 fi
 
