@@ -34,3 +34,11 @@
 Icon?
 ehthumbs.db
 Thumbs.db
+
+## Maven Profiler #
+###################
+.profiler
+
+## jEnv configuration #
+#######################
+.java-version
