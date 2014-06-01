@@ -48,6 +48,7 @@ installcask betterzipql
 installcask webp-quicklook
 installcask suspicious-package
 installcask retinizer
+installcask retinacapture
 
 exit 0
 
