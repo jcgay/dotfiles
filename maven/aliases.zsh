@@ -1,1 +1,1 @@
-alias mvn="mvn -T4 -Djava.awt.headless=true"
+alias mvn="mvn -T4"
