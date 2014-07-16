@@ -49,6 +49,7 @@ installcask webp-quicklook
 installcask suspicious-package
 installcask retinizer
 installcask retinacapture
+installcask cheatsheet
 
 exit 0
 
