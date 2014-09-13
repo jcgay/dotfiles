@@ -1,6 +1,6 @@
 #!/bin/sh
 
-brew install maven homebrew/versions/maven30
+brew install maven maven30 maven31
 
 echo "\033[0;34mInstalling maven-color...\033[0m"
 MAVEN_COLOR=~/.m2/maven-color/3.0.x
