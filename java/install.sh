@@ -9,8 +9,8 @@ hash git >/dev/null && /usr/bin/env git clone https://github.com/gcuisinier/jenv
 wget -P $TMPDIR http://support.apple.com/downloads/DL1572/en_US/JavaForOSX2013-05.dmg
 open $TMPDIR/JavaForOSX2013-05.dmg
 
-wget -P $TMPDIR --no-check-certificate --no-cookies --header "Cookie: oraclelicense=accept-securebackup-cookie" "http://download.oracle.com/otn-pub/java/jdk/7u67-b01/jdk-7u67-macosx-x64.dmg"
-open $TMPDIR/jdk-7u67-macosx-x64.dmg
+wget -P $TMPDIR --no-check-certificate --no-cookies --header "Cookie: oraclelicense=accept-securebackup-cookie" "http://download.oracle.com/otn-pub/java/jdk/7u71-b14/jdk-7u71-macosx-x64.dmg"
+open $TMPDIR/jdk-7u71-macosx-x64.dmg
 
 wget -P $TMPDIR --no-check-certificate --no-cookies --header "Cookie: oraclelicense=accept-securebackup-cookie" "http://download.oracle.com/otn-pub/java/jdk/8u20-b26/jdk-8u20-macosx-x64.dmg"
 open $TMPDIR/jdk-8u20-macosx-x64.dmg
