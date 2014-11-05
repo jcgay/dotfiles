@@ -2,3 +2,4 @@ git/gitconfig.symlink
 IntelliJIdea*/*.key
 IntelliJIdea*/componentVersions
 IntelliJIdea*/options
+IntelliJIdea*/port
