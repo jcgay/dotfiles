@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<application>
+  <component name="ScalaSettings">
+    <option name="SHOW_EXTERNAL_COMPILER_INTRO" value="false" />
+    <option name="COMPILE_SERVER_SDK" value="1.7" />
+  </component>
+</application>
+

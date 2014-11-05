@@ -1,0 +1,9 @@
+<application>
+  <component name="SystemNotifications">
+    <option name="NOTIFICATIONS">
+      <set>
+        <option value="TestRunner" />
+      </set>
+    </option>
+  </component>
+</application>

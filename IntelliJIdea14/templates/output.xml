@@ -1,0 +1,7 @@
+<templateSet group="output">
+  <template name="soutv" value="System.out.println(&quot;$EXPR_COPY$ = &quot; + $EXPR$);" description="Prints a value to System.out" toReformat="true" toShortenFQNames="true">
+    <variable name="EXPR" expression="variableOfType(&quot;&quot;)" defaultValue="&quot;expr&quot;" alwaysStopAt="true" />
+    <variable name="EXPR_COPY" expression="EXPR" defaultValue="" alwaysStopAt="false" />
+    <context />
+  </template>
+</templateSet>

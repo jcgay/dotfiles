@@ -1,0 +1,39 @@
+<application>
+  <component name="RecentProjectsManager">
+    <option name="recentPaths">
+      <list>
+        <option value="$USER_HOME$/dev/maven-notifier" />
+        <option value="$USER_HOME$/dev/maven-color" />
+        <option value="$USER_HOME$/dev/server-notifier" />
+        <option value="$USER_HOME$/dev/log4j-color" />
+        <option value="$USER_HOME$/dev/send-notification" />
+        <option value="$USER_HOME$/dev/assertj/assertj-core-java8" />
+        <option value="$USER_HOME$/dev/maven-profiler" />
+        <option value="$USER_HOME$/dev/tomcat-maven-plugin" />
+        <option value="$USER_HOME$/dev/jnotification" />
+        <option value="$USER_HOME$/dev/bench/test" />
+        <option value="$USER_HOME$/dev/jcgay-build-configuration" />
+        <option value="$USER_HOME$/dev/buildplan-maven-plugin" />
+        <option value="$USER_HOME$/dev/snp4j" />
+        <option value="$USER_HOME$/dev" />
+        <option value="$USER_HOME$/dev/assertj/assertj-core" />
+        <option value="$USER_HOME$/dev/toolbox-examples/java-8" />
+        <option value="$USER_HOME$/dev/lab" />
+        <option value="$USER_HOME$/dev/mockito" />
+        <option value="$USER_HOME$/dev/rules-for-testng" />
+        <option value="$USER_HOME$/dev/rules-ng" />
+        <option value="$USER_HOME$/dev/app-container-notification" />
+        <option value="$USER_HOME$/dev/workspace-eclipse/nodescala" />
+        <option value="$USER_HOME$/dev/assertj/assertj-guava" />
+        <option value="$USER_HOME$/dev/workspace-eclipse/simulations" />
+        <option value="$USER_HOME$/dev/s-99" />
+      </list>
+    </option>
+    <option name="openPaths">
+      <list>
+        <option value="$USER_HOME$/dev/maven-notifier" />
+      </list>
+    </option>
+    <option name="lastPath" value="$USER_HOME$/dev/maven-notifier" />
+  </component>
+</application>

@@ -1,0 +1,8 @@
+<application>
+  <component name="GroovyApplicationSettings">
+    <option name="EXTRACT_METHOD_SPECIFY_TYPE" value="true" />
+    <option name="EXTRACT_METHOD_VISIBILITY" value="private" />
+    <option name="CONVERT_PARAM_SPECIFY_MAP_TYPE" value="true" />
+    <option name="CONVERT_PARAM_CREATE_NEW_PARAM" value="true" />
+  </component>
+</application>
