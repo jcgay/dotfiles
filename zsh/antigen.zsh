@@ -16,6 +16,7 @@ gradle
 history
 sbt
 scala
+vagrant
 rupa/z
 arialdomartini/oh-my-git
 supercrabtree/k
