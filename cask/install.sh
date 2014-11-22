@@ -51,6 +51,7 @@ installcask suspicious-package
 installcask retinizer
 installcask retinacapture
 installcask cheatsheet
+installcask caffeine
 
 exit 0
 
