@@ -163,7 +163,7 @@
     <property name="log.debug.categories" value="" />
     <property name="toolwindow.stripes.buttons.info.shown" value="true" />
     <property name="FindSplitterProportion" value="0.25" />
-    <property name="PLUGIN_FILTER" value="scratch&#10;lom&#10;toString&#10;equals&#10;lombo" />
+    <property name="PLUGIN_FILTER" value="editor&#10;scratch&#10;lom&#10;toString&#10;equals" />
     <property name="JUnitSupport.sortTestsAlphabetically" value="false" />
     <property name="JUnitSupport.hidePassedTests" value="false" />
     <property name="DefaultHtmlDoctype.Refreshed" value="1" />
@@ -180,5 +180,7 @@
     <property name="ShowDocumentationInToolWindow" value="false" />
     <property name="Copy.OpenInEditor" value="true" />
     <property name="decompiler.legal.notice.accepted" value="true" />
+    <property name="ProjectStructure.SecondLevelElements" value="0.2" />
+    <property name="ProjectStructure.TopLevelElements" value="0.15" />
   </component>
 </application>

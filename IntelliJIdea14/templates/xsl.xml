@@ -1,4 +1,3 @@
-<?xml version="1.0" encoding="UTF-8"?>
 <templateSet group="xsl">
   <template name="ai" value="&lt;xsl:apply-imports/&gt;$END$" description="Apply-Imports." toReformat="false" toShortenFQNames="true">
     <context />
@@ -100,4 +99,3 @@
     <context />
   </template>
 </templateSet>
-

@@ -2,6 +2,7 @@
   <component name="SystemNotifications">
     <option name="NOTIFICATIONS">
       <set>
+        <option value="Compiler (success)" />
         <option value="TestRunner" />
       </set>
     </option>
