@@ -8,6 +8,7 @@ antigen-bundles <<EOBUNDLES
 
 git
 brew
+docker
 mvn
 textmate
 extract
