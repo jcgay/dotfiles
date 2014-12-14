@@ -4,7 +4,6 @@
       <list>
         <option value="java.class.fqn" />
         <option value="java.class.shortname" />
-        <option value="java.method.parameter.types" />
         <option value="java.anonymous.baseref" />
         <option value="jvm.static.member.type" />
         <option value="jvm.static.member.name" />

@@ -182,5 +182,6 @@
     <property name="decompiler.legal.notice.accepted" value="true" />
     <property name="ProjectStructure.SecondLevelElements" value="0.2" />
     <property name="ProjectStructure.TopLevelElements" value="0.15" />
+    <property name="UNSCRAMBLE_LOG_FILE_URL" value="" />
   </component>
 </application>
