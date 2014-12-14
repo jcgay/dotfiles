@@ -52,6 +52,7 @@ installcask retinizer
 installcask retinacapture
 installcask cheatsheet
 installcask caffeine
+installcask zipeg
 
 exit 0
 
