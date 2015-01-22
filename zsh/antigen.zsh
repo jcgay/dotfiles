@@ -26,6 +26,6 @@ zsh-users/zsh-syntax-highlighting
 
 EOBUNDLES
 
-antigen theme arialdomartini/oh-my-git-themes arialdo-pathinline
+antigen theme arialdomartini/oh-my-git-themes oppa-lana-style
 
 antigen-apply
