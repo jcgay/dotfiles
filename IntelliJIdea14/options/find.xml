@@ -1,7 +1,0 @@
-<application>
-  <component name="FindSettings">
-    <option name="customScope" value="Project 'maven-profiler'" />
-    <option name="defaultScopeName" value="Project 'maven-profiler'" />
-    <option name="SEARCH_SCOPE" value="Project 'maven-profiler'" />
-  </component>
-</application>
