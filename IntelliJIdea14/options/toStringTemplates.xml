@@ -1,7 +1,6 @@
-<?xml version="1.0" encoding="UTF-8"?>
 <application>
   <component name="ToStringTemplates">
-    <option name="defaultTempalteName" value="StringBuilder (JDK 1.5)" />
+    <option name="defaultTempalteName" value="String concat (+) and super.toString()" />
     <option name="templates">
       <list>
         <TemplateResource>
@@ -32,4 +31,3 @@
     </option>
   </component>
 </application>
-
