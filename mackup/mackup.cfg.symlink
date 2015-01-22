@@ -1,0 +1,23 @@
+[storage]
+engine = dropbox
+
+[applications_to_sync]
+adium
+caffeine
+controlplane
+dash
+filezilla
+gnupg
+htop
+iterm2
+macosx
+menumeters
+mou
+nvalt
+sbt
+spectacle
+spotify
+sublime-text-2
+textmate
+tig
+wget
