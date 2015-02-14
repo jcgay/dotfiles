@@ -1,6 +1,7 @@
 export PATH="./bin:/usr/local/bin:/usr/local/sbin:$DOTFILES/bin:$PATH"
 export EDITOR="mate -w"
 
+export HISTCONTROL=erasedups
 # Make some commands not show up in history
 export HISTIGNORE="ls:cd:cd -:pwd:exit:date:* --help"
 
