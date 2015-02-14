@@ -34,4 +34,6 @@ do
   source $file
 done
 
+COMPLETION_WAITING_DOTS="true"
+
 unset config_files
