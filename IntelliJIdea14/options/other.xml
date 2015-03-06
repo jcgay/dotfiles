@@ -76,6 +76,7 @@
     <option name="RENAME_SEARCH_IN_COMMENTS_FOR_CLASS" value="false" />
     <option name="RENAME_SEARCH_IN_COMMENTS_FOR_METHOD" value="false" />
     <option name="RENAME_SEARCH_FOR_TEXT_FOR_CLASS" value="false" />
+    <option name="RENAME_SEARCH_FOR_TEXT_FOR_METHOD" value="false" />
     <option name="MOVE_PREVIEW_USAGES" value="false" />
     <option name="MOVE_INNER_PREVIEW_USAGES" value="false" />
     <option name="INTRODUCE_FIELD_VISIBILITY" value="private" />
@@ -86,6 +87,7 @@
     <entry key="ide.firstStartup" value="false" />
   </component>
   <component name="SelectProjectTemplateSettings">
+    <option name="EXPERT_MODE" value="true" />
     <option name="LAST_TEMPLATE" value="Other/Scala Module" />
   </component>
   <component name="SystemNotifications">
