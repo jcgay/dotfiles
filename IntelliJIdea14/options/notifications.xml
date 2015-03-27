@@ -1,36 +1,26 @@
 <application>
   <component name="NotificationConfiguration">
-    <notification groupId="Groovy DSL errors" />
-    <notification groupId="Maven" />
-    <notification groupId="Gradle warnings" displayType="TOOL_WINDOW" />
-    <notification groupId="scala" />
-    <notification groupId="Unknown Natures Detected" />
-    <notification groupId="Plugins Lifecycle Group" />
-    <notification groupId="Debugger messages" displayType="TOOL_WINDOW" shouldLog="false" />
-    <notification groupId="Execution" displayType="NONE" />
-    <notification groupId="HotSwap" displayType="TOOL_WINDOW" />
-    <notification groupId="Framework Detection" />
-    <notification groupId="Git Messages" displayType="TOOL_WINDOW" />
-    <notification groupId="Git Important Messages" displayType="STICKY_BALLOON" />
-    <notification groupId="Git Minor Notifications" />
-    <notification groupId="FindInPath" displayType="TOOL_WINDOW" shouldLog="false" />
     <notification groupId="Clean artifact" />
-    <notification groupId="IDE Usage Statistics" displayType="STICKY_BALLOON" shouldLog="false" />
-    <notification groupId="Eclipse code formatter error" />
-    <notification groupId="Maven Import" displayType="STICKY_BALLOON" />
-    <notification groupId="External Executable Critical Failures" displayType="STICKY_BALLOON" />
-    <notification groupId="Grape" />
-    <notification groupId="Test Runner" displayType="NONE" />
     <notification groupId="Compiler" displayType="NONE" />
+    <notification groupId="Debugger messages" displayType="TOOL_WINDOW" shouldLog="false" />
+    <notification groupId="Eclipse code formatter error" />
     <notification groupId="Eclipse code formatter info" />
-    <toolWindow group="Git Messages" />
-    <toolWindow group="FindInPath" />
-    <toolWindow group="Gradle warnings" />
-    <toolWindow group="HotSwap" />
-    <toolWindow group="Debugger messages" />
-    <toolWindow group="Find in Path" />
-    <toolWindow group="notification.group.id.gradle" />
-    <toolWindow group="Inspection Results" />
-    <toolWindow group="Vcs Messages" />
+    <notification groupId="Execution" displayType="NONE" />
+    <notification groupId="External Executable Critical Failures" displayType="STICKY_BALLOON" />
+    <notification groupId="Framework Detection" />
+    <notification groupId="Git Important Messages" displayType="STICKY_BALLOON" />
+    <notification groupId="Git Messages" displayType="TOOL_WINDOW" />
+    <notification groupId="Git Minor Notifications" />
+    <notification groupId="Gradle warnings" displayType="TOOL_WINDOW" />
+    <notification groupId="Grape" />
+    <notification groupId="Groovy DSL errors" />
+    <notification groupId="HotSwap" displayType="TOOL_WINDOW" />
+    <notification groupId="IDE Usage Statistics" displayType="STICKY_BALLOON" shouldLog="false" />
+    <notification groupId="Maven" />
+    <notification groupId="Maven Import" displayType="STICKY_BALLOON" />
+    <notification groupId="Plugins Lifecycle Group" />
+    <notification groupId="scala" />
+    <notification groupId="Test Runner" displayType="NONE" />
+    <notification groupId="Unknown Natures Detected" />
   </component>
 </application>

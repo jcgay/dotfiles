@@ -40,10 +40,6 @@
   <template name="link:print" value="&lt;link rel=&quot;stylesheet&quot; type=&quot;text/css&quot; href=&quot;$END$print.css&quot; media=&quot;print&quot;/&gt;" description="&lt;link rel=&quot;stylesheet&quot; type=&quot;text/css&quot; href=&quot;...print.css&quot; media=&quot;print&quot;&gt;" toReformat="true" toShortenFQNames="true">
     <context />
   </template>
-  <template name="input:h" value="&lt;input type=&quot;hidden&quot; name=&quot;$VAR0$&quot;/&gt;" description="&lt;input type=&quot;hidden&quot; name=&quot;...&quot;/&gt;" toReformat="true" toShortenFQNames="true">
-    <variable name="VAR0" expression="" defaultValue="&quot;&quot;" alwaysStopAt="true" />
-    <context />
-  </template>
   <template name="optg+" value="&lt;optgroup&gt;&#10;  &lt;option value=&quot;$VAR0$&quot;&gt;$END$&lt;/option&gt;&#10;&lt;/optgroup&gt;" description="" toReformat="true" toShortenFQNames="true">
     <variable name="VAR0" expression="" defaultValue="&quot;&quot;" alwaysStopAt="true" />
     <context />

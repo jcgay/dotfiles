@@ -61,16 +61,6 @@
   </component>
   <component name="ExternalResourceManagerImpl">
     <resource url="http://maven.apache.org/xsd/assembly-1.1.2.xsd" location="$USER_HOME$/Library/Caches/IntelliJIdea14/extResources/48b8f268_assembly-1.1.2.xsd" />
-    <ignored-resource url="http://relaxng.org/ns/compatibility/annotations/1.0" />
-    <ignored-resource url="urn:idea:xslt-plugin#extensions" />
-    <ignored-resource url="http://exslt.org/dates-and-times" />
-    <ignored-resource url="http://www.w3.org/1998/Math/MathML" />
-    <ignored-resource url="http://exslt.org/math" />
-    <ignored-resource url="http://exslt.org/dynamic" />
-    <ignored-resource url="http://exslt.org/common" />
-    <ignored-resource url="http://exslt.org/strings" />
-    <ignored-resource url="http://exslt.org/sets" />
-    <ignored-resource url="http://www.w3.org/2000/svg" />
   </component>
   <component name="RefactoringSettings">
     <option name="RENAME_SEARCH_IN_COMMENTS_FOR_CLASS" value="false" />
@@ -83,9 +73,6 @@
     <option name="INTRODUCE_CONSTANT_VISIBILITY" value="private" />
     <option name="INTRODUCE_LOCAL_CREATE_FINALS" value="false" />
   </component>
-  <component name="Registry">
-    <entry key="ide.firstStartup" value="false" />
-  </component>
   <component name="SelectProjectTemplateSettings">
     <option name="EXPERT_MODE" value="true" />
     <option name="LAST_TEMPLATE" value="Other/Scala Module" />
@@ -97,41 +84,7 @@
       </set>
     </option>
   </component>
-  <component name="TemplateSettings">
-    <defaultShortcut shortcut="TAB" />
-  </component>
-  <component name="TodoConfiguration">
-    <pattern icon="default" useCustomColors="false" case-sensitive="false" pattern="\btodo\b.*">
-      <option name="FOREGROUND" value="a8c023" />
-      <option name="FONT_TYPE" value="2" />
-      <option name="ERROR_STRIPE_COLOR" value="a74c0" />
-      <option name="EFFECT_TYPE" value="0" />
-    </pattern>
-    <pattern icon="default" useCustomColors="false" case-sensitive="false" pattern="\bfixme\b.*">
-      <option name="FOREGROUND" value="a8c023" />
-      <option name="FONT_TYPE" value="2" />
-      <option name="ERROR_STRIPE_COLOR" value="a74c0" />
-      <option name="EFFECT_TYPE" value="0" />
-    </pattern>
-  </component>
-  <component name="UsageViewSettings">
-    <option name="GROUP_BY_SCOPE" value="true" />
-  </component>
   <component name="WebServicesPluginSettings" WebServicesUrlPathPrefix="/services" ASK_TO_INSTALL_SOAPUI="true" />
-  <component name="XDebuggerSettings">
-    <data-views />
-    <general />
-    <debuggers>
-      <debugger id="groovy_debugger">
-        <configuration />
-      </debugger>
-      <debugger id="javascript">
-        <configuration>
-          <custom-object-presentation />
-        </configuration>
-      </debugger>
-    </debuggers>
-  </component>
   <component name="XPathView.XPathViewPlugin">
     <option name="attributes">
       <TextAttributes />
