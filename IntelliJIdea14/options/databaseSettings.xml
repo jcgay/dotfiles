@@ -17,7 +17,7 @@
       <std-extractor type="html" name="HTML Table" />
       <extractor type="sql-insert" name="SQL Insert Statements" />
       <extractor type="sql-update" name="SQL Update Statements" />
-      <extractor type="xml" name="XML" />
+      <std-extractor type="xml" name="XML" />
       <extractor type="json" name="JSON" />
     </extractors>
   </component>
