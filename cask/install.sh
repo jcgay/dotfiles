@@ -53,6 +53,7 @@ installcask retinacapture
 installcask cheatsheet
 installcask caffeine
 installcask zipeg
+installcask acorn
 
 exit 0
 
