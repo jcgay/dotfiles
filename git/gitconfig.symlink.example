@@ -15,7 +15,7 @@
 	llg = !(git lg @{u}..)
 	ignored = clean -ndX
 	ready = rebase -i @{u}
-	changelog =  "!f() { git log $1...$2 --pretty=format:\"- %s [view](http://github.com/jcgay/$3/commit/%H)  \"; }; f"
+	changelog =  "!f() { git log $1...$2 --pretty=format:\"- %s ([%h](http://github.com/jcgay/$3/commit/%H))  \"; }; f"
 [core]
 	pager = cat
 	whitespace = -trailing-space
