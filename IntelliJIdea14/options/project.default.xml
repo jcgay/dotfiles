@@ -20,6 +20,18 @@
           </profile>
         </annotationProcessing>
       </component>
+      <component name="GradleLocalSettings">
+        <option name="modificationStamps">
+          <map>
+            <entry key="$USER_HOME$/dev/gradle-notifier" value="2860757874000" />
+            <entry key="$USER_HOME$/dev/gradle-release" value="2861348656000" />
+            <entry key="$USER_HOME$/dev/toolbox-examples/spock" value="2865341761000" />
+          </map>
+        </option>
+        <option name="externalProjectsViewState">
+          <projects_view />
+        </option>
+      </component>
       <component name="MavenImportPreferences">
         <option name="generalSettings">
           <MavenGeneralSettings>

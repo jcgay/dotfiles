@@ -1,8 +1,6 @@
 git/gitconfig.symlink
 IntelliJIdea*/*.key
 IntelliJIdea*/componentVersions
-IntelliJIdea12/options
-IntelliJIdea13/options
 IntelliJIdea*/options/appComponentVersions.xml
 IntelliJIdea*/options/dimensions.xml
 IntelliJIdea*/options/feature.usage.statistics.xml
@@ -16,3 +14,4 @@ IntelliJIdea*/options/options.xml
 IntelliJIdea*/options/window.manager.xml
 IntelliJIdea*/options/runner.layout.xml
 IntelliJIdea*/options/IntelliLang.xml
+IntelliJIdea*/options/security.xml

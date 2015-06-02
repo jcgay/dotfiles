@@ -60,7 +60,9 @@
     <option name="KEEP_JIRA_PASSWORD" value="false" />
   </component>
   <component name="ExternalResourceManagerImpl">
+    <resource url="http://maven.apache.org/plugins/maven-assembly-plugin/assembly/1.1.2" location="$USER_HOME$/Library/Caches/IntelliJIdea14/extResources/48b8f268_assembly-1.1.2.xsd" />
     <resource url="http://maven.apache.org/xsd/assembly-1.1.2.xsd" location="$USER_HOME$/Library/Caches/IntelliJIdea14/extResources/48b8f268_assembly-1.1.2.xsd" />
+    <resource url="http://www.eclipse.org/jetty/configure.dtd" location="$USER_HOME$/Library/Caches/IntelliJIdea14/extResources/e9fa6b60_configure.dtd" />
   </component>
   <component name="RefactoringSettings">
     <option name="RENAME_SEARCH_IN_COMMENTS_FOR_CLASS" value="false" />
@@ -72,6 +74,7 @@
     <option name="INTRODUCE_FIELD_VISIBILITY" value="private" />
     <option name="INTRODUCE_CONSTANT_VISIBILITY" value="private" />
     <option name="INTRODUCE_LOCAL_CREATE_FINALS" value="false" />
+    <option name="INTRODUCE_PARAMETER_CREATE_FINALS" value="false" />
   </component>
   <component name="SelectProjectTemplateSettings">
     <option name="EXPERT_MODE" value="true" />
