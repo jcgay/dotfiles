@@ -1,8 +1,0 @@
-<templateSet group="iterations">
-  <template name="iter" value="for ($ELEMENT_TYPE$ $VAR$ : $ITERABLE_TYPE$) {&#10;  $END$&#10;}" description="Iterate Iterable | Array in J2SDK 5.0 syntax" toReformat="true" toShortenFQNames="true">
-    <variable name="ITERABLE_TYPE" expression="iterableVariable()" defaultValue="" alwaysStopAt="true" />
-    <variable name="ELEMENT_TYPE" expression="iterableComponentType(ITERABLE_TYPE)" defaultValue="&quot;java.lang.Object&quot;" alwaysStopAt="false" />
-    <variable name="VAR" expression="suggestVariableName()" defaultValue="" alwaysStopAt="true" />
-    <context />
-  </template>
-</templateSet>
