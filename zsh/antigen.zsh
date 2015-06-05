@@ -18,6 +18,7 @@ history
 sbt
 scala
 vagrant
+boot2docker
 rupa/z
 arialdomartini/oh-my-git
 supercrabtree/k
