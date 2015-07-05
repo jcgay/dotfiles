@@ -8,6 +8,8 @@ Greatly inspired by [https://github.com/holman/dotfiles](https://github.com/holm
 ```
 git clone https://github.com/jcgay/dotfiles.git ~/.dotfiles
 cd ~/.dotfiles
+git submodule init
+git submodule update
 script/bootstrap.sh
 script/install.sh
 ```
