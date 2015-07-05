@@ -20,7 +20,7 @@ fi
 cd "$(dirname $0)"/..
 
 # find the installers and run them iteratively
-find . -name install.sh | while read installer ; do sh -c "${installer}" ; done
+find . -name install.sh -not -path "*/script/*" | while read installer ; do sh -c "${installer}" ; done
 
 # Configure hostname (http://biomedicalontologies.com/2012/11/14/fixing-java-net-local-host-name-unknown-error-on-mac-os-x/)
 scutil –set HostName “localhost”
