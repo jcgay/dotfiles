@@ -1,6 +1,6 @@
 <application>
   <component name="ToStringTemplates">
-    <option name="defaultTempalteName" value="String concat (+) and super.toString()" />
+    <option name="defaultTempalteName" value="Objects.toStringHelper (Guava)" />
     <option name="templates">
       <list>
         <TemplateResource>
