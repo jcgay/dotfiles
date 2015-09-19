@@ -15,6 +15,7 @@ then
 	brew tap homebrew/versions
 	brew tap caskroom/cask
 	brew install brew-cask
+    brew tap caskroom/versions
 fi
 
 cd "$(dirname $0)"/..
