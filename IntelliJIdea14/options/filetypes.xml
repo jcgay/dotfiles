@@ -2,6 +2,7 @@
   <component name="FileTypeManager" version="14">
     <ignoreFiles list="*.hprof;*.pyc;*.pyo;*.rbc;*~;.DS_Store;.bundle;.git;.hg;.svn;.tox;CVS;RCS;SCCS;__pycache__;_svn;rcs;" />
     <extensionMap>
+      <mapping pattern="maven.color" type="Groovy" />
       <mapping pattern=".send-configuration" type="PLAIN_TEXT" />
       <mapping pattern=".jnotification" type="PLAIN_TEXT" />
       <mapping ext="" type="PLAIN_TEXT" />
