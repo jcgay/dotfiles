@@ -148,17 +148,17 @@
       <additional />
     </jdk>
     <jdk version="2">
-      <name value="Go 1.4.2" />
+      <name value="Go 1.5.1" />
       <type value="Go SDK" />
-      <version value="1.4.2" />
-      <homePath value="/usr/local/Cellar/go/1.4.2/libexec" />
+      <version value="1.5.1" />
+      <homePath value="/usr/local/Cellar/go/1.5.1/libexec" />
       <roots>
         <annotationsPath>
           <root type="composite" />
         </annotationsPath>
         <classPath>
           <root type="composite">
-            <root type="simple" url="file:///usr/local/Cellar/go/1.4.2/libexec/src" />
+            <root type="simple" url="file:///usr/local/Cellar/go/1.5.1/libexec/src" />
           </root>
         </classPath>
         <javadocPath>
@@ -166,7 +166,7 @@
         </javadocPath>
         <sourcePath>
           <root type="composite">
-            <root type="simple" url="file:///usr/local/Cellar/go/1.4.2/libexec/src" />
+            <root type="simple" url="file:///usr/local/Cellar/go/1.5.1/libexec/src" />
           </root>
         </sourcePath>
       </roots>
