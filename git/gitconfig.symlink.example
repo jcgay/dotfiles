@@ -36,6 +36,7 @@
 	extendedRegexp = true
 [log]
 	abbrevCommit = true
+    follow = true
 [merge]
 	conflictStyle = diff3
 	tool = p4merge
