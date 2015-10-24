@@ -1,6 +1,6 @@
 #!/bin/sh
 
 brew install groovy --invokedynamic
-brew install gradle griffon
+brew install gradle
 
 exit 0

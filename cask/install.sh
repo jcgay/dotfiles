@@ -20,7 +20,6 @@ installcask iterm2
 installcask lastpass-universal
 installcask mou
 installcask p4merge
-installcask sourcetree
 installcask steam
 installcask textmate
 installcask the-unarchiver
@@ -37,7 +36,6 @@ installcask disk-inventory-x
 installcask pandoc
 installcask openemu
 installcask xbox360-controller-driver
-installcask adium
 installcask menumeters
 installcask qlcolorcode
 installcask qlstephen
