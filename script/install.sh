@@ -16,6 +16,7 @@ then
 	brew tap caskroom/cask
 	brew install brew-cask
     brew tap caskroom/versions
+    brew tap jcgay/jcgay
 fi
 
 cd "$(dirname $0)"/..
