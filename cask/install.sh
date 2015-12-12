@@ -36,7 +36,7 @@ installcask disk-inventory-x
 installcask pandoc
 installcask openemu
 installcask xbox360-controller-driver
-installcask menumeters
+installcask yujitach-menumeters
 installcask qlcolorcode
 installcask qlstephen
 installcask qlmarkdown
