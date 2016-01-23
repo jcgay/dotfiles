@@ -12,7 +12,7 @@ open $TMPDIR/javaforosx.dmg
 wget -P $TMPDIR --no-check-certificate --no-cookies --header "Cookie: oraclelicense=accept-securebackup-cookie" "http://download.oracle.com/otn-pub/java/jdk/7u79-b15/jdk-7u79-macosx-x64.dmg"
 open $TMPDIR/jdk-7u79-macosx-x64.dmg
 
-wget -P $TMPDIR --no-check-certificate --no-cookies --header "Cookie: oraclelicense=accept-securebackup-cookie" "http://download.oracle.com/otn-pub/java/jdk/8u65-b17/jdk-8u65-macosx-x64.dmg"
-open $TMPDIR/jdk-8u65-macosx-x64.dmg
+wget -P $TMPDIR --no-check-certificate --no-cookies --header "Cookie: oraclelicense=accept-securebackup-cookie" "http://download.oracle.com/otn-pub/java/jdk/8u71-b15/jdk-8u71-macosx-x64.dmg"
+open $TMPDIR/jdk-8u71-macosx-x64.dmg
 
 exit 0
