@@ -56,3 +56,4 @@
     showUntrackedFiles = all
 [rebase]
 	autostash = true
+    autoSquash = true
