@@ -22,7 +22,7 @@ boot2docker
 rupa/z
 arialdomartini/oh-my-git
 supercrabtree/k
-kennethreitz/autoenv
+Tarrasch/zsh-autoenv
 zsh-users/zsh-history-substring-search
 zsh-users/zsh-syntax-highlighting
 
