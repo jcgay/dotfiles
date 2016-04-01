@@ -2,15 +2,12 @@
 engine = dropbox
 
 [applications_to_sync]
-adium
 caffeine
 controlplane
 dash
 filezilla
 gnupg
-gradle
 htop
-iterm2
 macosx
 maven
 menumeters
@@ -23,3 +20,10 @@ sublime-text-2
 textmate
 tig
 wget
+gradle
+intellijidea
+asciinema
+cyberduck
+docker
+keybase
+npm
