@@ -52,6 +52,6 @@ installcask cheatsheet
 installcask caffeine
 installcask zipeg
 installcask acorn
+installcask atom
 
 exit 0
-
