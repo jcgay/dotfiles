@@ -17,6 +17,7 @@ then
 	brew install brew-cask
     brew tap caskroom/versions
     brew tap jcgay/jcgay
+    brew tap homebrew/dupes
 fi
 
 cd "$(dirname $0)"/..
