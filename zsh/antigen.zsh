@@ -23,6 +23,7 @@ rupa/z
 arialdomartini/oh-my-git
 supercrabtree/k
 Tarrasch/zsh-autoenv
+zsh-users/zsh-autosuggestions
 zsh-users/zsh-history-substring-search
 zsh-users/zsh-syntax-highlighting
 
