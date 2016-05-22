@@ -53,5 +53,6 @@ installcask caffeine
 installcask zipeg
 installcask acorn
 installcask atom
+installcask bitbar
 
 exit 0
