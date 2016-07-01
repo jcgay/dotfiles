@@ -17,7 +17,7 @@
 	ready = rebase -i @{u}
 	changelog =  "!f() { git log $1...$2 --pretty=format:\"- %s ([%h](http://github.com/jcgay/$3/commit/%H))  \"; }; f"
 [core]
-	pager = cat
+	pager = "diff-so-fancy | cat"
 	whitespace = -trailing-space
 	# excludesfile = https://help.github.com/articles/ignoring-files
 	excludesfile = ~/.gitignore_global
@@ -58,3 +58,8 @@
 [rebase]
 	autostash = true
     autoSquash = true
+[color "diff-highlight"]
+	oldNormal = red bold
+	oldHighlight = red bold 52
+	newNormal = green bold
+	newHighlight = green bold 22
