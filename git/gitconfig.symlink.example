@@ -30,6 +30,7 @@
 [diff]
 	mnemonicPrefix = true
 	wordRegex = .
+    compactionHeuristic = true
 [fetch]
 	recurseSubmodules = on-demand
 [grep]
