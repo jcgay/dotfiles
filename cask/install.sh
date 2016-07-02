@@ -54,5 +54,6 @@ installcask zipeg
 installcask acorn
 installcask atom
 installcask bitbar
+installcask garmin-express
 
 exit 0
