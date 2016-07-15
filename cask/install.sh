@@ -17,7 +17,7 @@ installcask google-chrome
 installcask google-hangouts
 installcask intellij-idea
 installcask iterm2
-installcask lastpass-universal
+installcask lastpass
 installcask mou
 installcask p4merge
 installcask steam
@@ -31,7 +31,6 @@ installcask google-music-manager
 installcask android-file-transfer
 installcask nvalt
 installcask spotify
-installcask tagr
 installcask disk-inventory-x
 installcask pandoc
 installcask openemu
@@ -44,7 +43,7 @@ installcask quicklook-json
 installcask qlprettypatch
 installcask quicklook-csv
 installcask betterzipql
-installcask webp-quicklook
+installcask webpquicklook
 installcask suspicious-package
 installcask retinizer
 installcask retinacapture
