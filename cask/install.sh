@@ -43,8 +43,10 @@ installcask quicklook-json
 installcask qlprettypatch
 installcask quicklook-csv
 installcask betterzipql
+installcask qlimagesize
 installcask webpquicklook
 installcask suspicious-package
+installcask provisionql
 installcask retinizer
 installcask retinacapture
 installcask cheatsheet
@@ -54,5 +56,6 @@ installcask acorn
 installcask atom
 installcask bitbar
 installcask garmin-express
+installcask imageoptim
 
 exit 0
