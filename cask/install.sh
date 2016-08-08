@@ -32,7 +32,6 @@ installcask android-file-transfer
 installcask nvalt
 installcask spotify
 installcask disk-inventory-x
-installcask pandoc
 installcask openemu
 installcask xbox360-controller-driver
 installcask yujitach-menumeters
