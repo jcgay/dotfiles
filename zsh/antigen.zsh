@@ -27,8 +27,6 @@ zsh-users/zsh-syntax-highlighting
 
 EOBUNDLES
 
-export PS1="%~ • "
-
 antigen theme arialdomartini/oh-my-git-themes oppa-lana-style
 
 antigen-apply
