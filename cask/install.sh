@@ -25,6 +25,7 @@ installcask textmate
 installcask the-unarchiver
 installcask virtualbox
 installcask vagrant
+installcask vagrant-manager
 installcask vlc
 installcask libre-office
 installcask google-music-manager
