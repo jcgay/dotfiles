@@ -28,7 +28,7 @@ installcask vagrant
 installcask vagrant-manager
 installcask vlc
 installcask libre-office
-installcask google-music-manager
+installcask music-manager
 installcask android-file-transfer
 installcask nvalt
 installcask spotify
