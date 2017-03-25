@@ -24,3 +24,5 @@ alias hide="defaults write com.apple.finder AppleShowAllFiles -bool false && kil
 function useport {
 	lsof -n -i4TCP:"$@" | grep LISTEN
 }
+
+alias t="tree -ah --du"
