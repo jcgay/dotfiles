@@ -1,5 +1,5 @@
 #!/bin/sh
 
-brew install wget htop-osx markdown terminal-notifier grc libjpg optipng gnu-sed gpg node cheat lastpass-cli the_silver_searcher grep pandoc youtube-dl
+brew install wget htop-osx markdown terminal-notifier grc libjpg optipng gnu-sed gpg node cheat lastpass-cli the_silver_searcher grep pandoc youtube-dl shellcheck
 
 exit 0
