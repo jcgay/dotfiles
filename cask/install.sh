@@ -53,5 +53,6 @@ installcask atom
 installcask bitbar
 installcask garmin-express
 installcask imageoptim
+installcask visual-studio-code
 
 exit 0
