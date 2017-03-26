@@ -7,8 +7,6 @@ function installcask() {
 installcask alfred
 installcask calibre
 installcask chromium
-installcask controlplane
-installcask dash
 installcask dropbox
 installcask filezilla
 installcask firefox
@@ -33,8 +31,6 @@ installcask android-file-transfer
 installcask nvalt
 installcask spotify
 installcask disk-inventory-x
-installcask openemu
-installcask xbox360-controller-driver
 installcask yujitach-menumeters
 installcask qlcolorcode
 installcask qlstephen

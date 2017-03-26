@@ -1,1 +1,0 @@
-alias brewclean='brew cleanup $(brew list | grep -v maven | grep -v docker)'

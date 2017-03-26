@@ -3,8 +3,6 @@ engine = dropbox
 
 [applications_to_sync]
 caffeine
-controlplane
-dash
 filezilla
 gnupg
 htop
