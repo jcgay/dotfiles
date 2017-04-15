@@ -1,9 +1,9 @@
-#dotfiles
+# dotfiles
 
 My OS X configuration.   
 Greatly inspired by [https://github.com/holman/dotfiles](https://github.com/holman/dotfiles)
 
-##Installation
+## Installation
 
 ```
 git clone https://github.com/jcgay/dotfiles.git ~/.dotfiles
@@ -13,7 +13,7 @@ git submodule update
 script/bootstrap.sh
 script/install.sh
 ```
-##Description
+## Description
 
 There's a few special files in the hierarchy.
 
