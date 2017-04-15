@@ -22,6 +22,7 @@ installcask steam
 installcask textmate
 installcask the-unarchiver
 installcask virtualbox
+installcask virtualbox-extension-pack
 installcask vagrant
 installcask vagrant-manager
 installcask vlc
