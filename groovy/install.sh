@@ -1,5 +1,7 @@
 #!/bin/sh
 
+echo 'Installing Groovy...'
+
 brew cask install java # Needed by gradle
 brew install groovy --with-invokedynamic
 brew install gradle

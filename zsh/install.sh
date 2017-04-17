@@ -1,5 +1,7 @@
 #!/bin/sh
 
+echo 'Installing zsh...'
+
 brew install zsh
 
 # Install fonts for oh-my-git theme

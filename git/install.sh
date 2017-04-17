@@ -1,5 +1,7 @@
 #!/bin/sh
 
+echo 'Installing Git...'
+
 brew install git tig hub bfg diff-so-fancy
 
 exit 0

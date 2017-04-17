@@ -1,5 +1,7 @@
 #!/bin/sh
 
+echo 'Installing Java...'
+
 echo "\033[0;34mCloning jEnv...\033[0m"
 hash git >/dev/null && /usr/bin/env git clone https://github.com/gcuisinier/jenv.git ~/.jenv || {
   echo "git not installed"

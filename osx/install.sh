@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+echo 'Configuring macOS...'
+
 # Modified from original at http://mths.be/osx
 
 # Ask for the administrator password upfront

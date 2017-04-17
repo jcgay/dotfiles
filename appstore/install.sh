@@ -1,5 +1,7 @@
 #!/bin/sh
 
+echo 'Installing from the App Store...'
+
 brew install mas
 
 mas install 497799835 # Xcode
