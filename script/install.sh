@@ -14,7 +14,6 @@ then
 	fi
     brew tap Homebrew/bundle
 	brew tap caskroom/cask
-	brew install brew-cask
     brew tap caskroom/versions
     brew tap jcgay/jcgay
     brew tap homebrew/dupes
