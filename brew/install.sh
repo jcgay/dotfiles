@@ -2,6 +2,6 @@
 
 echo 'Installing from brew...'
 
-brew bundle
+brew bundle --file=brew/Brewfile
 
 exit 0

@@ -2,6 +2,6 @@
 
 echo 'Installing from cask...'
 
-brew bundle
+brew bundle --file=cask/Brewfile
 
 exit 0
