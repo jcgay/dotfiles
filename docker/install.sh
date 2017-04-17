@@ -1,7 +1,7 @@
 #!/bin/sh
 
-cask install docker
-cask install kitematic
+brew cask install docker
+brew cask install kitematic
 brew install ctop
 
 exit 0
