@@ -12,7 +12,7 @@ then
 		echo "  Installing Homebrew for you."
 		ruby -e "$(curl -fsSL https://raw.github.com/Homebrew/homebrew/go/install)" > /tmp/homebrew-install.log
 	fi
-	brew tap homebrew/versions
+    brew tap Homebrew/bundle
 	brew tap caskroom/cask
 	brew install brew-cask
     brew tap caskroom/versions

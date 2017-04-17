@@ -1,4 +1,5 @@
 brew install python
+brew install python3
 pip install virtualenv
 
 ## Install Pelican
