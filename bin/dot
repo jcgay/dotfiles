@@ -14,13 +14,12 @@ function git_update {
 }
 
 export PATH=/usr/local/bin:$PATH
+source "$HOME/.sdkman/bin/sdkman-init.sh"
 
 # Upgrade homebrew
 brew update
 
 # Upgrade tools
-echo "\033[0;34mUpgrading jEnv...\033[0m"
-(cd ~/.jenv && git_update)
 echo "\033[0;34mUpgrading antigen...\033[0m"
 source "$HOME/.dotfiles/zsh/antigen.zsh"
 antigen selfupdate
@@ -31,6 +30,11 @@ echo "\033[0;34mOutdated brew packages: \033[0m"
 brew outdated
 echo "\033[0;34mOutdated cask packages: \033[0m"
 brew cask outdated
+
+# SDKMAN!
+sdk selfupdate
+echo "\033[0;34mOutdated SDKMAN!\033[0m"
+sdk upgrade
 
 # show apple update
 softwareupdate -l
