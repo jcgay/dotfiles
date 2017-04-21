@@ -1,0 +1,1 @@
+alias pgr=parallel-git-repo
