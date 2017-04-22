@@ -1,5 +1,5 @@
 [storage]
-engine = dropbox
+engine = google_drive
 
 [applications_to_sync]
 caffeine
@@ -9,19 +9,16 @@ htop
 macosx
 maven
 menumeters
-mou
 nvalt
 sbt
 spectacle
 spotify
-sublime-text-2
 textmate
 tig
 wget
 gradle
 intellijidea
 asciinema
-cyberduck
 keybase
 npm
 atom
