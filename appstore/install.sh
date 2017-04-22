@@ -13,4 +13,6 @@ mas install 890031187 # Marked 2
 mas install 557168941 # Tweetbot
 mas install 926036361 # LastPass
 
+sudo xcodebuild -license accept
+
 exit 0
