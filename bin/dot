@@ -26,8 +26,10 @@ antigen selfupdate
 antigen update
 
 # show brew outdated packages
-echo "\033[0;34mOutdated packages: \033[0m"
+echo "\033[0;34mOutdated brew packages: \033[0m"
 brew outdated
+echo "\033[0;34mOutdated cask packages: \033[0m"
+brew cask outdated
 
 # SDKMAN!
 sdk selfupdate
