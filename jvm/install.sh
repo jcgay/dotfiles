@@ -37,5 +37,6 @@ sdk default vertx
 brew install 'tomcat'
 brew install 'tomcat@6'
 brew install 'sonarqube'
+brew install 'apache-spark'
 
 exit 0
