@@ -12,6 +12,7 @@ command -v md5sum > /dev/null || alias md5sum="md5"
 
 # OS X has no `sha1sum`, so use `shasum` as a fallback
 command -v sha1sum > /dev/null || alias sha1sum="shasum"
+command -v sha256sum > /dev/null || alias sha256sum="shasum -a 256"
 
 # Recursively delete `.DS_Store` files
 alias cleanup="find . -type f -name '*.DS_Store' -ls -delete"
