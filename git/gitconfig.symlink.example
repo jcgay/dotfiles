@@ -31,6 +31,7 @@
 	mnemonicPrefix = true
 	wordRegex = .
     compactionHeuristic = true
+	colorMoved = zebra
 [fetch]
 	recurseSubmodules = on-demand
 [grep]
