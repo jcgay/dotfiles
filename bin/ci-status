@@ -1,0 +1,29 @@
+#!/bin/bash
+
+timeout=$((SECONDS + (40 * 60 * 60)))
+commit=$(git rev-parse --short HEAD)
+branch=$(git rev-parse --abbrev-ref HEAD)
+project=${PWD##*/}
+icon="$TMPDIR/headshot.png"
+failicon="$TMPDIR/red.png"
+
+if [[ ! -f $icon ]]; then
+	wget --no-check-certificate -P $TMPDIR https://jenkins.vidal.net/static/dcefacfe/images/headshot.png
+fi
+if [[ ! -f $failicon ]]; then
+	wget --no-check-certificate -P $TMPDIR https://jenkins.vidal.net/static/dcefacfe/images/32x32/red.png
+fi
+
+while [[ $SECONDS -lt $timeout ]]; do
+	hub ci-status $commit
+	result=$?
+	if [[ $result -eq 0 ]]; then
+		JAVA_OPTS="-Djava.awt.headless=true" send-notification -i $icon -m "Success build for $commit" -t $project -s $branch -l INFO
+		exit 0
+	elif [[ $result -eq 1 ]]; then
+		JAVA_OPTS="-Djava.awt.headless=true" send-notification -i $failicon -m "Failure build for $commit" -t $project -s $branch -l ERROR
+		exit 1
+	fi
+	sleep 60
+done
+
