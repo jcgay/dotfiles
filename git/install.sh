@@ -2,6 +2,6 @@
 
 echo 'Installing Git...'
 
-brew install git tig hub bfg diff-so-fancy
+brew install git tig hub diff-so-fancy
 
 exit 0

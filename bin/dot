@@ -6,13 +6,6 @@
 # to make sure you're on the latest and greatest.
 export ZSH=$HOME/.dotfiles
 
-function git_update {
-	pull=$(git pull)
-	if [[ $pull != 'Current branch master is up to date.' ]]
-		then git lg ORIG_HEAD..
-	fi
-}
-
 export PATH=/usr/local/bin:$PATH
 source "$HOME/.sdkman/bin/sdkman-init.sh"
 
@@ -33,7 +26,6 @@ brew cask outdated
 
 # SDKMAN!
 sdk selfupdate
-echo "\033[0;34mOutdated SDKMAN!\033[0m"
 sdk upgrade
 
 # show apple update
