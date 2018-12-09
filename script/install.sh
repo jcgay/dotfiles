@@ -16,7 +16,6 @@ then
 	brew tap caskroom/cask
     brew tap caskroom/versions
     brew tap jcgay/jcgay
-    brew tap homebrew/dupes
     brew tap caskroom/fonts
 fi
 
