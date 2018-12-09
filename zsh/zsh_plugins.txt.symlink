@@ -1,0 +1,17 @@
+robbyrussell/oh-my-zsh
+robbyrussell/oh-my-zsh path:plugins/git
+robbyrussell/oh-my-zsh path:plugins/brew
+robbyrussell/oh-my-zsh path:plugins/docker
+robbyrussell/oh-my-zsh path:plugins/mvn
+robbyrussell/oh-my-zsh path:plugins/textmate
+robbyrussell/oh-my-zsh path:plugins/extract
+robbyrussell/oh-my-zsh path:plugins/gitignore
+robbyrussell/oh-my-zsh path:plugins/gradle
+robbyrussell/oh-my-zsh path:plugins/history
+robbyrussell/oh-my-zsh path:plugins/sbt
+robbyrussell/oh-my-zsh path:plugins/scala
+robbyrussell/oh-my-zsh path:plugins/vagrant
+rupa/z
+Tarrasch/zsh-autoenv
+zsh-users/zsh-history-substring-search
+zsh-users/zsh-syntax-highlighting

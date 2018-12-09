@@ -35,6 +35,7 @@ do
 done
 
 COMPLETION_WAITING_DOTS="true"
+DISABLE_AUTO_UPDATE="true"
 
 unset config_files
 

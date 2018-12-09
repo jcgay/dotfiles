@@ -3,6 +3,7 @@
 echo 'Installing zsh...'
 
 brew install zsh
+brew install getantibody/tap/antibody
 
 chsh -s /bin/zsh
 
