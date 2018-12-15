@@ -36,6 +36,7 @@ done
 
 COMPLETION_WAITING_DOTS="true"
 DISABLE_AUTO_UPDATE="true"
+POWERLEVEL9K_MODE='nerdfont-complete'
 
 unset config_files
 
