@@ -1,5 +1,6 @@
 brew 'asciidoc'
 brew 'asciinema'
+brew 'bat'
 brew 'cheat'
 brew 'cloc'
 brew 'cmake'
