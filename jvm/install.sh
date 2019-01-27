@@ -23,14 +23,11 @@ sdk install scala
 sdk default scala
 sdk install sbt
 sdk default sbt
-sdk install activator
-sdk default activator
 
 echo 'Installing Kotlin...'
 sdk install kotlin
 sdk default kotlin
 
-brew install sonarqube
 brew install jenv
 
 echo 'Adding default Java version in jEnv'
