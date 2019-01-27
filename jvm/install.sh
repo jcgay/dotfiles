@@ -30,6 +30,10 @@ echo 'Installing Kotlin...'
 sdk install kotlin
 sdk default kotlin
 
-brew install 'sonarqube'
+brew install sonarqube
+brew install jenv
+
+echo 'Adding default Java version in jEnv'
+jenv add $(/usr/libexec/java_home)
 
 exit 0
