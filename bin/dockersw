@@ -1,5 +1,5 @@
 #!/bin/bash
 
 export DOCKER_HOST="tcp://dockersw.vidal.net:4243";
-export DOCKER_API_VERSION=1.22
+export DOCKER_API_VERSION=1.25
 docker $*
