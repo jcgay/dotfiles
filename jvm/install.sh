@@ -6,9 +6,9 @@ source "$HOME/.sdkman/bin/sdkman-init.sh"
 
 echo 'Installing Java...'
 wget -P $TMPDIR https://support.apple.com/downloads/DL1572/fr_FR/javaforosx.dmg && open $TMPDIR/javaforosx.dmg
-yes | sdk install java 8.0.201-zulu
-yes | sdk install java 11.0.2-open
-sdk default java 11.0.2-open
+yes | sdk install java 8.0.212.hs-adpt
+yes | sdk install java 11.0.3.hs-adpt
+sdk default java 11.0.3.hs-adpt
 
 echo 'Installing Groovy...'
 sdk install groovy
