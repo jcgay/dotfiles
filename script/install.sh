@@ -22,4 +22,19 @@ fi
 cd "$(dirname $0)"/..
 
 # find the installers and run them iteratively
-find . -name install.sh -not -path "*/script/*" | while read installer ; do sh -c "${installer}" ; done
+# find . -name install.sh -not -path "*/script/*" | while read installer ; do sh -c "${installer}" ; done
+# It's easier to run install script by hand to handle dependencies
+./zsh/install.sh
+./system/install.sh
+./git/install.sh
+./brew/install.sh
+./cask/install.sh
+./appstore/install.sh
+./jvm/install.sh
+./mackup/install.sh
+./databases/install.sh
+./docker/install.sh
+./python/install.sh
+./golang/install.sh
+./maven/install.sh
+./osx/install.sh
