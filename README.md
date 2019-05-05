@@ -8,11 +8,15 @@ Greatly inspired by [https://github.com/holman/dotfiles](https://github.com/holm
 ```
 git clone https://github.com/jcgay/dotfiles.git ~/.dotfiles
 cd ~/.dotfiles
-git submodule init
-git submodule update
 script/bootstrap.sh
 script/install.sh
 ```
+
+## Manual post installation steps 😇
+
+ - Setup the Dropbox sync with the client application
+ - Run  `mackup restore`
+
 ## Description
 
 There's a few special files in the hierarchy.
