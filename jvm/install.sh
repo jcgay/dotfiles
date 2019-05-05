@@ -33,5 +33,7 @@ mkdir -p ~/.jenv/versions
 
 echo 'Adding default Java version in jEnv'
 jenv add $(/usr/libexec/java_home)
+jenv add ~/.sdkman/candidates/java/8.0.212.hs-adpt
+jenv add ~/.sdkman/candidates/java/11.0.3.hs-adpt
 
 exit 0
