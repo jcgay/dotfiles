@@ -29,6 +29,7 @@ sdk install kotlin
 sdk default kotlin
 
 brew install jenv
+mkdir -p ~/.jenv/versions
 
 echo 'Adding default Java version in jEnv'
 jenv add $(/usr/libexec/java_home)
