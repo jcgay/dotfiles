@@ -16,6 +16,8 @@ script/install.sh
 
  - Setup the Dropbox sync with the client application
  - Run  `mackup restore`
+ - Restore gpg and ssh keys
+ - Install [Prey](http://preyproject.com/): `HOMEBREW_NO_ENV_FILTERING=1 API_KEY="abcdef123456" brew cask install prey`
 
 ## Description
 
