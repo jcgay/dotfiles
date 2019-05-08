@@ -7,18 +7,20 @@ bitbar
 caffeine
 cheat
 docker
-filezilla
 gnupg
 gradle
+goland
 htop
 httpie
 hub
 intellijidea
+libreoffice
 keybase
 macosx
 marked2
 maven
 menumeters
+microsoft-remote-desktop
 npm
 nvalt
 sbt
@@ -29,4 +31,5 @@ textmate
 tig
 vlc
 vscode
+whatsapp
 wget
