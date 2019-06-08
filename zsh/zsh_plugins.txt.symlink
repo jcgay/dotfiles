@@ -1,4 +1,4 @@
-bhilburn/powerlevel9k
+romkatv/powerlevel10k
 robbyrussell/oh-my-zsh
 robbyrussell/oh-my-zsh path:plugins/docker
 robbyrussell/oh-my-zsh path:plugins/docker-compose
