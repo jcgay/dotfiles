@@ -47,7 +47,7 @@
 	keepTemporaries = false
 	prompt = false
 [pull]
-	rebase = preserve
+	rebase = merges
 [push]
 	default = upstream
 [rerere]
