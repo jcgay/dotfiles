@@ -35,5 +35,13 @@ echo 'Adding default Java version in jEnv'
 jenv add $(/usr/libexec/java_home)
 jenv add ~/.sdkman/candidates/java/8.0.212.hs-adpt
 jenv add ~/.sdkman/candidates/java/11.0.3.hs-adpt
+jenv enable-plugin ant
+jenv enable-plugin export
+jenv enable-plugin gradle
+jenv enable-plugin groovy
+jenv enable-plugin maven
+jenv enable-plugin sbt
+jenv enable-plugin scala
+jenv enable-plugin springboot
 
 exit 0
