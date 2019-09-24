@@ -8,11 +8,17 @@ Greatly inspired by [https://github.com/holman/dotfiles](https://github.com/holm
 ```
 git clone https://github.com/jcgay/dotfiles.git ~/.dotfiles
 cd ~/.dotfiles
-git submodule init
-git submodule update
 script/bootstrap.sh
 script/install.sh
 ```
+
+## Manual post installation steps 😇
+
+ - Setup the Dropbox sync with the client application
+ - Run  `mackup restore`
+ - Restore gpg and ssh keys
+ - Install [Prey](http://preyproject.com/): `HOMEBREW_NO_ENV_FILTERING=1 API_KEY="abcdef123456" brew cask install prey`
+
 ## Description
 
 There's a few special files in the hierarchy.
@@ -29,3 +35,9 @@ There's a few special files in the hierarchy.
   your `$HOME`. This is so you can keep all of those versioned in your dotfiles
   but still keep those autoloaded files in your home directory. These get
   symlinked in when you run `script/bootstrap`.
+
+## Testing
+
+You will need [`vagrant`](https://www.vagrantup.com) to manage the environment.
+
+    vagrant up

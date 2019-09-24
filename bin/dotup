@@ -1,4 +1,4 @@
 #!/bin/zsh
 
-brew cask outdated | xargs brew cask reinstall
+brew cask upgrade
 brew upgrade && brew cleanup

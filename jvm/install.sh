@@ -5,10 +5,10 @@ curl -s "https://get.sdkman.io" | bash
 source "$HOME/.sdkman/bin/sdkman-init.sh"
 
 echo 'Installing Java...'
-yes | sdk install java 6u65
-yes | sdk install java 7u79
-yes | sdk install java 8u131
-sdk default java 8u131
+wget -P $TMPDIR https://support.apple.com/downloads/DL1572/fr_FR/javaforosx.dmg && open $TMPDIR/javaforosx.dmg
+yes | sdk install java 8.0.212.hs-adpt
+yes | sdk install java 11.0.3.hs-adpt
+sdk default java 11.0.3.hs-adpt
 
 echo 'Installing Groovy...'
 sdk install groovy
@@ -23,20 +23,28 @@ sdk install scala
 sdk default scala
 sdk install sbt
 sdk default sbt
-sdk install activator
-sdk default activator
 
 echo 'Installing Kotlin...'
 sdk install kotlin
 sdk default kotlin
 
-echo 'Installing Vert.x...'
-sdk install vertx
-sdk default vertx
+brew install jenv
+mkdir -p ~/.jenv/versions
+
+echo 'Adding default Java version in jEnv'
+jenv add $(/usr/libexec/java_home)
+jenv add ~/.sdkman/candidates/java/8.0.212.hs-adpt
+jenv add ~/.sdkman/candidates/java/11.0.3.hs-adpt
+jenv enable-plugin ant
+jenv enable-plugin export
+jenv enable-plugin gradle
+jenv enable-plugin groovy
+jenv enable-plugin maven
+jenv enable-plugin sbt
+jenv enable-plugin scala
+jenv enable-plugin springboot
 
 brew install 'tomcat'
 brew install 'tomcat@6'
-brew install 'sonarqube'
-brew install 'apache-spark'
 
 exit 0
