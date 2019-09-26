@@ -1,0 +1,37 @@
+[repositories]
+	default = [
+		"/Users/jcgay/dev/cdrom-installer",
+		"/Users/jcgay/dev/perceval",
+		"/Users/jcgay/dev/perceval-installer",
+		"/Users/jcgay/dev/zapi-native",
+		"/Users/jcgay/dev/zapi-sdk",
+		"/Users/jcgay/dev/api-installer",
+		"/Users/jcgay/dev/arthur"
+	]
+	vm = [
+		"/Users/jcgay/dev/vidal-menu",
+		"/Users/jcgay/dev/vidal-menu-installer",
+		"/Users/jcgay/dev/vidal-menu-client"
+	]
+	sous = [
+		"/Users/jcgay/dev/vulcain",
+		"/Users/jcgay/dev/drf-publisher"
+	]
+	vira = [
+		"/Users/jcgay/dev/vira",
+		"/Users/jcgay/dev/vidal-fhir-store"
+	]
+
+[commands]
+  fetch = "git fetch origin -p"
+  pull = "git pull"
+  push = "git push $@"
+  checkout = "git checkout $@"
+  ulg = "git ulg"
+  llg = "git llg"
+  current-branch = "git rev-parse --abbrev-ref HEAD"
+  merge = "git merge --log --no-ff --no-commit $@"
+  set-version = "mvn org.codehaus.mojo:versions-maven-plugin:set -DnewVersion=$1"
+  status = "git status"
+  ismerged = "git branch --list $1 -r --merged"
+  contains = "git branch -r --contains $1"
