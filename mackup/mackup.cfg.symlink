@@ -3,7 +3,6 @@ engine = google_drive
 
 [applications_to_sync]
 asciinema
-bitbar
 caffeine
 cheat
 docker

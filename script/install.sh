@@ -34,7 +34,6 @@ cd "$(dirname $0)"/..
 ./mackup/install.sh
 ./databases/install.sh
 ./docker/install.sh
-./python/install.sh
 ./golang/install.sh
 ./maven/install.sh
 ./osx/install.sh
