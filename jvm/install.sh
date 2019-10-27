@@ -17,6 +17,7 @@ sdk default groovy
 echo 'Installing Gradle'
 sdk install gradle
 sdk default gradle
+brew install gradle-completion
 
 echo 'Installing Scala...'
 sdk install scala
