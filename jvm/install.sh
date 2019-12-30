@@ -45,6 +45,5 @@ jenv enable-plugin scala
 jenv enable-plugin springboot
 
 brew install 'tomcat'
-brew install 'tomcat@6'
 
 exit 0
