@@ -5,7 +5,9 @@ curl -s "https://get.sdkman.io" | bash
 source "$HOME/.sdkman/bin/sdkman-init.sh"
 
 echo 'Installing Java...'
-wget -P $TMPDIR https://support.apple.com/downloads/DL1572/fr_FR/javaforosx.dmg && open $TMPDIR/javaforosx.dmg
+# https://support.apple.com/kb/DL1572?viewlocale=fr_FR&locale=fr_FR
+wget -P $TMPDIR https://updates.cdn-apple.com/2019/cert/041-88384-20191011-3d8da658-dca4-4a5b-b67c-26e686876403/JavaForOSX.dmg
+echo ''
 yes | sdk install java 8.0.232.hs-adpt
 yes | sdk install java 11.0.5.hs-adpt
 sdk default java 11.0.5.hs-adpt
