@@ -35,4 +35,5 @@ cd "$(dirname $0)"/..
 ./docker/install.sh
 ./golang/install.sh
 ./maven/install.sh
+./install4j/install.sh
 ./osx/install.sh
