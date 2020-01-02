@@ -13,10 +13,9 @@ then
 		/usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)" > /tmp/homebrew-install.log
 	fi
     brew tap Homebrew/bundle
-	brew tap caskroom/cask
-    brew tap caskroom/versions
+    brew tap homebrew/cask-versions
     brew tap jcgay/jcgay
-    brew tap caskroom/fonts
+    brew tap homebrew/cask-fonts
 fi
 
 cd "$(dirname $0)"/..
