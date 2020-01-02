@@ -5,6 +5,7 @@ engine = google_drive
 asciinema
 caffeine
 cheat
+cyberduck
 docker
 gnupg
 gradle
