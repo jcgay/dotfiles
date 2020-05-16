@@ -16,6 +16,7 @@ robbyrussell/oh-my-zsh path:plugins/gpg-agent
 robbyrussell/oh-my-zsh path:plugins/httpie
 robbyrussell/oh-my-zsh path:plugins/osx
 robbyrussell/oh-my-zsh path:plugins/vscode
+zsh-users/zsh-completions
 rupa/z
 Tarrasch/zsh-autoenv
 zsh-users/zsh-history-substring-search
