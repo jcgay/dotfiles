@@ -27,6 +27,7 @@ brew cask outdated
 sdk selfupdate
 echo "\033[0;34mOutdated SDKMAN!\033[0m"
 sdk upgrade
+clean-sdkman
 
 # show apple update
 softwareupdate -l
