@@ -29,6 +29,9 @@ echo 'Installing Kotlin...'
 sdk install kotlin
 sdk default kotlin
 
+echo 'Installing j’bang'
+sdk install jbang
+
 brew install jenv
 mkdir -p ~/.jenv/versions
 
