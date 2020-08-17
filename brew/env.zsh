@@ -1,0 +1,1 @@
+export HOMEBREW_BUNDLE_NO_LOCK="true"
