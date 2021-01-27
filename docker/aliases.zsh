@@ -3,3 +3,5 @@ alias dockercleani="docker images | grep '<none>' | awk '{print $3}' | gxargs --
 alias dockerstop="docker stop $(docker ps -a -q)"
 alias dm="docker-machine"
 alias dco="docker-compose"
+alias docker-compose-sw2="docker-compose -H=dockersw2.vidal.net:2376 --tlsverify --tlscacert=$HOME/.dockersw2/ca.pem --tlscert=$HOME/.dockersw2/client-jenkins-cert.pem --tlskey=$HOME/.dockersw2/client-jenkins-key.pem"
+alias dockersw2="docker -H=dockersw2.vidal.net:2376 --tlsverify --tlscacert=$HOME/.dockersw2/ca.pem --tlscert=$HOME/.dockersw2/client-jenkins-cert.pem --tlskey=$HOME/.dockersw2/client-jenkins-key.pem"
