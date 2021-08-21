@@ -1,4 +1,3 @@
 #!/bin/zsh
 
-brew cask upgrade
 brew upgrade && brew cleanup

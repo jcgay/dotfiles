@@ -1,2 +1,1 @@
-alias cask='brew cask'
-alias casks='brew cask list'
+alias casks='brew list --cask'
