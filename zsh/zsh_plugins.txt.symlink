@@ -1,21 +1,21 @@
 romkatv/powerlevel10k
-robbyrussell/oh-my-zsh
-robbyrussell/oh-my-zsh path:plugins/docker
-robbyrussell/oh-my-zsh path:plugins/docker-compose
-robbyrussell/oh-my-zsh path:plugins/mvn
-robbyrussell/oh-my-zsh path:plugins/textmate
-robbyrussell/oh-my-zsh path:plugins/extract
-robbyrussell/oh-my-zsh path:plugins/gradle
-robbyrussell/oh-my-zsh path:plugins/history
-robbyrussell/oh-my-zsh path:plugins/sbt
-robbyrussell/oh-my-zsh path:plugins/scala
-robbyrussell/oh-my-zsh path:plugins/vagrant
-robbyrussell/oh-my-zsh path:plugins/colored-man-pages
-robbyrussell/oh-my-zsh path:plugins/golang
-robbyrussell/oh-my-zsh path:plugins/gpg-agent
-robbyrussell/oh-my-zsh path:plugins/httpie
-robbyrussell/oh-my-zsh path:plugins/macos
-robbyrussell/oh-my-zsh path:plugins/vscode
+ohmyzsh/oh-my-zsh
+ohmyzsh/oh-my-zsh path:plugins/docker
+ohmyzsh/oh-my-zsh path:plugins/docker-compose
+ohmyzsh/oh-my-zsh path:plugins/mvn
+ohmyzsh/oh-my-zsh path:plugins/textmate
+ohmyzsh/oh-my-zsh path:plugins/extract
+ohmyzsh/oh-my-zsh path:plugins/gradle
+ohmyzsh/oh-my-zsh path:plugins/history
+ohmyzsh/oh-my-zsh path:plugins/sbt
+ohmyzsh/oh-my-zsh path:plugins/scala
+ohmyzsh/oh-my-zsh path:plugins/vagrant
+ohmyzsh/oh-my-zsh path:plugins/colored-man-pages
+ohmyzsh/oh-my-zsh path:plugins/golang
+ohmyzsh/oh-my-zsh path:plugins/gpg-agent
+ohmyzsh/oh-my-zsh path:plugins/httpie
+ohmyzsh/oh-my-zsh path:plugins/macos
+ohmyzsh/oh-my-zsh path:plugins/vscode
 zsh-users/zsh-completions
 rupa/z
 Tarrasch/zsh-autoenv

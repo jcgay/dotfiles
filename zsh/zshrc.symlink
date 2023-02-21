@@ -8,6 +8,10 @@ then
   source ~/.localrc
 fi
 
+#antidot
+source $(brew --prefix)/opt/antidote/share/antidote/antidote.zsh
+antidote load
+
 # all of our zsh files
 typeset -U config_files
 config_files=($DOTFILES/**/*.zsh)
