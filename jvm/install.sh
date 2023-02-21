@@ -8,9 +8,10 @@ echo 'Installing Java...'
 # https://support.apple.com/kb/DL1572?viewlocale=fr_FR&locale=fr_FR
 wget -P $TMPDIR https://updates.cdn-apple.com/2019/cert/041-88384-20191011-3d8da658-dca4-4a5b-b67c-26e686876403/JavaForOSX.dmg
 echo ''
-yes | sdk install java 8.0.232.hs-adpt
-yes | sdk install java 11.0.5.hs-adpt
-sdk default java 11.0.5.hs-adpt
+yes | sdk install java 8.0.362-zulu
+yes | sdk install java 11.0.18-tem
+yes | sdk install java 17.0.6-tem
+sdk default java 17.0.6-tem
 
 echo 'Installing Groovy...'
 sdk install groovy
@@ -39,8 +40,9 @@ mkdir -p ~/.jenv/versions
 
 echo 'Adding default Java version in jEnv'
 jenv add $(/usr/libexec/java_home)
-jenv add ~/.sdkman/candidates/java/8.0.232.hs-adpt
-jenv add ~/.sdkman/candidates/java/11.0.5.hs-adpt
+jenv add ~/.sdkman/candidates/java/8.0.362-zulu
+jenv add ~/.sdkman/candidates/java/java 11.0.18-tem
+jenv add ~/.sdkman/candidates/java/java 17.0.6-tem
 jenv enable-plugin ant
 jenv enable-plugin export
 jenv enable-plugin gradle
