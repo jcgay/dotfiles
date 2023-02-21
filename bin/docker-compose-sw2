@@ -1,0 +1,4 @@
+#!/bin/bash
+
+DOCKER_TLS_CONF="-H=dockersw2.vidal.net:2376 --tlsverify --tlscacert=$HOME/.dockersw2/ca.pem --tlscert=$HOME/.dockersw2/client-jenkins-cert.pem --tlskey=$HOME/.dockersw2/client-jenkins-key.pem"
+docker-compose-for-sw2-bug $DOCKER_TLS_CONF "$@"
