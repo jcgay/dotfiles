@@ -1,5 +1,6 @@
 [storage]
-engine = google_drive
+engine = file_system
+path = Google Drive/Mon Drive
 
 [applications_to_sync]
 asciinema
