@@ -36,3 +36,4 @@ cd "$(dirname $0)"/..
 ./golang/install.sh
 ./maven/install.sh
 ./install4j/install.sh
+./javascript/install.sh
