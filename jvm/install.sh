@@ -40,8 +40,8 @@ mkdir -p ~/.jenv/versions
 
 echo 'Adding default Java version in jEnv'
 jenv add ~/.sdkman/candidates/java/8.0.362-zulu
-jenv add ~/.sdkman/candidates/java/java 11.0.18-tem
-jenv add ~/.sdkman/candidates/java/java 17.0.6-tem
+jenv add ~/.sdkman/candidates/java/11.0.18-tem
+jenv add ~/.sdkman/candidates/java/17.0.6-tem
 jenv enable-plugin ant
 jenv enable-plugin export
 jenv enable-plugin gradle
