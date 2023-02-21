@@ -11,6 +11,8 @@ then
 	then
 		echo "  Installing Homebrew for you."
 		/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" > /tmp/homebrew-install.log
+        (echo; echo 'eval "$(/opt/homebrew/bin/brew shellenv)"') >> /Users/jcgay/.profile
+        eval "$(/opt/homebrew/bin/brew shellenv)"
 	fi
     brew tap Homebrew/bundle
     brew tap homebrew/cask-versions
