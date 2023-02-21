@@ -1,6 +1,7 @@
 cask 'alfred'
 cask 'android-file-transfer'
 cask 'anybar'
+cask 'authy'
 cask 'betterzip'
 cask 'bitbar'
 cask 'caffeine'
