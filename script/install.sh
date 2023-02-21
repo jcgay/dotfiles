@@ -18,6 +18,8 @@ then
     brew tap homebrew/cask-fonts
 fi
 
+sudo softwareupdate --install-rosetta --agree-to-license
+
 cd "$(dirname $0)"/..
 
 # find the installers and run them iteratively
