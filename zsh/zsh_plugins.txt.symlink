@@ -14,7 +14,7 @@ robbyrussell/oh-my-zsh path:plugins/colored-man-pages
 robbyrussell/oh-my-zsh path:plugins/golang
 robbyrussell/oh-my-zsh path:plugins/gpg-agent
 robbyrussell/oh-my-zsh path:plugins/httpie
-robbyrussell/oh-my-zsh path:plugins/osx
+robbyrussell/oh-my-zsh path:plugins/macos
 robbyrussell/oh-my-zsh path:plugins/vscode
 zsh-users/zsh-completions
 rupa/z
