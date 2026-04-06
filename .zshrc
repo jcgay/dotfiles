@@ -1,0 +1,47 @@
+# use .localrc for SUPER SECRET CRAP that you don't
+# want in your public, versioned repo.
+if [[ -a ~/.localrc ]]; then
+  source ~/.localrc
+fi
+
+# all of our zsh files
+typeset -U config_files
+config_files=(~/.config/zsh/**/*.zsh)
+
+# load the path files
+for file in ${(M)config_files:#*/path.zsh}; do
+  source $file
+done
+
+# load everything but the path and completion files
+for file in ${${config_files:#*/path.zsh}:#*/completion.zsh}; do
+  source $file
+done
+
+# initialize autocomplete here, otherwise functions won't be loaded
+autoload -U compinit && compinit
+autoload -U bashcompinit && bashcompinit
+
+# load every completion after autocomplete loads
+for file in ${(M)config_files:#*/completion.zsh}; do
+  source $file
+done
+
+COMPLETION_WAITING_DOTS="true"
+DISABLE_AUTO_UPDATE="true"
+POWERLEVEL9K_MODE='nerdfont-complete'
+
+unset config_files
+
+test -e "${HOME}/.iterm2_shell_integration.zsh" && source "${HOME}/.iterm2_shell_integration.zsh"
+
+#THIS MUST BE AT THE END OF THE FILE FOR SDKMAN TO WORK!!!
+export SDKMAN_DIR="$HOME/.sdkman"
+[[ -s "$HOME/.sdkman/bin/sdkman-init.sh" ]] && source "$HOME/.sdkman/bin/sdkman-init.sh"
+
+# To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
+[[ -f ~/.p10k.zsh ]] && source ~/.p10k.zsh
+
+# jEnv
+export PATH="$HOME/.jenv/bin:$PATH"
+eval "$(jenv init -)"
