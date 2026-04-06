@@ -7,6 +7,7 @@ tap "moul/moul"
 # ─── Brews (depuis brew/Brewfile) ──────────────────────────────────────────
 brew "asciidoc"
 brew "asciinema"
+brew "bash"
 brew "bat"
 brew "cheat"
 brew "cloc"

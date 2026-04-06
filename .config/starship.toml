@@ -1,5 +1,5 @@
 format = """
-$directory$git_branch$git_status$java$gradle$maven$golang$nodejs$docker_context
+$directory$git_branch$git_status$java$gradle$golang$nodejs$docker_context
 $character"""
 
 [directory]
@@ -15,9 +15,6 @@ symbol = "☕ "
 
 [gradle]
 symbol = "🐘 "
-
-[maven]
-symbol = "🍃 "
 
 [golang]
 symbol = "🐹 "
