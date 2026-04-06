@@ -21,5 +21,5 @@ set -gx SBT_OPTS "-XX:+CMSClassUnloadingEnabled -XX:MaxPermSize=256M"
 # Guard: sdkman-init.sh is slow and interactive-only; crashes non-interactive subshells
 set -gx SDKMAN_DIR $HOME/.sdkman
 if status is-interactive
-    bass source $SDKMAN_DIR/bin/sdkman-init.sh
+    bass source $SDKMAN_DIR/bin/sdkman-init.sh 2>/dev/null
 end
