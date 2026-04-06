@@ -1,0 +1,20 @@
+#!/bin/bash
+# git-standup: find out what you did yesterday (or last friday).
+#
+# Setup:
+# 1. Save somewhere on your path, make executable.
+# 2. git config --global alias.standup '!git-standup'
+# 3. Profit.
+#
+# Original idea via @paulgreg (https://twitter.com/paulgreg/status/248686055727972352)
+# Original gist: https://gist.github.com/olim7t/3810376
+ 
+AUTHOR=$(git config user.email)
+ 
+if [ `date +%w` == 1 ] ; then
+  LIMIT="3 days"
+else
+  LIMIT="yesterday"
+fi
+ 
+git lg --since "$LIMIT" --author $AUTHOR

@@ -1,0 +1,68 @@
+//usr/bin/env jbang "$0" "$@" ; exit $?
+// //DEPS <dependency1> <dependency2>
+//JAVA 11+
+
+import java.io.File;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Comparator;
+import java.util.function.Consumer;
+import java.util.function.Predicate;
+
+public class CleanSdkman {
+
+    public static void main(String... args) {
+        Path sdkmanPath = Path.of(System.getProperty("user.home"), ".sdkman");
+        if (!Files.exists(sdkmanPath)) {
+            System.exit(0);
+        }
+
+        try {
+            Files.list(sdkmanPath.resolve("candidates"))
+                    .filter(Files::isDirectory)
+                    .filter(dir -> !"java".equalsIgnoreCase(dir.getFileName().toFile().getName()))
+                    .forEach(CleanSdkman::deleteAllInstallationExceptionCurrent);
+        } catch (IOException e) {
+            throw new UncheckedIOException("Error while listing SDKMAN! candidates", e);
+        }
+    }
+
+    private static void deleteAllInstallationExceptionCurrent(Path candidatePath) {
+        try {
+            Path current = candidatePath.resolve("current").toRealPath();
+            Files.list(candidatePath)
+                    .filter(Files::isDirectory)
+                    .filter(IsNotTheCurrentVersionUsed(current))
+                    .forEach(deleteUnusedVersion());
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    private static Consumer<Path> deleteUnusedVersion() {
+        return version -> {
+            System.out.println("Deleting " + version + "...");
+            try {
+                Files.walk(version)
+                        .sorted(Comparator.reverseOrder())
+                        .map(Path::toFile)
+                        .forEach(File::delete);
+            } catch (IOException e) {
+                throw new UncheckedIOException("Error while deleting " + version, e);
+            }
+        };
+    }
+
+    private static Predicate<Path> IsNotTheCurrentVersionUsed(Path current) {
+        return version -> {
+            try {
+                return !version.toRealPath().equals(current);
+            } catch (IOException e) {
+                System.err.println("Cannot compare version [" + version + "] with the current one used [" + current + "].");
+                return false;
+            }
+        };
+    }
+}

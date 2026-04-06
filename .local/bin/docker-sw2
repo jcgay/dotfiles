@@ -1,0 +1,5 @@
+#!/bin/bash
+
+export DOCKER_HOST="dockersw2.vidal.net:2376";
+DOCKER_TLS_CONF="--tlsverify --tlscacert=$HOME/.dockersw2/ca.pem --tlscert=$HOME/.dockersw2/client-jenkins-cert.pem --tlskey=$HOME/.dockersw2/client-jenkins-key.pem"
+docker $DOCKER_TLS_CONF "$@"
