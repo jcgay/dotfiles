@@ -1,0 +1,21 @@
+romkatv/powerlevel10k
+ohmyzsh/oh-my-zsh
+ohmyzsh/oh-my-zsh path:plugins/docker
+ohmyzsh/oh-my-zsh path:plugins/docker-compose
+ohmyzsh/oh-my-zsh path:plugins/mvn
+ohmyzsh/oh-my-zsh path:plugins/textmate
+ohmyzsh/oh-my-zsh path:plugins/extract
+ohmyzsh/oh-my-zsh path:plugins/gradle
+ohmyzsh/oh-my-zsh path:plugins/history
+ohmyzsh/oh-my-zsh path:plugins/sbt
+ohmyzsh/oh-my-zsh path:plugins/vagrant
+ohmyzsh/oh-my-zsh path:plugins/colored-man-pages
+ohmyzsh/oh-my-zsh path:plugins/golang
+ohmyzsh/oh-my-zsh path:plugins/gpg-agent
+ohmyzsh/oh-my-zsh path:plugins/macos
+ohmyzsh/oh-my-zsh path:plugins/vscode
+zsh-users/zsh-completions
+rupa/z
+Tarrasch/zsh-autoenv
+zsh-users/zsh-history-substring-search
+zsh-users/zsh-syntax-highlighting
