@@ -26,10 +26,13 @@ brew bundle --global
 # git lfs
 git lfs install
 
-# Change le shell par défaut vers zsh si nécessaire
-if [ "$SHELL" != "/bin/zsh" ]; then
-  echo "Changement du shell vers zsh..."
-  chsh -s /bin/zsh
+# Change le shell par défaut vers fish
+if [ "$SHELL" != "/opt/homebrew/bin/fish" ]; then
+  echo "Changement du shell vers fish..."
+  if ! grep -q /opt/homebrew/bin/fish /etc/shells; then
+    echo /opt/homebrew/bin/fish | sudo tee -a /etc/shells
+  fi
+  chsh -s /opt/homebrew/bin/fish
 fi
 
 # Répertoire workspace Go
@@ -42,7 +45,7 @@ if ! command -v volta &>/dev/null; then
   curl https://get.volta.sh | bash
 fi
 
-# SDKMAN! (JVM toolchain manager)
+# SDKMAN! (JVM toolchain manager) — sera remplacé par mise ultérieurement
 if [ ! -d "$HOME/.sdkman" ]; then
   echo "Installation de SDKMAN!..."
   curl -s "https://get.sdkman.io" | bash
@@ -53,6 +56,10 @@ if [ ! -d "$HOME/.sdkman" ]; then
   echo "    sdk install java 8.0.362-zulu"
   echo "    sdk install groovy gradle scala sbt kotlin jbang"
 fi
+
+# Fisher (fish plugin manager)
+echo "Installation de fisher et plugins fish..."
+fish -c 'curl -sL https://raw.githubusercontent.com/jorgebucaran/fisher/main/functions/fisher.fish | source && fisher install < ~/.config/fish/fish_plugins'
 
 # Restauration des configs apps via mackup
 echo ""
