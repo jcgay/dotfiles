@@ -70,67 +70,7 @@ yadm commit -m "chore(brew): remove outdated tools, add missing and modern repla
 
 ---
 
-### Task 2: Edit .gitconfig for delta
-
-- [ ] **Step 1: Replace the pager (surgical edit)**
-
-```bash
-git config --global core.pager delta
-```
-
-Verify: `git config --global core.pager` → should output `delta`
-
-- [ ] **Step 2: Add interactive diff filter**
-
-```bash
-git config --global interactive.diffFilter "delta --color-only"
-```
-
-- [ ] **Step 3: Add delta configuration section**
-
-Append to `~/.gitconfig`:
-
-```ini
-[delta]
-    navigate = true
-    side-by-side = true
-    line-numbers = true
-    syntax-theme = Monokai Extended
-```
-
-Use `git config --global` commands or edit the file directly. Example:
-
-```bash
-git config --global delta.navigate true
-git config --global delta.side-by-side true
-git config --global delta.line-numbers true
-git config --global delta."syntax-theme" "Monokai Extended"
-```
-
-- [ ] **Step 4: Remove the `[color "diff-highlight"]` section**
-
-Remove these 6 lines from `~/.gitconfig`:
-
-```
-[color "diff-highlight"]
-    oldNormal = red bold
-    oldHighlight = red bold 52
-    newNormal = green bold
-    newHighlight = green bold 22
-```
-
-Use a direct file edit (not `git config` — `git config` cannot remove sections with spaces in the name).
-
-- [ ] **Step 5: Commit**
-
-```bash
-yadm add ~/.gitconfig
-yadm commit -m "feat(git): migrate from diff-so-fancy to delta"
-```
-
----
-
-### Task 3: Install new tools
+### Task 2: Install new tools
 
 - [ ] **Step 1: Install brew formulas**
 
@@ -156,19 +96,70 @@ eza --version | head -1          # eza
 fzf --version                    # fzf
 grc --version 2>&1 | head -1     # grc
 ghostty --version 2>&1 | head -1 # ghostty
+ls /Applications/Bitwarden.app   # bitwarden cask
 ```
 
-All should print a version number.
+All should succeed.
 
-- [ ] **Step 4: Verify delta in git**
+---
 
-In any git repo with staged or recent changes:
+### Task 3: Edit .gitconfig for delta
+
+> **delta must be installed (Task 2) before this task** — `core.pager = delta` will cause git commands to fail if delta is not yet on PATH.
+
+- [ ] **Step 1: Replace the pager (surgical edit)**
+
+```bash
+git config --global core.pager delta
+```
+
+Verify: `git config --global core.pager` → should output `delta`
+
+- [ ] **Step 2: Add interactive diff filter**
+
+```bash
+git config --global interactive.diffFilter "delta --color-only"
+```
+
+- [ ] **Step 3: Add delta configuration section**
+
+```bash
+git config --global delta.navigate true
+git config --global delta.side-by-side true
+git config --global delta.line-numbers true
+git config --global delta."syntax-theme" "Monokai Extended"
+```
+
+- [ ] **Step 4: Remove the `[color "diff-highlight"]` section**
+
+Remove these 5 lines from `~/.gitconfig`:
+
+```
+[color "diff-highlight"]
+    oldNormal = red bold
+    oldHighlight = red bold 52
+    newNormal = green bold
+    newHighlight = green bold 22
+```
+
+Use a direct file edit (not `git config` — `git config` cannot remove sections with spaces in the name).
+
+- [ ] **Step 5: Verify delta in git**
+
+In any git repo with recent changes:
 
 ```bash
 git diff HEAD~1 2>/dev/null | head -20
 ```
 
-Expected: syntax-highlighted, side-by-side output with line numbers (delta UI). If plain text appears, delta isn't wired up yet — re-check gitconfig.
+Expected: syntax-highlighted, side-by-side output with line numbers. If plain text, re-check gitconfig.
+
+- [ ] **Step 6: Commit**
+
+```bash
+yadm add ~/.gitconfig
+yadm commit -m "feat(git): migrate from diff-so-fancy to delta"
+```
 
 ---
 
