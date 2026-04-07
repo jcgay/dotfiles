@@ -8,3 +8,14 @@ micronaut = { version = "latest", exe = "mn" }
 quarkus = "latest"
 sbt = "latest"
 scala = "latest"
+
+[settings]
+legacy_version_file = true
+idiomatic_version_file_enable_tools = ["java"]
+
+[tool_alias]
+
+[tool_alias.java]
+
+[tool_alias.java.versions]
+"1.8" = "zulu-8.92.0.21"
