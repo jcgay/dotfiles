@@ -45,17 +45,9 @@ if ! command -v volta &>/dev/null; then
   curl https://get.volta.sh | bash
 fi
 
-# SDKMAN! (JVM toolchain manager) — sera remplacé par mise ultérieurement
-if [ ! -d "$HOME/.sdkman" ]; then
-  echo "Installation de SDKMAN!..."
-  curl -s "https://get.sdkman.io" | bash
-  echo ""
-  echo "⚠️  Relancer le shell puis installer les versions JVM avec :"
-  echo "    sdk install java 17.0.6-tem"
-  echo "    sdk install java 11.0.18-tem"
-  echo "    sdk install java 8.0.362-zulu"
-  echo "    sdk install groovy gradle scala sbt kotlin jbang"
-fi
+# mise — installe tous les outils JVM (Java, Gradle, Kotlin, etc.)
+echo "Installation des outils JVM via mise..."
+mise install
 
 # Fisher (fish plugin manager)
 echo "Installation de fisher et plugins fish..."
