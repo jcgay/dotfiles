@@ -49,7 +49,7 @@ Two files are modified: `~/.Brewfile` and `~/.gitconfig`. Both are yadm-tracked.
 | `brew "grc"` | Referenced in `system.fish` — same issue |
 | `cask "bitwarden"` | Migrated from LastPass — missing from Brewfile |
 | `brew "ripgrep"` | Replaces `the_silver_searcher`; used by VS Code and fish internals |
-| `brew "delta"` | Replaces `diff-so-fancy`; requires `.gitconfig` update (see below) |
+| `brew "git-delta"` | Replaces `diff-so-fancy`; requires `.gitconfig` update (see below). Formula name is `git-delta` (not `delta`), binary is `delta`. |
 | `brew "fd"` | Modern `find` replacement; complements fzf |
 | `brew "eza"` | Modern `ls` replacement with git status, colours, and nerd font icons |
 
@@ -98,7 +98,9 @@ Add new sections:
     syntax-theme = Monokai Extended
 ```
 
-> Note: `navigate = true` enables `n`/`N` to jump between diff sections.
+> Note: The `[core] pager` key must be edited surgically (e.g. `git config --global core.pager delta`)
+> rather than replacing the whole `[core]` section, which also contains `whitespace`, `excludesfile`,
+> `editor`, and `trustctime`.
 > `syntax-theme` can be customised; `Monokai Extended` is a safe default.
 > The existing `[diff] colorMoved = zebra` is compatible with delta and can stay.
 
