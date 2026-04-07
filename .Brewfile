@@ -68,6 +68,9 @@ cask "font-hack-nerd-font"
 # ─── system/install.sh ─────────────────────────────────────────────────────
 cask "font-fira-code"
 
+# ─── jvm/install.sh (monitoring) ──────────────────────────────────────────
+cask "visualvm"
+
 # ─── docker/install.sh ─────────────────────────────────────────────────────
 cask "docker-desktop"
 brew "ctop"
