@@ -87,12 +87,7 @@ brew "gradle-completion"
 brew "jcgay/jcgay/maven-deluxe"
 brew "jcgay/jcgay/mvnd-deluxe"
 
-# ─── jvm/install.sh (brew part) ────────────────────────────────────────────
-brew "tomcat"
-
 # ─── databases/Brewfile ────────────────────────────────────────────────────
-brew "mongodb-community"
-brew "mysql"
 cask "tableplus"
 
 # ─── Casks (depuis cask/Brewfile) ──────────────────────────────────────────
@@ -107,10 +102,9 @@ cask "disk-inventory-x"
 cask "firefox"
 cask "ghostty"
 cask "gimp"
-cask "goland"
 cask "google-chrome"
 cask "imageoptim"
-cask "intellij-idea"
+cask "jetbrains-toolbox"
 cask "keybase"
 cask "libreoffice"
 cask "ngrok"
@@ -122,17 +116,16 @@ cask "spotify"
 cask "suspicious-package"
 cask "textmate"
 cask "the-unarchiver"
-cask "visual-studio-code"
 cask "vlc"
 cask "google-drive"
 cask "slack"
 cask "soapui"
 cask "postman"
 cask "stats"
+cask "zed"
 
 # ─── Mac App Store (appstore/install.sh) ───────────────────────────────────
 brew "mas"
 mas "Xcode",                       id: 497799835
-mas "Pushbullet",                  id: 948415170
 mas "Microsoft Remote Desktop",    id: 1295203466
 mas "Marked 2",                    id: 890031187
