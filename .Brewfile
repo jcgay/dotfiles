@@ -61,6 +61,7 @@ brew "gh"
 brew "git-delta"
 brew "git-lfs"
 brew "git-absorb"
+brew "git-filter-repo"
 
 # ─── zsh/install.sh ────────────────────────────────────────────────────────
 brew "zsh"

@@ -14,8 +14,17 @@ if [[ ! -f $failicon ]]; then
 	wget --no-check-certificate -P $TMPDIR https://jenkins.vidal.net/static/dcefacfe/images/32x32/red.png
 fi
 
+check_status() {
+	state=$(gh api repos/:owner/:repo/commits/$1/status --jq '.state' 2>/dev/null)
+	case "$state" in
+		success) return 0 ;;
+		failure|error) return 1 ;;
+		*) return 2 ;;
+	esac
+}
+
 while [[ $SECONDS -lt $timeout ]]; do
-	hub ci-status $commit
+	check_status $commit
 	result=$?
 	if [[ $result -eq 0 ]]; then
 		JAVA_OPTS="-Djava.awt.headless=true" send-notification -i $icon -m "Success build for $commit" -t $project -s $branch -l INFO
