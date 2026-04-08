@@ -1,6 +1,10 @@
 [user]
 	name = Jean-Christophe Gay
+{% if yadm.class == "Work" %}
 	email = jean-christophe.gay@vidal.fr
+{% else %}
+	email = contact@jeanchristophegay.com
+{% endif %}
 [credential]
 	helper = osxkeychain
 [color]
