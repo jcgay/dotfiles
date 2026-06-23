@@ -19,3 +19,15 @@ end
 function dockerstop --description 'Stop all running containers'
     docker stop (docker ps -a -q)
 end
+
+function dockerhosts --description 'List containers and their VIRTUAL_HOST/LETSENCRYPT_HOST'
+    set -l docker $argv
+    test -z "$docker"; and set docker docker
+    $docker ps -q | gxargs --no-run-if-empty $docker inspect | jq -r '
+        .[]
+        | .Name[1:] as $name
+        | (.Config.Env // [] | map(capture("^(?<key>[^=]+)=(?<value>.*)$")) | from_entries) as $env
+        | ($env.LETSENCRYPT_HOST // $env.VIRTUAL_HOST) as $host
+        | select($host != null)
+        | "\($name)\t\($host)"' | column -t
+end
