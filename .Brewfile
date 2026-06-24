@@ -52,6 +52,14 @@ brew "jcgay/jcgay/chtignore"
 brew "jcgay/jcgay/send-notification"
 brew "jcgay/jcgay/notify-sh"
 brew "jcgay/jcgay/parallel-git-repo"
+brew "jcgay/jcgay/social-timeline"
+brew "uv"
+brew "yadm"
+brew "jira-cli"
+brew "marp-cli"
+brew "mthmulders/tap/mcs"
+brew "jakewharton/repo/diffuse"
+brew "raullenchai/rapid-mlx/rapid-mlx"
 
 # ─── git/install.sh ────────────────────────────────────────────────────────
 brew "git"
@@ -76,8 +84,9 @@ cask "visualvm"
 # ─── docker/install.sh ─────────────────────────────────────────────────────
 cask "docker-desktop"
 brew "ctop"
-brew "wagoodman/dive/dive"
+brew "dive"
 brew "moul/moul/docker-diff"
+brew "docker-agent"
 
 # ─── golang/install.sh ─────────────────────────────────────────────────────
 brew "go"
@@ -86,9 +95,8 @@ brew "gradle-completion"
 # ─── maven/install.sh ──────────────────────────────────────────────────────
 brew "jcgay/jcgay/maven-deluxe"
 brew "jcgay/jcgay/mvnd-deluxe"
-
-# ─── databases/Brewfile ────────────────────────────────────────────────────
-cask "tableplus"
+brew "maven"
+brew "mvndaemon/mvnd/mvnd"
 
 # ─── Casks (depuis cask/Brewfile) ──────────────────────────────────────────
 cask "alfred"
@@ -123,9 +131,16 @@ cask "soapui"
 cask "postman"
 cask "stats"
 cask "zed"
+cask "bruno"
+cask "http-toolkit"
 
 # ─── Mac App Store (appstore/install.sh) ───────────────────────────────────
 brew "mas"
 mas "Xcode",                       id: 497799835
-mas "Microsoft Remote Desktop",    id: 1295203466
+mas "Windows App",                 id: 1295203466
 mas "Marked 2",                    id: 890031187
+
+# --- Coding agent ----------------------------------------------------------
+cask "claude-code@latest"
+brew "rtk"
+brew "static-var/tap/build-brief"
