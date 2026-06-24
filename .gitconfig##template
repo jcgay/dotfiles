@@ -65,6 +65,7 @@
 [interactive]
 	diffFilter = delta --color-only
 [delta]
+	pager = less -FR
 	navigate = true
 	side-by-side = false
 	line-numbers = true
