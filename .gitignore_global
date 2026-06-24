@@ -42,7 +42,3 @@ Thumbs.db
 ## jEnv configuration #
 #######################
 .java-version
-
-# autoenv #
-###########
-.autoenv.zsh

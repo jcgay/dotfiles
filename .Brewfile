@@ -70,12 +70,8 @@ brew "git-lfs"
 brew "git-absorb"
 brew "git-filter-repo"
 
-# ─── zsh/install.sh ────────────────────────────────────────────────────────
-brew "zsh"
-brew "antidote"
-cask "font-hack-nerd-font"
-
 # ─── system/install.sh ─────────────────────────────────────────────────────
+cask "font-hack-nerd-font"
 cask "font-fira-code"
 
 # ─── jvm/install.sh (monitoring) ──────────────────────────────────────────

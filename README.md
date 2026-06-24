@@ -13,7 +13,7 @@ so `~/.gitconfig`, `~/.config/fish/...`, etc. are the real files git versions.
 
 | Area | Tool | Where |
 |------|------|-------|
-| Shell | [fish](https://fishshell.com) (+ legacy zsh config) | `.config/fish/`, `.config/zsh/` |
+| Shell | [fish](https://fishshell.com) | `.config/fish/` |
 | Prompt | [starship](https://starship.rs) | `.config/starship.toml` |
 | Packages | [Homebrew](https://brew.sh) global Brewfile | `.Brewfile` |
 | JVM tools (Java, Gradle, Kotlin…) | [mise](https://mise.jdx.dev) | `.config/mise/config.toml` |
