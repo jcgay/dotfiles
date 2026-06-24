@@ -3,6 +3,7 @@ fish_add_path $HOME/.local/bin
 fish_add_path /usr/local/bin
 fish_add_path /usr/local/sbin
 fish_add_path $HOME/Applications/happy-release/bin
+fish_add_path $HOME/.local/share/sonarqube-cli/bin
 
 # Editor
 set -gx EDITOR "mate -w"

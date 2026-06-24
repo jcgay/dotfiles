@@ -42,3 +42,5 @@ Thumbs.db
 ## jEnv configuration #
 #######################
 .java-version
+
+**/.claude/settings.local.json
