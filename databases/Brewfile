@@ -1,4 +1,0 @@
-brew 'mongodb'
-brew 'mysql'
-cask 'squirrelsql'
-cask 'tableplus'

@@ -1,0 +1,26 @@
+#!/bin/bash
+#
+# dot
+#
+# `dot` handles installation, updates, things like that. Run it periodically
+# to make sure you're on the latest and greatest.
+
+# Update dotfiles
+echo -e "\033[0;34mUpdating dotfiles...\033[0m"
+yadm pull
+
+# Upgrade homebrew
+brew update
+
+# show brew outdated packages
+echo -e "\033[0;34mOutdated brew packages: \033[0m"
+brew outdated --formula
+echo -e "\033[0;34mOutdated cask packages: \033[0m"
+brew outdated --cask
+
+# Upgrade JVM tools and other mise-managed tools
+echo -e "\033[0;34mUpgrading mise tools...\033[0m"
+mise upgrade
+
+# show apple update
+softwareupdate -l

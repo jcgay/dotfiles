@@ -1,1 +1,0 @@
-export omg_ungit_prompt="%~ • "

@@ -1,0 +1,4 @@
+#!/bin/bash
+
+export DOCKER_HOST="tcp://dockerbo.vidal.net:4243";
+docker $*

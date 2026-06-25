@@ -1,0 +1,6 @@
+# ~/.claude is mostly local state + plugin-managed files.
+# Ignore everything, whitelist only hand-authored, portable config.
+# (git still only tracks what's `add`-ed; this guards against `add -A`.)
+*
+!.gitignore
+!statusline-command.sh

@@ -1,0 +1,4 @@
+set -gx INSTALL4J_HOME_5_1_15 "/Applications/install4j-5.1.15"
+set -gx INSTALL4J_HOME_7_0_9 "/Applications/install4j 7.app/Contents/Resources/app"
+set -gx INSTALL4J_HOME_8_0_11 "/Applications/install4j 8.app/Contents/Resources/app"
+set -gx INSTALL4J_HOME_8 "/Applications/install4j 8.app/Contents/Resources/app"
