@@ -65,13 +65,16 @@ Points qui mordent le plus :
 | `Ctrl-C` | Annuler la ligne (pas l'historique) |
 | `Ctrl-L` | Clear |
 
-### Via fzf (intégration chargée dans `config.fish`)
+### Via fzf (plugin `PatrickF1/fzf.fish`)
 
 | Touche | Effet |
 |---|---|
 | `Ctrl-R` | Recherche dans l'historique |
-| `Ctrl-T` | Insérer un fichier dans la ligne courante |
-| `Alt-C` | `cd` dans un sous-dossier |
+| `Ctrl-Alt-F` | Insérer un fichier / dossier du répertoire courant |
+| `Ctrl-Alt-L` | Recherche dans le `git log` (insère le hash) |
+| `Ctrl-Alt-S` | Recherche dans le `git status` (fichiers modifiés) |
+| `Ctrl-Alt-P` | Tuer un processus (recherche fuzzy) |
+| `Ctrl-V` | Insérer une variable d'environnement |
 
 ### Custom (cette config, `functions/fish_user_key_bindings.fish`)
 
@@ -87,7 +90,7 @@ Points qui mordent le plus :
 
 Architecture de cette config (rappel du `CLAUDE.md` du repo) :
 - `conf.d/*.fish` → chargés **en premier**, par ordre alphabétique. Mets-y env vars, alias, fonctions par thème (`git.fish`, `docker.fish`…).
-- `config.fish` → chargé **en dernier**. Réservé à l'init d'outils qui doivent passer après tout le reste : `starship`, `mise`, `fzf`.
+- `config.fish` → chargé **en dernier**. Réservé à l'init d'outils qui doivent passer après tout le reste : `starship`, `mise`.
 - `functions/<nom>.fish` → une fonction = un fichier, **autoloadé** quand tu appelles `<nom>` (lazy). Le nom du fichier doit matcher le nom de la fonction.
 - `~/.localrc.fish` → secrets / spécifique machine, **non versionné**, sourcé en fin de `config.fish`.
 
@@ -185,6 +188,7 @@ Gérés par **Fisher**, listés dans `fish_plugins` :
 - `jorgebucaran/fisher` — le gestionnaire lui-même
 - `edc/bass` — exécuter du script **bash** depuis fish (`bass export NVM_DIR=…; source …`). Utile quand un outil ne fournit qu'un init bash/zsh.
 - `jorgebucaran/autopair.fish` — ferme automatiquement `()`, `""`, etc.
+- `PatrickF1/fzf.fish` — intégration fzf riche (historique, fichiers, git log/status, processus, variables). Remplace `fzf --fish` : ne pas charger les deux, conflit sur `Ctrl-R`.
 
 Commandes :
 ```fish
