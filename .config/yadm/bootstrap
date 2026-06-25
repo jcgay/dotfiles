@@ -59,6 +59,39 @@ mise install
 echo "Installation de fisher et plugins fish..."
 fish -c 'curl -sL https://raw.githubusercontent.com/jorgebucaran/fisher/main/functions/fisher.fish | source && fisher install < ~/.config/fish/fish_plugins'
 
+# Claude Code — marketplaces, plugins, serveurs MCP (claude vient du Brewfile)
+# (build-brief est exclu : marketplace locale gérée par son propre installeur)
+if command -v claude &>/dev/null; then
+  echo "Configuration de Claude Code (plugins + MCP)..."
+
+  # Marketplaces tierces (claude-plugins-official est déjà connue par défaut)
+  claude plugin marketplace add forrestchang/andrej-karpathy-skills || true
+  claude plugin marketplace add DietrichGebert/ponytail || true
+
+  # Plugins (scope user par défaut) — || true pour rester ré-exécutable
+  for plugin in \
+    superpowers@claude-plugins-official \
+    context7@claude-plugins-official \
+    jdtls-lsp@claude-plugins-official \
+    typescript-lsp@claude-plugins-official \
+    pyright-lsp@claude-plugins-official \
+    sonarqube@claude-plugins-official \
+    frontend-design@claude-plugins-official \
+    andrej-karpathy-skills@karpathy-skills \
+    ponytail@ponytail; do
+    claude plugin install "$plugin" || true
+  done
+
+  # Serveur MCP codebase-memory (nécessite le binaire ~/.local/bin/codebase-memory-mcp)
+  if [ -x "$HOME/.local/bin/codebase-memory-mcp" ]; then
+    claude mcp add -s user codebase-memory-mcp "$HOME/.local/bin/codebase-memory-mcp" || true
+  else
+    echo "ℹ️  codebase-memory-mcp absent — MCP non enregistré (installer le binaire d'abord)."
+  fi
+else
+  echo "ℹ️  CLI 'claude' absente — section Claude Code ignorée (relancer après installation)."
+fi
+
 # Restauration des configs apps via mackup
 echo ""
 echo "⚠️  Assurez-vous que Dropbox est synchronisé avant de continuer."

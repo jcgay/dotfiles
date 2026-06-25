@@ -33,7 +33,8 @@ The class currently only switches the git `user.email`.
 - `.config/mise/config.toml` — JVM/JS toolchain versions (mise).
 - `.mackup.cfg` — manifest of GUI app prefs synced via Google Drive (Mackup). The prefs themselves are **not** in this repo.
 - `.local/bin/` — personal scripts. `dot` updates everything (yadm pull, brew, mise, macOS); `dotup` runs `brew upgrade && cleanup`.
-- `.config/yadm/bootstrap` — new-machine setup (installs Homebrew, Volta, SonarQube CLI, mise tools, Fisher; switches shell to fish; optional `mackup restore`). Comments are in French. Re-runnable via `yadm bootstrap`.
+- `.config/yadm/bootstrap` — new-machine setup (installs Homebrew, Volta, SonarQube CLI, mise tools, Fisher; switches shell to fish; installs Claude Code marketplaces/plugins + the codebase-memory MCP server via the `claude` CLI; optional `mackup restore`). Comments are in French. Re-runnable via `yadm bootstrap`.
+- `~/.claude/` — Claude Code config. Only `statusline-command.sh` is tracked (see its whitelist `.gitignore`); plugins/MCP are reinstalled by bootstrap, not tracked as files.
 
 ## Conventions
 
