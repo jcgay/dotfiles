@@ -4,7 +4,7 @@ set -gx DOCKERSW2_CACERT "$HOME/.dockersw2/ca.pem"
 set -gx DOCKERSW2_KEY "$HOME/.dockersw2/client-jenkins-key.pem"
 
 # Docker aliases
-alias dco "docker-compose"
+abbr -a dco 'docker compose'
 alias ctopsw "dockersw run --rm -ti --name=ctop --volume /var/run/docker.sock:/var/run/docker.sock:ro quay.io/vektorlab/ctop:latest"
 alias ctopbo "dockerbo run --rm -ti --name=ctop --volume /var/run/docker.sock:/var/run/docker.sock:ro quay.io/vektorlab/ctop:latest"
 
