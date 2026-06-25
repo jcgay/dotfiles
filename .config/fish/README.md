@@ -122,7 +122,7 @@ fish_add_path ~/mon/bin     # idempotent, gère les doublons tout seul
 ### Variables de config utiles
 ```fish
 set -U fish_greeting          # vide le message d'accueil
-set -Ux EDITOR mate           # variable Universelle (persiste entre sessions, toutes shells fish)
+set -Ux EDITOR micro          # variable Universelle (persiste entre sessions, toutes shells fish)
 ```
 > `-U` = universelle (stockée une fois, dispo partout). C'est l'équivalent fish d'un export "permanent" — pas besoin de l'écrire dans un fichier. **Attention** : ça vit hors du repo, donc pour tes dotfiles versionnés, préfère `set -gx` dans un `conf.d/`.
 

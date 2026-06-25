@@ -24,7 +24,7 @@
 	pager = delta
 	whitespace = -trailing-space
 	excludesfile = ~/.gitignore_global
-	editor = mate -w
+	editor = micro
 	trustctime = false
 [diff]
 	mnemonicPrefix = true
