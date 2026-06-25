@@ -73,6 +73,14 @@ Points qui mordent le plus :
 | `Ctrl-T` | Insérer un fichier dans la ligne courante |
 | `Alt-C` | `cd` dans un sous-dossier |
 
+### Custom (cette config, `functions/fish_user_key_bindings.fish`)
+
+| Touche | Effet |
+|---|---|
+| `Ctrl-G` | `git status` sans perdre la ligne courante |
+| `Alt-R` | Sauter à la racine du dépôt git (`grt`) |
+| `Ctrl-Z` | Toggle : ramener le dernier job suspendu au premier plan (`fg`) |
+
 ---
 
 ## 4. Customiser (où ça vit, comment ajouter)
@@ -122,8 +130,9 @@ set -Ux EDITOR mate           # variable Universelle (persiste entre sessions, t
 
 ## 5. Ce qui est déjà dispo dans cette config
 
-### Alias git (`conf.d/git.fish`)
-`g`=git · `gc`=`git commit -v` · `gco`=`git checkout` · `gcp`=`git cherry-pick` · `gst`=`git status` · `pgr`=`parallel-git-repo`
+### Git (`conf.d/git.fish`)
+**abbr** (se développent dans le buffer, voir §4) : `g`=git · `gc`=`git commit -v` · `gco`=`git checkout` · `gcp`=`git cherry-pick` · `gst`=`git status`
+**alias** : `pgr`=`parallel-git-repo`
 
 > `git` est wrappé en fonction pour forcer `LANG=en_US.UTF-8`. Si tu écris une fonction qui appelle git en interne, utilise **`command git`** sinon récursion infinie.
 
@@ -131,7 +140,7 @@ set -Ux EDITOR mate           # variable Universelle (persiste entre sessions, t
 `pubkey` (clé SSH → presse-papier) · `ip` (IP publique) · `cleanup` (purge `.DS_Store`) · `show`/`hide` (fichiers cachés Finder) · `casks` · `t` (`tree -ah --du`) · `mkpjava` (arbo Maven/Gradle)
 
 ### Docker (`conf.d/docker.fish`)
-`dco`=docker-compose · `dockerclean` (vieux conteneurs) · `dockercleani` (images `<none>`) · `dockerstop` (tout arrêter) · `dockerhosts` (VIRTUAL_HOST/LETSENCRYPT_HOST)
+`dco`=`docker compose` (abbr) · `dockerclean` (vieux conteneurs) · `dockercleani` (images `<none>`) · `dockerstop` (tout arrêter) · `dockerhosts` (VIRTUAL_HOST/LETSENCRYPT_HOST)
 
 ### Fonctions (`functions/`)
 - `extract <archive>` — décompresse n'importe quel format (tar, zip, 7z, zst…)

@@ -25,6 +25,7 @@ The class currently only switches the git `user.email`.
 - `~/.localrc.fish` is sourced at the end of `config.fish` for secrets/per-machine overrides — **not tracked**. Put machine-specific or sensitive values there, never in tracked files.
 - `git` is wrapped as a fish function forcing `LANG=en_US.UTF-8`; internal calls must use `command git` to avoid recursion (see `conf.d/git.fish`).
 - Plugins are managed by Fisher via `.config/fish/fish_plugins`.
+- **Keep `.config/fish/README.md` in sync** with any fish config change (aliases/abbr, key bindings, functions, plugins). It's a hand-written zsh→fish onboarding guide, not generated — update the relevant section when behavior changes.
 
 ## Where things live
 
