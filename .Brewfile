@@ -61,6 +61,7 @@ brew "micro"
 brew "mthmulders/tap/mcs"
 brew "jakewharton/repo/diffuse"
 brew "raullenchai/rapid-mlx/rapid-mlx"
+brew "mole"
 
 # ─── git/install.sh ────────────────────────────────────────────────────────
 brew "git"
