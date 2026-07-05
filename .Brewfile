@@ -131,6 +131,7 @@ cask "stats"
 cask "zed"
 cask "bruno"
 cask "http-toolkit"
+cask "agentsview"
 
 # ─── Mac App Store (appstore/install.sh) ───────────────────────────────────
 brew "mas"
