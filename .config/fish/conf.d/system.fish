@@ -62,3 +62,6 @@ alias mkpjava "mkdir -p src/{main,test}/{java,resources}"
 
 # Tree
 alias t "tree -ah --du"
+
+# Mise
+abbr -a mr "mise run"
