@@ -1,4 +1,5 @@
 #!/bin/bash
 
+export DOCKER_API_VERSION=1.39
 export DOCKER_HOST="tcp://dockerbo.vidal.net:4243";
 docker $*
