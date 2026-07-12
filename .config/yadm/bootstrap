@@ -27,7 +27,7 @@ brew trust wagoodman/dive
 brew trust moul/moul
 brew trust mthmulders/tap
 brew trust jakewharton/repo
-brew trust raullenchai/rapid-mlx`
+brew trust raullenchai/rapid-mlx
 brew trust static-var/tap
 
 # Installe toutes les dépendances via Brewfile
