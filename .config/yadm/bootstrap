@@ -19,6 +19,13 @@ if ! command -v brew &>/dev/null; then
   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 fi
 
+# Trust brew tap
+echo "Ajout des tap de confiance..."
+brew trust jcgay/jcgay
+brew trust mvndaemon/homebrew-mvnd
+brew trust wagoodman/dive
+brew trust moul/moul
+
 # Installe toutes les dépendances via Brewfile
 echo "Installation des formules Homebrew..."
 brew bundle --global
