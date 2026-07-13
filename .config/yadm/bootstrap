@@ -75,6 +75,10 @@ if command -v claude &>/dev/null; then
   claude plugin marketplace add DietrichGebert/ponytail || true
   claude plugin marketplace add obra/superpowers-marketplace || true
 
+  # Sans lancement préalable de claude, l'index local de claude-plugins-official
+  # n'est pas encore fetché → install échoue. On le rafraîchit d'abord.
+  claude plugin marketplace update claude-plugins-official || true
+
   # Plugins (scope user par défaut) — || true pour rester ré-exécutable
   for plugin in \
     superpowers@superpowers-marketplace \
