@@ -1,8 +1,9 @@
 #!/usr/bin/env fish
 # Installe mes workflows Alfred. Rejouable : re-télécharge la dernière release et ré-importe.
 #
-# Dépendances (via brew) :
-#   bw, jq → Bitwarden-Accelerator  (bitwarden-cli + jq)
+# Dépendances (via brew / système) :
+#   bw, jq  → Bitwarden-Accelerator  (bitwarden-cli + jq)
+#   python3 → Recent JetBrains Projects (fourni par les Xcode CLT)
 
 set dl (mktemp -d)
 
@@ -10,7 +11,11 @@ set dl (mktemp -d)
 set repos \
     ajrosen/Bitwarden-Accelerator \
     Avivbens/alfred-kill-process \
-    vanstrouble/caffeine-dose-alfred-workflow
+    vanstrouble/caffeine-dose-alfred-workflow \
+    artemy/alfred-jetbrains-projects \
+    chrisgrieser/gitfred \
+    cage1016/alfred-devtoys \
+    chrisgrieser/alfred-docs-searches
 
 set urls
 for repo in $repos
@@ -23,7 +28,7 @@ for repo in $repos
     end
 end
 set urls $urls \
-    "https://github.com/willfarrell/alfred-encode-decode-workflow/raw/master/encode-decode.alfredworkflow"
+    "https://github.com/rknightuk/alfred-workflows/raw/main/workflows/httpstatuscodes/httpstatuscodes.alfredworkflow"
 
 # 1) Télécharge tout, puis retire la quarantaine Gatekeeper (sinon Alfred = "corrompu")
 set files
