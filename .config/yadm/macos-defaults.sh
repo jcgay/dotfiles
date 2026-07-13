@@ -100,6 +100,9 @@ defaults write NSGlobalDomain ApplePressAndHoldEnabled -bool false
 defaults write NSGlobalDomain KeyRepeat -int 3
 defaults write NSGlobalDomain InitialKeyRepeat -int 15
 
+# F1–F12 en vraies touches fonction (raccourcis IDE), pas média
+defaults write NSGlobalDomain com.apple.keyboard.fnState -bool true
+
 # Langue et formats FR
 defaults write NSGlobalDomain AppleLanguages -array "fr"
 defaults write NSGlobalDomain AppleLocale -string "fr_FR@currency=EUR"
@@ -247,6 +250,8 @@ defaults write com.apple.ActivityMonitor IconType -int 5
 defaults write com.apple.ActivityMonitor ShowCategory -int 0
 defaults write com.apple.ActivityMonitor SortColumn -string "CPUUsage"
 defaults write com.apple.ActivityMonitor SortDirection -int 0
+# Rafraîchissement plus fréquent (2 = toutes les 2 s)
+defaults write com.apple.ActivityMonitor UpdatePeriod -int 2
 
 # Time Machine : ne propose pas les nouveaux disques comme sauvegarde
 defaults write com.apple.TimeMachine DoNotOfferNewDisksForBackup -bool true
@@ -260,6 +265,15 @@ defaults write com.apple.SoftwareUpdate ScheduleFrequency -int 1
 defaults write com.apple.SoftwareUpdate AutomaticDownload -int 1
 defaults write com.apple.SoftwareUpdate CriticalUpdateInstall -int 1
 defaults write com.apple.commerce AutoUpdate -bool true
+
+###############################################################################
+# Confidentialité                                                             #
+###############################################################################
+
+# Désactive Apple Intelligence.
+# ⚠️ Apple Silicon uniquement (Sequoia 15.3+) — sans effet sur Intel.
+# ⚠️ L'ID de clé "545129924" peut changer après une mise à jour macOS.
+defaults write com.apple.CloudSubscriptionFeatures.optIn "545129924" -bool false
 
 ###############################################################################
 # Redémarre les apps affectées                                                #
