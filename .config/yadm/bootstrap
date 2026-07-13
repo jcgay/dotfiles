@@ -75,7 +75,7 @@ if command -v claude &>/dev/null; then
 
   # Plugins (scope user par défaut) — || true pour rester ré-exécutable
   for plugin in \
-    superpowers@claude-plugins-official \
+    superpowers@superpowers-marketplace \
     context7@claude-plugins-official \
     sonarqube@claude-plugins-official \
     frontend-design@claude-plugins-official \
