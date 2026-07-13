@@ -12,12 +12,13 @@ Outside this checkout, the repo is operated via `yadm <git-subcommand>` (`yadm s
 
 ## Templates and classes (the main gotcha)
 
-A **class** (`Work` or `Personal`) is stored locally per machine (`yadm config local.class`) and never committed. Files ending in `##template` are Jinja-rendered by class:
+A **class** (`Work` or `Personal`) is stored locally per machine (`yadm config local.class`) and never committed. Files ending in `##template` are rendered by class and by machine architecture:
 
-- Edit `.gitconfig##template`, **never** the rendered `.gitconfig` — `yadm alt` overwrites it. Run `yadm alt` after editing a template or changing class.
-- Currently both `.gitconfig##template` and its rendered output are tracked, so `yadm status` may show `.gitconfig` as modified when class differs from the last commit. Known wart (see README).
+- Edit the `##template`, **never** the rendered file (`.gitconfig`, `.config/ghostty/config`) — `yadm alt` overwrites it. Run `yadm alt` after editing a template or changing class.
+- Rendered outputs are **gitignored**, not tracked (see `.gitignore`), so `yadm status` stays clean regardless of class or architecture.
+- yadm has **no external Jinja engine installed**; its built-in processor only handles the **multi-line** `{% if %}` / `{% else %}` / `{% endif %}` form — one directive per line. Inline conditionals silently pass through unrendered.
 
-The class currently only switches the git `user.email`.
+Templates branch on two axes: the class switches the git `user.email`; `yadm.arch` switches Homebrew-prefix paths (`/opt/homebrew` on Apple Silicon `arm64`, `/usr/local` on Intel `x86_64`) — e.g. the `fish` binary path in `.config/ghostty/config##template` and `.config/yadm/bootstrap`.
 
 ## fish shell config
 

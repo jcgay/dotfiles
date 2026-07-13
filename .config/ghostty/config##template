@@ -41,5 +41,9 @@ palette = 7=#a89984
 palette = 15=#fbf1c7
 
 copy-on-select = true
-# Default shell (fish)
+# Default shell (fish) — Homebrew prefix diffère selon l'archi (Apple Silicon / Intel)
+{% if yadm.arch == "arm64" %}
 command = /opt/homebrew/bin/fish --login
+{% else %}
+command = /usr/local/bin/fish --login
+{% endif %}
