@@ -2,13 +2,13 @@
 # Installe mes workflows Alfred. Rejouable : re-télécharge la dernière release et ré-importe.
 #
 # Dépendances (via brew) :
-#   bw    → bitwarden  (`brew install bitwarden-cli`)
+#   bw, jq → Bitwarden-Accelerator  (bitwarden-cli + jq)
 
 set dl (mktemp -d)
 
 # Sources : repos avec asset de release + fichiers raw (repos sans release)
 set repos \
-    blacs30/bitwarden-alfred-workflow \
+    ajrosen/Bitwarden-Accelerator \
     Avivbens/alfred-kill-process \
     vanstrouble/caffeine-dose-alfred-workflow
 
