@@ -50,12 +50,6 @@ fi
 echo "Création du workspace Go..."
 mkdir -p ~/dev/golang/{src,bin,pkg}
 
-# Volta (JavaScript version manager)
-if ! command -v volta &>/dev/null; then
-  echo "Installation de Volta..."
-  curl https://get.volta.sh | bash
-fi
-
 # SonarQube CLI (pas de formule brew — installe dans ~/.local/share/sonarqube-cli)
 if [ ! -x "$HOME/.local/share/sonarqube-cli/bin/sonar" ]; then
   echo "Installation de SonarQube CLI..."
