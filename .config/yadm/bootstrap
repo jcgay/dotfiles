@@ -99,6 +99,15 @@ else
   echo "ℹ️  CLI 'claude' absente — section Claude Code ignorée (relancer après installation)."
 fi
 
+# Workflows Alfred — import interactif (nécessite Alfred lancé + clic "Import" par workflow)
+echo ""
+read -p "Installer les workflows Alfred (~/.local/bin/install-alfred-workflows) ? [y/N] " confirm_alfred
+if [[ "$confirm_alfred" == "y" || "$confirm_alfred" == "Y" ]]; then
+  fish "$HOME/.local/bin/install-alfred-workflows" || true
+else
+  echo "ℹ️  Skipping. Relancer manuellement avec : install-alfred-workflows"
+fi
+
 # Personnalisation macOS (defaults write) — opinionné, nécessite sudo
 echo ""
 read -p "Appliquer la personnalisation macOS (~/.config/yadm/macos-defaults.sh) ? [y/N] " confirm_macos

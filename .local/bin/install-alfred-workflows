@@ -1,0 +1,47 @@
+#!/usr/bin/env fish
+# Installe mes workflows Alfred. Rejouable : re-télécharge la dernière release et ré-importe.
+#
+# Dépendances (via brew) :
+#   bw    → bitwarden  (`brew install bitwarden-cli`)
+
+set dl (mktemp -d)
+
+# Sources : repos avec asset de release + fichiers raw (repos sans release)
+set repos \
+    blacs30/bitwarden-alfred-workflow \
+    Avivbens/alfred-kill-process \
+    vanstrouble/caffeine-dose-alfred-workflow
+
+set urls
+for repo in $repos
+    set u (curl -fsSL "https://api.github.com/repos/$repo/releases/latest" \
+        | grep browser_download_url | grep -i '\.alfredworkflow' | head -1 | cut -d '"' -f 4)
+    if test -z "$u"
+        echo "⚠ $repo : pas d'asset .alfredworkflow — à installer à la main"
+    else
+        set urls $urls $u
+    end
+end
+set urls $urls \
+    "https://github.com/willfarrell/alfred-encode-decode-workflow/raw/master/encode-decode.alfredworkflow"
+
+# 1) Télécharge tout, puis retire la quarantaine Gatekeeper (sinon Alfred = "corrompu")
+set files
+for u in $urls
+    set f "$dl/"(basename "$u")
+    if curl -fsSL "$u" -o "$f"
+        xattr -c "$f"
+        set files $files "$f"
+    else
+        echo "⚠ échec téléchargement : $u"
+    end
+end
+
+# 2) Importe un par un — une fenêtre Alfred à la fois (sinon Alfred les empile et plante)
+for f in $files
+    echo "→ Import : "(basename "$f")
+    open "$f"
+    read -P "   Clique 'Import' dans Alfred, puis Entrée pour le suivant… " -l reply
+end
+
+echo "Fait."
