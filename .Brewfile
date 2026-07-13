@@ -60,7 +60,7 @@ brew "marp-cli"
 brew "micro"
 brew "mthmulders/tap/mcs"
 brew "jakewharton/repo/diffuse"
-brew "raullenchai/rapid-mlx/rapid-mlx"
+brew "raullenchai/rapid-mlx/rapid-mlx" if Hardware::CPU.arm?
 brew "mole"
 
 # ─── git/install.sh ────────────────────────────────────────────────────────
@@ -91,8 +91,6 @@ brew "go"
 brew "gradle-completion"
 
 # ─── maven/install.sh ──────────────────────────────────────────────────────
-brew "jcgay/jcgay/maven-deluxe"
-brew "jcgay/jcgay/mvnd-deluxe"
 brew "maven"
 brew "mvndaemon/mvnd/mvnd"
 
