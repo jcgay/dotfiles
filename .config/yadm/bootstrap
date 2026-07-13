@@ -70,19 +70,14 @@ if command -v claude &>/dev/null; then
   echo "Configuration de Claude Code (plugins + MCP)..."
 
   # Marketplaces tierces (claude-plugins-official est déjà connue par défaut)
-  claude plugin marketplace add forrestchang/andrej-karpathy-skills || true
-  claude plugin marketplace add DietrichGebert/ponytail || true
+    claude plugin marketplace add DietrichGebert/ponytail || true
 
   # Plugins (scope user par défaut) — || true pour rester ré-exécutable
   for plugin in \
     superpowers@claude-plugins-official \
     context7@claude-plugins-official \
-    jdtls-lsp@claude-plugins-official \
-    typescript-lsp@claude-plugins-official \
-    pyright-lsp@claude-plugins-official \
     sonarqube@claude-plugins-official \
     frontend-design@claude-plugins-official \
-    andrej-karpathy-skills@karpathy-skills \
     ponytail@ponytail; do
     claude plugin install "$plugin" || true
   done
