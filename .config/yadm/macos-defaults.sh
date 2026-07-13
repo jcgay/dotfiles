@@ -40,6 +40,9 @@ defaults write NSGlobalDomain NSTableViewDefaultSizeMode -int 2
 defaults write NSGlobalDomain NSUseAnimatedFocusRing -bool false
 defaults write NSGlobalDomain NSWindowResizeTime -float 0.001
 
+# Coupe les animations d'ouverture/fermeture de fenêtres (réactivité sur GPU Intel/Tahoe)
+defaults write NSGlobalDomain NSAutomaticWindowAnimationsEnabled -bool false
+
 # Déplie les panneaux d'enregistrement / impression par défaut
 defaults write NSGlobalDomain NSNavPanelExpandedStateForSaveMode -bool true
 defaults write NSGlobalDomain NSNavPanelExpandedStateForSaveMode2 -bool true
