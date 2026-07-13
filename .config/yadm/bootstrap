@@ -70,7 +70,8 @@ if command -v claude &>/dev/null; then
   echo "Configuration de Claude Code (plugins + MCP)..."
 
   # Marketplaces tierces (claude-plugins-official est déjà connue par défaut)
-    claude plugin marketplace add DietrichGebert/ponytail || true
+  claude plugin marketplace add DietrichGebert/ponytail || true
+  claude plugin marketplace add obra/superpowers-marketplace || true
 
   # Plugins (scope user par défaut) — || true pour rester ré-exécutable
   for plugin in \
