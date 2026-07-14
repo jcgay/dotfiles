@@ -89,6 +89,16 @@ if command -v claude &>/dev/null; then
     claude plugin install "$plugin" || true
   done
 
+  # Playwright Agent CLI + skills (https://playwright.dev/agent-cli/installation)
+  # `install --skills` doit être lancé depuis le HOME → sous-shell avec cd
+  if command -v npm &>/dev/null; then
+    echo "Installation de Playwright Agent CLI..."
+    npm install -g @playwright/cli@latest || true
+    (cd "$HOME" && playwright-cli install --skills) || true
+  else
+    echo "ℹ️  npm absent — Playwright Agent CLI ignoré."
+  fi
+
   # Serveur MCP codebase-memory (nécessite le binaire ~/.local/bin/codebase-memory-mcp)
   if [ -x "$HOME/.local/bin/codebase-memory-mcp" ]; then
     claude mcp add -s user codebase-memory-mcp "$HOME/.local/bin/codebase-memory-mcp" || true
