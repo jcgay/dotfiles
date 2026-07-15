@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+#
+# Import a server's TLS certificate chain into the cacerts of every local
+# JDK/JRE, so tools running on any of them (Maven, Gradle incl. auto-
+# provisioned toolchains, plain java) trust it.
+#
+#   import-cert-to-jdks https://internal.example.com/
+#   import-cert-to-jdks registry.example.com:8443
+#
+# Idempotent: re-running updates the entry (handles cert renewals).
+# Store password defaults to "changeit" (override with CACERTS_PASS=...).
+
+set -euo pipefail
+
+[ $# -eq 1 ] || { echo "usage: $(basename "$0") <url|host[:port]>" >&2; exit 1; }
+
+STOREPASS="${CACERTS_PASS:-changeit}"
+
+# Roots under $HOME that hold JDK/JRE installs. Each is scanned for cacerts.
+ROOTS=(
+  "$HOME/.local/share/mise/installs/java"   # mise
+  "$HOME/.gradle/jdks"                       # Gradle auto-provisioned toolchains
+  "$HOME/.sdkman/candidates/java"            # SDKMAN
+  "/Library/Java/JavaVirtualMachines"        # system JDKs (may need sudo)
+)
+
+command -v keytool >/dev/null || { echo "keytool not on PATH" >&2; exit 1; }
+command -v openssl >/dev/null || { echo "openssl not on PATH" >&2; exit 1; }
+
+# Parse host:port from the argument (accepts scheme:// and /path).
+arg="$1"; arg="${arg#*://}"; arg="${arg%%/*}"
+host="${arg%%:*}"
+port="${arg##*:}"; [ "$port" = "$host" ] && port=443
+
+tmp="$(mktemp -d)"
+trap 'rm -rf "$tmp"' EXIT
+
+echo "Fetching certificate chain from $host:$port ..."
+# openssl s_client can exit non-zero even on a successful handshake, so don't
+# let the pipe status abort the script — the cert-count check below is the gate.
+openssl s_client -connect "$host:$port" -servername "$host" -showcerts </dev/null 2>/dev/null \
+  | awk -v d="$tmp" '
+      /-----BEGIN CERTIFICATE-----/ {n++; f=sprintf("%s/cert-%02d.pem", d, n); inc=1}
+      inc {print > f}
+      /-----END CERTIFICATE-----/ {inc=0; close(f)}
+    ' || true
+
+certs=("$tmp"/cert-*.pem)
+[ -e "${certs[0]}" ] || { echo "No certificate retrieved from $host:$port" >&2; exit 1; }
+echo "Got ${#certs[@]} certificate(s) in the chain."
+
+# Collect every cacerts path first (deduped), so keytool isn't run inside the
+# find pipe — a single keytool hiccup then can't abort the whole run.
+stores=()
+seen="|"   # bash 3.2 (macOS) has no associative arrays; dedupe via a string
+for root in "${ROOTS[@]}"; do
+  [ -d "$root" ] || continue
+  while IFS= read -r ks; do
+    [ -f "$ks" ] || continue                        # skip dangling symlinks (e.g. stub JDK 6)
+    real="$(readlink -f "$ks" 2>/dev/null)" || real="$ks"
+    case "$seen" in *"|$real|"*) continue ;; esac   # skip mise version-alias symlinks
+    seen="$seen$real|"
+    stores+=("$ks")
+  done < <(find "$root" -name cacerts -path '*/security/*' 2>/dev/null)
+done
+
+updated=0
+for ks in "${stores[@]}"; do
+  if [ ! -w "$ks" ]; then
+    echo "skip (no write permission, re-run with sudo): $ks"
+    continue
+  fi
+  i=0
+  ok=1
+  for c in "${certs[@]}"; do
+    i=$((i + 1))
+    alias="${host}-${i}"
+    keytool -delete -keystore "$ks" -storepass "$STOREPASS" -alias "$alias" >/dev/null 2>&1 || true
+    if ! keytool -importcert -noprompt -keystore "$ks" -storepass "$STOREPASS" -alias "$alias" -file "$c" >/dev/null 2>&1; then
+      ok=0
+    fi
+  done
+  if [ "$ok" = 1 ]; then echo "ok    $ks"; updated=$((updated + 1)); else echo "FAIL  $ks"; fi
+done
+
+echo "Updated $updated of ${#stores[@]} keystore(s) with alias prefix '${host}-'."
