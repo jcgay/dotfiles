@@ -22,6 +22,7 @@ set -gx HOMEBREW_CASK_OPTS "--appdir=/Applications"
 if status is-interactive
     gpg-connect-agent updatestartuptty /bye >/dev/null 2>&1
 end
+set -gx GPG_TTY "$(tty)"
 
 # GRC — colorize unix tools (check for fish support file)
 if command -q grc; and command -q brew
