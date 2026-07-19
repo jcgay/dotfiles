@@ -1,24 +1,40 @@
 #!/bin/sh
 #
-# post_pull — sync Homebrew si .Brewfile a changé pendant le pull.
-#   - ajouts   : `brew bundle --global install` (idempotent, gère tout)
-#   - retraits : uninstall des lignes brew/cask disparues du diff
+# post_pull — reconcile local config when the source files change during a
+# `yadm pull` (also triggered via the `dot` script).
 
-command -v brew >/dev/null 2>&1 || exit 0
+# True if $1 changed within the pulled range (ORIG_HEAD..HEAD).
+changed() {
+  ! yadm diff --quiet ORIG_HEAD HEAD -- "$1" 2>/dev/null
+}
 
-diff=$(yadm diff --unified=0 ORIG_HEAD HEAD -- .Brewfile 2>/dev/null)
-[ -n "$diff" ] || exit 0
+# Re-render ##template files (idempotent, no diff check needed).
+yadm alt
 
-echo "\033[0;34m.Brewfile modifié — synchro Homebrew…\033[0m"
+# ─── Homebrew: .Brewfile ─────────────────────────────────────────────────
+if command -v brew >/dev/null 2>&1 && changed .Brewfile; then
+  echo "\033[0;34m.Brewfile changed — syncing Homebrew…\033[0m"
+  # Additions (and any missing entry): brew bundle handles it.
+  brew bundle --global install
+  # Removals: uninstall the formulae/casks dropped from the Brewfile.
+  # ponytail: basic `-brew "x"` / `-cask "x"` parse, ignores mas/tap.
+  diff=$(yadm diff --unified=0 ORIG_HEAD HEAD -- .Brewfile 2>/dev/null)
+  echo "$diff" | sed -n 's/^-brew "\([^"]*\)".*/\1/p'  | while read -r f; do
+    brew uninstall "$f" 2>/dev/null || true
+  done
+  echo "$diff" | sed -n 's/^-cask "\([^"]*\)".*/\1/p' | while read -r c; do
+    brew uninstall --cask "$c" 2>/dev/null || true
+  done
+fi
 
-# Ajouts (et toute autre entrée manquante) : brew bundle s'en occupe.
-brew bundle --global install
+# ─── mise: .config/mise/config.toml ──────────────────────────────────────
+if command -v mise >/dev/null 2>&1 && changed .config/mise/config.toml; then
+  echo "\033[0;34mmise config changed — mise install…\033[0m"
+  mise install
+fi
 
-# Retraits : uninstall uniquement des formules/casks retirés du Brewfile.
-# ponytail: parse basique `-brew "x"` / `-cask "x"`, ignore mas/tap. Étendre si besoin.
-echo "$diff" | sed -n 's/^-brew "\([^"]*\)".*/\1/p'  | while read -r f; do
-  brew uninstall "$f" 2>/dev/null || true
-done
-echo "$diff" | sed -n 's/^-cask "\([^"]*\)".*/\1/p' | while read -r c; do
-  brew uninstall --cask "$c" 2>/dev/null || true
-done
+# ─── Fisher: .config/fish/fish_plugins ───────────────────────────────────
+if command -v fish >/dev/null 2>&1 && changed .config/fish/fish_plugins; then
+  echo "\033[0;34mfish_plugins changed — fisher update…\033[0m"
+  fish -c "fisher update"
+fi
