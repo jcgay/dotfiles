@@ -29,6 +29,7 @@ brew trust mthmulders/tap
 brew trust jakewharton/repo
 brew trust raullenchai/rapid-mlx
 brew trust static-var/tap
+brew trust AlexsJones/llmfit
 
 # Installe toutes les dépendances via Brewfile
 echo "Installation des formules Homebrew..."
