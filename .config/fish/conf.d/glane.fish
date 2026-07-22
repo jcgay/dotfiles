@@ -1,0 +1,5 @@
+set -gx GLANE_DB "$HOME/Sync/glane/glane.db"
+set -gx GLANE_SUMMARY_URL "http://localhost:8000/v1"
+set -gx GLANE_SUMMARY_MODEL "gemma-4-12b-8bit"
+set -gx GLANE_EMBED_URL "http://localhost:11434/v1"
+set -gx GLANE_EMBED_MODEL "bge-m3"

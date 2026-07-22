@@ -18,9 +18,6 @@ set -gx MANPAGER "less -X"
 # Homebrew cask
 set -gx HOMEBREW_CASK_OPTS "--appdir=/Applications"
 
-# Glane
-set -x GLANE_DB "$HOME/Sync/glane/glane.db"
-
 # GPG agent — refresh TTY so signing works in interactive sessions
 if status is-interactive
     gpg-connect-agent updatestartuptty /bye >/dev/null 2>&1
