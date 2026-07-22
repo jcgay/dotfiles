@@ -62,6 +62,7 @@ brew "mthmulders/tap/mcs"
 brew "jakewharton/repo/diffuse"
 brew "raullenchai/rapid-mlx/rapid-mlx" if Hardware::CPU.arm?
 brew "mole"
+brew "syncthing", restart_service: :changed
 
 # ─── git/install.sh ────────────────────────────────────────────────────────
 brew "git"
