@@ -132,6 +132,7 @@ cask "bruno"
 cask "http-toolkit"
 cask "agentsview"
 cask "keka"
+cask "vmlx" if Hardware::CPU.arm?
 
 # ─── Mac App Store (appstore/install.sh) ───────────────────────────────────
 brew "mas"
