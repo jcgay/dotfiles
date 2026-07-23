@@ -2,4 +2,4 @@
 
 export DOCKER_HOST="tcp://dockersw.vidal.net:4243";
 export DOCKER_API_VERSION=1.41
-docker $*
+docker "$@"
