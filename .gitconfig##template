@@ -45,6 +45,9 @@
 	keepBackup = false
 	keepTemporaries = false
 	prompt = false
+[merge "compote"]
+	name = Écrase les poms proprement
+	driver = compote %O %A %B
 [pull]
 	rebase = merges
 [push]
