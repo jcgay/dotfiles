@@ -1,0 +1,32 @@
+# Couleurs gruvbox (indices 256, ce build de tig ne gere pas le #rrggbb)
+# 235 bg  237 bg+  245 gris  187 fg  108 aqua  109 bleu  142 vert  214 jaune  167 rouge  175 mauve
+
+# Ligne selectionnee : texte sombre sur barre bleue, lisible dans toutes les vues
+color cursor            235 109 bold
+color search-result     235 214 bold
+
+# Barres de titre et status
+color title-focus       235 187 bold
+color title-blur        245 237
+color status            142 default
+color help-group        109 default
+color help-action       214 default
+color delimiter         245 default
+
+# Vue main
+color date              245 default
+color author            108 default
+color id                214 default
+color graph-commit      167 default
+color main-head         167 default bold
+color main-ref          108 default
+color main-remote       175 default
+color main-tag          214 default bold
+color main-local-tag    214 default
+color main-tracked      108 default bold
+
+# Diff
+color diff-header       214 default bold
+color diff-chunk        108 default
+color diff-add          142 default
+color diff-del          167 default
