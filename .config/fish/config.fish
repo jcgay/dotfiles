@@ -1,3 +1,7 @@
+# The following lines were added by Docker Desktop to add commands to your PATH.
+export PATH="$PATH:/Users/jcgay/.docker/bin"
+# End of Docker Desktop section.
+
 # Starship prompt — must be in config.fish (conf.d/ loads before this file)
 starship init fish | source
 
