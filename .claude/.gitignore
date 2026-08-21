@@ -4,3 +4,5 @@
 *
 !.gitignore
 !statusline-command.sh
+!rules/
+!rules/git-commit.md
