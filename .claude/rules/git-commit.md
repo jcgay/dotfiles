@@ -31,6 +31,14 @@ including on `master`/`main`. Push still only when I ask.
 ## Footer
 
 - `Closes #123` for a GitHub issue, `See MERLIN-2303` for a Jira reference.
+- Last trailer of every commit message:
+  `Co-Authored-By: Claude <MODEL_NAME> (<CONTEXT_SIZE>) <noreply@anthropic.com>`
+  where `<MODEL_NAME>` and `<CONTEXT_SIZE>` are the *current* session's model, not
+  a hardcoded one — e.g. `Claude Opus 5 (1M context)`, `Claude Sonnet 5 (200k context)`.
+  Take the exact string from the harness instructions of the running session; if
+  the harness gives no context size, drop the parentheses entirely.
+- Last line of every PR body:
+  `🤖 Generated with [Claude Code](https://claude.com/claude-code)`
 
 ## Never
 
