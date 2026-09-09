@@ -25,6 +25,7 @@ including on `master`/`main`. Push still only when I ask.
   enumeration.
 - Keep it readable: a handful of lines most of the time. Go longer only when the
   change actually needs it — don't tell your life story by default.
+- Humanize your final message using /humanizer skill
 - Link public sources outside the repo when they exist: vendor documentation,
   spec, standard, upstream issue.
 
