@@ -67,6 +67,7 @@ brew "mole"
 brew "syncthing", restart_service: :changed
 brew "AlexsJones/llmfit/llmfit"
 brew "witr"
+brew "shellspec"
 
 # ─── git/install.sh ────────────────────────────────────────────────────────
 brew "git"
