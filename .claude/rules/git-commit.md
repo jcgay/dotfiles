@@ -20,7 +20,8 @@ including on `master`/`main`. Push still only when I ask.
 - Explain **why**: the constraint, the failure mode, the option not taken, the
   external context that cannot be guessed from the code alone.
 - For a bugfix, name the root cause — what was wrong and why — not the sequence
-  of edits that fixes it.
+  of edits that fixes it. Also add a step by step instruction to reproduce the bug
+  when possible.
 - Prose, not a bullet-list restating each hunk. Bullets only for a genuine
   enumeration.
 - Keep it readable: a handful of lines most of the time. Go longer only when the
