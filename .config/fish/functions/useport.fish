@@ -1,3 +1,3 @@
 function useport --description 'Find process listening on port'
-    lsof -n -i4TCP:$argv | grep LISTEN
+    lsof -nP -iTCP:$argv -sTCP:LISTEN
 end
