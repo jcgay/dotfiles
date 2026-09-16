@@ -109,7 +109,7 @@ machine's class and other facts. Example —
 [user]
 	name = Jean-Christophe Gay
 {% if yadm.class == "Work" %}
-	email = jean-christophe.gay@vidal.fr
+	email = jc@work.com
 {% else %}
 	email = contact@jeanchristophegay.com
 {% endif %}
