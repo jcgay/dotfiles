@@ -5,6 +5,13 @@ Applies whenever you write a commit message (or a PR description).
 Commit at the end of each task, on the current branch, without asking me —
 including on `master`/`main`. Push still only when I ask.
 
+## Review feedback
+
+Changes asked for in a code review go in `git commit --fixup=<sha>`
+commits, one per commit being corrected (find it with `git blame` /
+`git log -L`), never in a new standalone commit. Don't autosquash them:
+I run `git rebase -i --autosquash` myself.
+
 ## Subject
 
 - English, imperative mood, no trailing period: `Fix unstable Epp choice in EPP alert couples`.
