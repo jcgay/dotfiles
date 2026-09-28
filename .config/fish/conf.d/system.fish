@@ -5,6 +5,8 @@ fish_add_path /usr/local/sbin
 fish_add_path $HOME/Applications/happy-release/bin
 fish_add_path $HOME/.local/share/sonarqube-cli/bin
 
+set -gx MERLIN_DB_PATH /Volumes/sourcecode/arthur/karadoc/build/dbs/sqlite
+
 # Editor
 set -gx EDITOR micro
 
