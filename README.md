@@ -16,8 +16,7 @@ so `~/.gitconfig`, `~/.config/fish/...`, etc. are the real files git versions.
 | Shell | [fish](https://fishshell.com) | `.config/fish/` |
 | Prompt | [starship](https://starship.rs) | `.config/starship.toml` |
 | Packages | [Homebrew](https://brew.sh) global Brewfile | `.Brewfile` |
-| JVM tools (Java, Gradle, Kotlin…) | [mise](https://mise.jdx.dev) | `.config/mise/config.toml` |
-| JS runtime | [Volta](https://volta.sh) | — |
+| Runtimes (Java, Gradle, Kotlin, Node…) | [mise](https://mise.jdx.dev) | `.config/mise/config.toml` |
 | fish plugins | [Fisher](https://github.com/jorgebucaran/fisher) | `.config/fish/fish_plugins` |
 | App preferences | [Mackup](https://github.com/lra/mackup) (synced via Google Drive) | `.mackup.cfg` |
 | Personal scripts | — | `.local/bin/` |
@@ -42,7 +41,7 @@ which:
 2. Installs Homebrew, then `brew bundle --global` (everything in `.Brewfile`).
 3. `git lfs install`.
 4. Switches the default shell to fish.
-5. Creates the Go workspace, installs Volta, runs `mise install`.
+5. Creates the Go workspace, runs `mise install`.
 6. Installs Fisher + fish plugins.
 7. Optionally runs `mackup restore` (needs Google Drive synced first).
 

@@ -5,6 +5,8 @@ java = "temurin-25"
 jbang = "latest"
 kotlin = { version = "latest", asset_pattern = "kotlin-compiler-*.zip", bin_path = "kotlinc/bin" }
 micronaut = { version = "latest", exe = "mn" }
+node = "24"
+"npm:@playwright/cli" = "latest"
 python = "3.13.14"
 quarkus = "latest"
 sbt = "latest"
@@ -12,7 +14,7 @@ scala = "latest"
 
 [settings]
 legacy_version_file = true
-idiomatic_version_file_enable_tools = ["java"]
+idiomatic_version_file_enable_tools = ["java", "node", "pnpm"]
 
 [tool_alias]
 

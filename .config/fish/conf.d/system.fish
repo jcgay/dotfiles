@@ -5,7 +5,7 @@ fish_add_path /usr/local/sbin
 fish_add_path $HOME/Applications/happy-release/bin
 fish_add_path $HOME/.local/share/sonarqube-cli/bin
 # /etc/paths.d puts Homebrew after /usr/bin, so Apple's git won. Move it
-# behind the paths above (Volta, ~/.local/bin...) but ahead of /usr/bin.
+# behind the paths above (~/.local/bin, Go...) but ahead of /usr/bin.
 fish_add_path --move --append /opt/homebrew/bin /opt/homebrew/sbin
 
 set -gx MERLIN_DB_PATH /Volumes/sourcecode/arthur/karadoc/build/dbs/sqlite
