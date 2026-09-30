@@ -9,6 +9,16 @@
 	helper = osxkeychain
 [color]
 	ui = auto
+[column]
+	ui = auto
+[branch]
+	sort = -committerdate
+[tag]
+	sort = version:refname
+[help]
+	autocorrect = prompt
+[commit]
+	verbose = true
 [alias]
 	st = status
 	ci = commit
@@ -29,17 +39,20 @@
 [diff]
 	mnemonicPrefix = true
 	wordRegex = .
-	compactionHeuristic = true
+	algorithm = histogram
 	colorMoved = zebra
 [fetch]
 	recurseSubmodules = on-demand
+	prune = true
+	pruneTags = true
+	all = true
 [grep]
 	extendedRegexp = true
 [log]
 	abbrevCommit = true
 	follow = true
 [merge]
-	conflictStyle = diff3
+	conflictStyle = zdiff3
 	tool = p4merge
 [mergetool]
 	keepBackup = false
@@ -52,6 +65,8 @@
 	rebase = merges
 [push]
 	default = upstream
+	autoSetupRemote = true
+	followTags = true
 [rerere]
 	autoupdate = true
 	enabled = true
@@ -61,6 +76,7 @@
 [rebase]
 	autostash = true
 	autoSquash = true
+	updateRefs = true
 [init]
 	defaultBranch = main
 [advice]
