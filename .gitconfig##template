@@ -29,6 +29,7 @@
 	llg = !(git lg @{u}..)
 	ignored = clean -ndX
 	ready = rebase -i @{u}
+	delete-merged = branch --delete-merged */*
 	changelog = "!f() { git log $1...$2 --pretty=format:\"- %s ([%h](http://github.com/jcgay/$3/commit/%H))  \"; }; f"
 [core]
 	pager = delta
@@ -46,6 +47,7 @@
 	prune = true
 	pruneTags = true
 	all = true
+	followRemoteHEAD = always
 [grep]
 	extendedRegexp = true
 [log]
@@ -73,10 +75,15 @@
 [status]
 	submoduleSummary = true
 	showUntrackedFiles = all
+	compareBranches = @{upstream} @{push}
 [rebase]
 	autostash = true
 	autoSquash = true
 	updateRefs = true
+[blame]
+	ignoreRevsFile = :(optional).git-blame-ignore-revs
+[stash]
+	index = true
 [init]
 	defaultBranch = main
 [advice]
