@@ -12,6 +12,19 @@ commits, one per commit being corrected (find it with `git blame` /
 `git log -L`), never in a new standalone commit. Don't autosquash them:
 I run `git rebase -i --autosquash` myself.
 
+## Pull request
+
+Once the branch has an open pull request (`gh pr view --json number`), every
+new commit carries `Closes #<PR>` in its footer.
+
+When a pull request has just been opened, by `gh pr create` or because I say
+so, the commits made before it get the trailer too:
+
+1. List `git log <base>..HEAD` and show it to me; I may drop some.
+2. For each remaining commit, `git commit --fixup=amend:<sha>` with the
+   original message plus the trailer. Skip the ones that already have it.
+3. Don't autosquash, don't push: same as review fixups.
+
 ## Subject
 
 - English, imperative mood, no trailing period: `Fix unstable Epp choice in EPP alert couples`.
@@ -48,7 +61,10 @@ I run `git rebase -i --autosquash` myself.
 
 ## Footer
 
-- `Closes #123` for a GitHub issue, `See MERLIN-2303` for a Jira reference.
+- `Closes #123` for a GitHub issue or pull request, `See MERLIN-2303` for a Jira
+  reference. Several on one line, the keyword repeated before each number:
+  `Closes #456, closes #1234`; a bare `#1234` after a comma links nothing
+  ([GitHub](https://docs.github.com/en/issues/tracking-your-work-with-issues/using-issues/linking-a-pull-request-to-an-issue)).
 - Last trailer of every commit message:
   `Co-Authored-By: Claude <MODEL_NAME> (<CONTEXT_SIZE>) <noreply@anthropic.com>`
   where `<MODEL_NAME>` and `<CONTEXT_SIZE>` are the *current* session's model, not
