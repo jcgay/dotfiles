@@ -27,8 +27,17 @@ I run `git rebase -i --autosquash` myself.
 - Explain **why**: the constraint, the failure mode, the option not taken, the
   external context that cannot be guessed from the code alone.
 - For a bugfix, name the root cause — what was wrong and why — not the sequence
-  of edits that fixes it. Also add a step by step instruction to reproduce the bug
-  when possible.
+  of edits that fixes it.
+- A bugfix also gets a "To reproduce" paragraph: numbered steps someone without
+  the session's context can follow on the unfixed code.
+  - Starting point: version, branch or commit, environment, the configuration
+    or data it needs.
+  - Exact actions: commands, requests (`curl ...`), input identifiers, UI clicks.
+  - Observed result, with the exact error message or an excerpt of it, then
+    the expected result.
+  - Not reproducible by hand (race, production data)? Say why, and name the
+    test that reproduces it.
+  This paragraph is the one part allowed past "a handful of lines".
 - Prose, not a bullet-list restating each hunk. Bullets only for a genuine
   enumeration.
 - Keep it readable: a handful of lines most of the time. Go longer only when the
