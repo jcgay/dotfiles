@@ -63,6 +63,11 @@ fi
 echo "Installation des outils JVM via mise..."
 mise install
 
+# SDK Android (sdkmanager vient du cask android-commandlinetools, Java vient de mise)
+echo "Installation du SDK Android..."
+mise exec -- sdkmanager --licenses
+mise exec -- sdkmanager "platforms;android-36" "build-tools;36.0.0" "platform-tools"
+
 # Fisher (fish plugin manager)
 echo "Installation de fisher et plugins fish..."
 fish -c 'curl -sL https://raw.githubusercontent.com/jorgebucaran/fisher/main/functions/fisher.fish | source && fisher install < ~/.config/fish/fish_plugins'

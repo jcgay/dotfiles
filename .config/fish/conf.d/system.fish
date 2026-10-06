@@ -9,6 +9,8 @@ fish_add_path $HOME/.local/share/sonarqube-cli/bin
 fish_add_path --move --append /opt/homebrew/bin /opt/homebrew/sbin
 
 set -gx MERLIN_DB_PATH /Volumes/sourcecode/arthur/karadoc/build/dbs/sqlite
+set -gx ANDROID_HOME /opt/homebrew/share/android-commandlinetools
+fish_add_path $ANDROID_HOME/platform-tools
 
 # Editor
 set -gx EDITOR micro

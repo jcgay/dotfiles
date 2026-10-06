@@ -102,6 +102,7 @@ brew "mvndaemon/mvnd/mvnd"
 
 # ─── Casks (depuis cask/Brewfile) ──────────────────────────────────────────
 cask "alfred"
+cask "android-commandlinetools"
 cask "android-file-transfer"
 cask "anybar"
 cask "bitwarden"
