@@ -7,7 +7,7 @@ kotlin = { version = "latest", asset_pattern = "kotlin-compiler-*.zip", bin_path
 micronaut = { version = "latest", exe = "mn" }
 node = "24"
 "npm:@playwright/cli" = "latest"
-python = "3.14.8"
+python = "3.15.0"
 quarkus = "latest"
 sbt = "latest"
 scala = "latest"
