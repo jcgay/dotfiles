@@ -6,3 +6,6 @@
 !statusline-command.sh
 !rules/
 !rules/git-commit.md
+!skills/
+!skills/pr-risk/
+!skills/pr-risk/*
