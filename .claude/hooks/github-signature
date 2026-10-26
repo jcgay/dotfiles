@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# PreToolUse(Bash): refuse gh commands that publish text on GitHub without
+# the "🤖 Jean-Claude" signature (see ~/.claude/rules/github.md).
+# Fails open: without jq or with unreadable input, the command goes through.
+sig='🤖 Jean-Claude'
+cmd=$(jq -r '.tool_input.command // empty')
+
+# gh must start a command segment (line start, ;, &, |, (, $( ) so that text
+# merely mentioning it (commit message) does not count. Heredoc bodies are
+# dropped first: their lines are text, not commands.
+flat=$(perl -0pe 's/(<<-?\s*([\x27"]?)(\w+)\2[^\n]*)\n.*?\n\s*\3(?=\n|$)/$1/gs' <<<"$cmd")
+seg='(^|[;&|(]|\$\()[[:space:]]*(rtk +(proxy +)?)?gh( +(-R|--repo)[ =][^ ]+)? +'
+grep -qE "$seg(pr +(create|comment|review|edit)|issue +(create|comment|edit)|release +(create|edit))( |$)" <<<"$flat" || exit 0
+# pr/issue create always write a body (unless --web hands over to the browser);
+# the others only with a body flag.
+if ! grep -qE -- '(-b|--body|-F|--body-file|-n|--notes|--notes-file)([ =]|$)' <<<"$cmd"; then
+  grep -qE "$seg(pr|issue) +create( |$)" <<<"$flat" && ! grep -qE -- '--web( |$)' <<<"$cmd" || exit 0
+fi
+
+grep -qF "$sig" <<<"$cmd" && exit 0
+while IFS= read -r f; do
+  f=${f#\"}; f=${f%\"}; f=${f#\'}; f=${f%\'}; f=${f/#\~/$HOME}
+  [ -f "$f" ] && grep -qF "$sig" "$f" && exit 0
+done < <(grep -oE -- "(-F|--body-file|--notes-file)[ =]+(\"[^\"]*\"|'[^']*'|[^ ;&|\"']+)" <<<"$cmd" | sed -E 's/^[^ =]+[ =]+//')
+
+jq -n --arg r "Le texte publié sur GitHub doit se terminer par une ligne vide puis \"$sig\" (voir ~/.claude/rules/github.md)." \
+  '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"deny",permissionDecisionReason:$r}}'

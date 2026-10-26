@@ -87,8 +87,9 @@ the guess was wrong, the commits made before it get the trailer too:
   a hardcoded one — e.g. `Claude Opus 5 (1M context)`, `Claude Sonnet 5 (200k context)`.
   Take the exact string from the harness instructions of the running session; if
   the harness gives no context size, drop the parentheses entirely.
-- Last line of every PR body:
-  `🤖 Generated with [Claude Code](https://claude.com/claude-code)`
+- End of every PR body:
+  `🤖 Generated with [Claude Code](https://claude.com/claude-code)`, followed
+  by the `🤖 Jean-Claude` signature (see `github.md`).
 
 ## Never
 

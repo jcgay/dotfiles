@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# Self-check for github-signature: ./github-signature.test (silent on success)
+cd "$(dirname "$0")"
+signed=$(mktemp -d)/b\ c.md; printf 'b\n\n🤖 Jean-Claude\n' > "$signed"
+fail=0
+t() { got=$(jq -n --arg c "$2" '{tool_input:{command:$c}}' | ./github-signature | jq -r '.hookSpecificOutput.permissionDecision // "allow"')
+      got=${got:-allow}; [ "$got" = "$1" ] || { echo "FAIL want $1 got $got: $2"; fail=1; }; }
+t deny  'gh pr comment 12 --body "hello"'
+t allow 'gh pr comment 12 --body "hello
+
+🤖 Jean-Claude"'
+t deny  'gh pr create --fill'
+t allow 'gh pr create --web'
+t deny  'gh issue comment 5 -b hi'
+t deny  'gh pr view 3 && gh pr comment 3 -b hi'
+t deny  'rtk proxy gh pr review 3 --comment -b hi'
+t deny  'gh -R o/r pr comment 1 -b hi'
+t deny  'gh release create v1 --notes x'
+t allow 'gh pr review 3 --approve'
+t allow 'gh pr edit 3 --title x'
+t allow 'gh pr view 3'
+t allow 'gh pr merge 3 -b x'
+t allow "gh pr comment 1 -F '$signed'"
+t allow "gh pr create --title x --body-file \"$signed\""
+t allow 'yadm commit -m "Sign gh pr create output"'
+t allow 'git commit -F - <<X
+Block gh issue create -b x
+X'
+t allow 'cat <<X > x.md
+gh pr create --body x
+X'
+t deny  'cd ~/src/repo
+gh pr comment 1 --body "x"'
+t deny  'cat <<X
+text
+X
+gh issue comment 1 -b x'
+t allow 'gh pr comment 1 -F - <<'"'"'X'"'"'
+body
+
+🤖 Jean-Claude
+X'
+t allow 'git commit -F - <<-X
+	gh pr comment 1 -b x
+	X'
+exit $fail

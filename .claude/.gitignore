@@ -6,6 +6,10 @@
 !statusline-command.sh
 !rules/
 !rules/git-commit.md
+!rules/github.md
+!hooks/
+!hooks/github-signature
+!hooks/github-signature.test
 !skills/
 !skills/pr-risk/
 !skills/pr-risk/*
