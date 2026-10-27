@@ -150,3 +150,4 @@ mas "Marked 2",                    id: 890031187
 cask "claude-code@latest"
 brew "rtk"
 brew "static-var/tap/build-brief"
+brew "avivsinai/tap/jk"
