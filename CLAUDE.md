@@ -34,8 +34,8 @@ Templates branch on two axes: the class switches the git `user.email`; `yadm.arc
 - `.config/mise/config.toml` — JVM/JS toolchain versions (mise).
 - `.mackup.cfg` — manifest of GUI app prefs synced via Google Drive (Mackup). The prefs themselves are **not** in this repo.
 - `.local/bin/` — personal scripts. `dot` updates everything (yadm pull, brew, mise, macOS); `dotup` runs `brew upgrade && cleanup`.
-- `.config/yadm/bootstrap` — new-machine setup (installs Homebrew, SonarQube CLI, mise tools, Android SDK packages via `sdkmanager`, Fisher; switches shell to fish; installs Claude Code marketplaces/plugins + the codebase-memory MCP server via the `claude` CLI, and registers the `github-signature` hook in `~/.claude/settings.json`; optional `mackup restore`). Comments are in French. Re-runnable via `yadm bootstrap`.
-- `~/.claude/` — Claude Code config. Only hand-written files are tracked (`statusline-command.sh`, `rules/git-commit.md`, `rules/github.md`, `hooks/github-signature`, `skills/pr-risk/`: see its whitelist `.gitignore`). `settings.json` is not tracked; plugins, MCP and hook registration are redone by bootstrap.
+- `.config/yadm/bootstrap` — new-machine setup (installs Homebrew, mise tools, Android SDK packages via `sdkmanager`, Fisher; switches shell to fish; sets up Claude Code: marketplaces/plugins via the `claude` CLI, `npx skills` skills, and each tool's own installer for plannotator, codebase-memory-mcp, rtk and build-brief; merges the `github-signature` hook and base settings into `~/.claude/settings.json`; SonarQube CLI/plugin/integration and the Vidal `merlin` plugin only for the `Work` class; optional `mackup restore`). Comments are in French. Re-runnable via `yadm bootstrap`.
+- `~/.claude/` — Claude Code config. Only hand-written files are tracked (`statusline-command.sh`, `subagent-statusline.py`, `rules/*.md`, `hooks/github-signature`, `skills/pr-risk/`: see its whitelist `.gitignore`). `settings.json` and `CLAUDE.md` are not tracked: plugins, MCP, hooks and the rtk/build-brief sections of `CLAUDE.md` are redone by bootstrap.
 
 ## Conventions
 
