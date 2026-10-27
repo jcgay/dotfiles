@@ -75,7 +75,6 @@ echo "Installation de fisher et plugins fish..."
 fish -c 'curl -sL https://raw.githubusercontent.com/jorgebucaran/fisher/main/functions/fisher.fish | source && fisher install < ~/.config/fish/fish_plugins'
 
 # Claude Code — marketplaces, plugins, serveurs MCP (claude vient du Brewfile)
-# (build-brief est exclu : marketplace locale gérée par son propre installeur)
 if command -v claude &>/dev/null; then
   echo "Configuration de Claude Code (plugins + MCP)..."
 
@@ -121,6 +120,10 @@ if command -v claude &>/dev/null; then
 
   # rtk : hook Bash qui compresse la sortie des commandes, RTK.md importé par ~/.claude/CLAUDE.md
   rtk init -g --auto-patch || true
+
+  # build-brief : section de ~/.claude/CLAUDE.md, marketplace locale et plugin
+  # (interactif ; CLAUDE.md doit exister, d'où le passage après rtk)
+  build-brief --global || true
 
   # Skills Playwright Agent CLI (la CLI vient de mise : npm:@playwright/cli)
   # `install --skills` doit être lancé depuis le HOME → sous-shell avec cd
