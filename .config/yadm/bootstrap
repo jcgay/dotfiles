@@ -123,12 +123,9 @@ if command -v claude &>/dev/null; then
   # `install --skills` doit être lancé depuis le HOME → sous-shell avec cd
   (cd "$HOME" && mise exec -- playwright-cli install --skills) || true
 
-  # Serveur MCP codebase-memory (nécessite le binaire ~/.local/bin/codebase-memory-mcp)
-  if [ -x "$HOME/.local/bin/codebase-memory-mcp" ]; then
-    claude mcp add -s user codebase-memory-mcp "$HOME/.local/bin/codebase-memory-mcp" || true
-  else
-    echo "ℹ️  codebase-memory-mcp absent — MCP non enregistré (installer le binaire d'abord)."
-  fi
+  # codebase-memory-mcp : binaire ~/.local/bin, serveur MCP, skill et hooks cbm-*
+  curl -fsSL https://raw.githubusercontent.com/DeusData/codebase-memory-mcp/main/install.sh \
+    | bash -s -- --clients=claude || true
 
   # Hook signature "🤖 Jean-Claude" sur gh (settings.json n'est pas suivi par yadm)
   settings="$HOME/.claude/settings.json"
