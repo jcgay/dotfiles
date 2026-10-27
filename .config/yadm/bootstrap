@@ -155,8 +155,13 @@ if command -v claude &>/dev/null; then
       || { rm -f "$settings.tmp"; echo "⚠️  $settings illisible — hook github-signature non enregistré."; }
   fi
 
-  # Status lines (scripts suivis par yadm) ; une valeur déjà présente dans settings.json gagne
+  # Réglages et status lines (scripts suivis par yadm) ; une valeur déjà présente dans settings.json gagne
   jq '{
+    model: "opus",
+    theme: "auto",
+    autoContinueAtUsageLimit: false,
+    skipDangerousModePermissionPrompt: true,
+    skipWorkflowUsageWarning: true,
     statusLine: {type: "command", command: "bash ~/.claude/statusline-command.sh"},
     subagentStatusLine: {type: "command", command: "python3 ~/.claude/subagent-statusline.py"}
   } + .' "$settings" > "$settings.tmp" && mv "$settings.tmp" "$settings" \
