@@ -104,7 +104,8 @@ if command -v claude &>/dev/null; then
     impeccable@impeccable \
     humanizer@humanizer \
     gradle-skills@gradle-skills \
-    docker-skills@docker; do
+    docker-skills@docker \
+    claude-md-management@claude-plugins-official; do
     claude plugin install "$plugin" || true
   done
 
