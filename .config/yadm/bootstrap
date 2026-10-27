@@ -55,8 +55,8 @@ fi
 echo "Création du workspace Go..."
 mkdir -p ~/dev/golang/{src,bin,pkg}
 
-# SonarQube CLI (pas de formule brew — installe dans ~/.local/share/sonarqube-cli)
-if [ ! -x "$HOME/.local/share/sonarqube-cli/bin/sonar" ]; then
+# SonarQube CLI, machines de travail seulement (pas de formule brew — installe dans ~/.local/share/sonarqube-cli)
+if [ "$(yadm config local.class)" = "Work" ] && [ ! -x "$HOME/.local/share/sonarqube-cli/bin/sonar" ]; then
   echo "Installation de SonarQube CLI..."
   curl -o- https://raw.githubusercontent.com/SonarSource/sonarqube-cli/refs/heads/master/user-scripts/install.sh | bash
 fi
@@ -96,7 +96,6 @@ if command -v claude &>/dev/null; then
   for plugin in \
     superpowers@superpowers-marketplace \
     context7@claude-plugins-official \
-    sonarqube@claude-plugins-official \
     frontend-design@claude-plugins-official \
     ponytail@ponytail \
     glane@glane \
@@ -109,10 +108,13 @@ if command -v claude &>/dev/null; then
     claude plugin install "$plugin" || true
   done
 
-  # Plugin Vidal (base Merlin) : machines de travail seulement
+  # Machines de travail seulement : plugin Vidal (base Merlin) et SonarQube
   if [ "$(yadm config local.class)" = "Work" ]; then
     claude plugin marketplace add 'softwarevidal/merlin-search#marketplace' || true
     claude plugin install merlin@vidal || true
+    claude plugin install sonarqube@claude-plugins-official || true
+    # hooks sonar-secrets et serveur MCP (après `sonar auth login`)
+    "$HOME/.local/share/sonarqube-cli/bin/sonar" integrate claude --non-interactive || true
   fi
 
   # Plannotator : binaire, plugin Claude et skills plannotator-* (le TUI vient du Brewfile)
@@ -124,9 +126,6 @@ if command -v claude &>/dev/null; then
   # build-brief : section de ~/.claude/CLAUDE.md, marketplace locale et plugin
   # (interactif ; CLAUDE.md doit exister, d'où le passage après rtk)
   build-brief --global || true
-
-  # SonarQube : hooks sonar-secrets et serveur MCP (après `sonar auth login`)
-  "$HOME/.local/share/sonarqube-cli/bin/sonar" integrate claude --non-interactive || true
 
   # Skills Playwright Agent CLI (la CLI vient de mise : npm:@playwright/cli)
   # `install --skills` doit être lancé depuis le HOME → sous-shell avec cd
