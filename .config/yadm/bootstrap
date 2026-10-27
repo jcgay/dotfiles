@@ -125,6 +125,9 @@ if command -v claude &>/dev/null; then
   # (interactif ; CLAUDE.md doit exister, d'où le passage après rtk)
   build-brief --global || true
 
+  # SonarQube : hooks sonar-secrets et serveur MCP (après `sonar auth login`)
+  "$HOME/.local/share/sonarqube-cli/bin/sonar" integrate claude --non-interactive || true
+
   # Skills Playwright Agent CLI (la CLI vient de mise : npm:@playwright/cli)
   # `install --skills` doit être lancé depuis le HOME → sous-shell avec cd
   (cd "$HOME" && mise exec -- playwright-cli install --skills) || true
