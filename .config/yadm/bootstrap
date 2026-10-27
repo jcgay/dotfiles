@@ -109,6 +109,12 @@ if command -v claude &>/dev/null; then
     claude plugin install "$plugin" || true
   done
 
+  # Plugin Vidal (base Merlin) : machines de travail seulement
+  if [ "$(yadm config local.class)" = "Work" ]; then
+    claude plugin marketplace add 'softwarevidal/merlin-search#marketplace' || true
+    claude plugin install merlin@vidal || true
+  fi
+
   # Skills Playwright Agent CLI (la CLI vient de mise : npm:@playwright/cli)
   # `install --skills` doit être lancé depuis le HOME → sous-shell avec cd
   (cd "$HOME" && mise exec -- playwright-cli install --skills) || true
