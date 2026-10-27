@@ -119,6 +119,9 @@ if command -v claude &>/dev/null; then
   # Plannotator : binaire, plugin Claude et skills plannotator-* (le TUI vient du Brewfile)
   curl -fsSL https://plannotator.ai/install.sh | bash -s -- --non-interactive --no-extras || true
 
+  # rtk : hook Bash qui compresse la sortie des commandes, RTK.md importé par ~/.claude/CLAUDE.md
+  rtk init -g --auto-patch || true
+
   # Skills Playwright Agent CLI (la CLI vient de mise : npm:@playwright/cli)
   # `install --skills` doit être lancé depuis le HOME → sous-shell avec cd
   (cd "$HOME" && mise exec -- playwright-cli install --skills) || true
