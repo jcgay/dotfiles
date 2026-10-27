@@ -132,6 +132,9 @@ if command -v claude &>/dev/null; then
   # `install --skills` doit être lancé depuis le HOME → sous-shell avec cd
   (cd "$HOME" && mise exec -- playwright-cli install --skills) || true
 
+  # Skills hors plugins via `npx skills` (node vient de mise)
+  mise exec -- npx -y skills add vercel-labs/agent-skills -s web-design-guidelines -g -a claude-code -y || true
+
   # codebase-memory-mcp : binaire ~/.local/bin, serveur MCP, skill et hooks cbm-*
   curl -fsSL https://raw.githubusercontent.com/DeusData/codebase-memory-mcp/main/install.sh \
     | bash -s -- --clients=claude || true
