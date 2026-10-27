@@ -165,6 +165,12 @@ if command -v claude &>/dev/null; then
     subagentStatusLine: {type: "command", command: "python3 ~/.claude/subagent-statusline.py"}
   } + .' "$settings" > "$settings.tmp" && mv "$settings.tmp" "$settings" \
     || { rm -f "$settings.tmp"; echo "⚠️  $settings illisible — réglages Claude non appliqués."; }
+
+  # Auto-update des marketplaces GitHub : désactivé par défaut hors marketplaces officielles
+  # https://code.claude.com/docs/en/plugins/loading#when-auto-update-runs
+  jq '(.extraKnownMarketplaces[]? | select(.source.source == "github") | .autoUpdate) = true' \
+    "$settings" > "$settings.tmp" && mv "$settings.tmp" "$settings" \
+    || { rm -f "$settings.tmp"; echo "⚠️  $settings illisible — auto-update des marketplaces non activé."; }
 else
   echo "ℹ️  CLI 'claude' absente — section Claude Code ignorée (relancer après installation)."
 fi
