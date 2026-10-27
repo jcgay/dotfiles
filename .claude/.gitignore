@@ -4,6 +4,7 @@
 *
 !.gitignore
 !statusline-command.sh
+!subagent-statusline.py
 !rules/
 !rules/git-commit.md
 !rules/github.md
