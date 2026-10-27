@@ -135,6 +135,7 @@ if command -v claude &>/dev/null; then
   # Skills hors plugins via `npx skills` (node vient de mise)
   mise exec -- npx -y skills add vercel-labs/agent-skills -s web-design-guidelines -g -a claude-code -y || true
   mise exec -- npx -y skills add Leonxlnx/taste-skill -s design-taste-frontend -s redesign-existing-projects -g -a claude-code -y || true
+  mise exec -- npx -y skills add tt-a1i/archify -s archify -g -a claude-code -y || true
 
   # codebase-memory-mcp : binaire ~/.local/bin, serveur MCP, skill et hooks cbm-*
   curl -fsSL https://raw.githubusercontent.com/DeusData/codebase-memory-mcp/main/install.sh \
