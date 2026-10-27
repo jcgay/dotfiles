@@ -8,6 +8,7 @@
 !rules/
 !rules/git-commit.md
 !rules/github.md
+!rules/context7.md
 !hooks/
 !hooks/github-signature
 !hooks/github-signature.test
