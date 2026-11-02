@@ -192,6 +192,8 @@ graph LR
 <revert is enough | what else is needed>
 
 <sub>Risk assessment, not a code review. Not read: <files or "nothing">.</sub>
+
+🤖 Jean-Claude
 ````
 
 - Low with no danger: replace the "Dangers" section with "No danger found."
@@ -200,17 +202,22 @@ graph LR
 - "Blast radius" only for Medium and High, and only with callers you found.
   Keep it under 10 nodes. Quote every node label.
 
-Post without asking. Edit the existing comment, never add a second one:
+- The last line is `🤖 Jean-Claude`, after a blank line. A hook refuses the
+  post without it.
+
+Post without asking. Edit the existing comment, never add a second one.
+Write the body file's absolute path literally (`<body file>` below), never
+through a variable: the signature hook reads that path to find the
+signature, and refuses the command when it cannot.
 
 ```bash
-F="${TMPDIR:-/tmp}/pr-risk-<N>.md"
 ME=$(gh api user --jq .login)
 ID=$(gh api "repos/$R/issues/<N>/comments" --paginate \
   --jq ".[] | select(.user.login == \"$ME\" and (.body | startswith(\"<!-- pr-risk -->\"))) | .id" | head -1)
 if [ -n "$ID" ]; then
-  gh api -X PATCH "repos/$R/issues/comments/$ID" -F body=@"$F" --jq .html_url
+  gh api -X PATCH "repos/$R/issues/comments/$ID" -F body=@<body file> --jq .html_url
 else
-  gh pr comment <N> -R "$R" --body-file "$F"
+  gh pr comment <N> -R "$R" --body-file <body file>
 fi
 ```
 Print the comment URL.
