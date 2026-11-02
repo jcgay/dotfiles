@@ -17,12 +17,14 @@ per sentence, active voice, common words.
 - Argument is a number, a PR URL or a branch:
   `gh pr view <arg> --json number,title,body,baseRefName,headRefOid,url,state`.
 - No argument: same command without `<arg>`, on the current branch.
-- Set `R=<owner>/<repo>` from the `url` field (`https://github.com/<owner>/<repo>/pull/<N>`).
-  Use `-R "$R"` and `repos/$R/...` in every later `gh` command. Never rely
-  on the current directory to find the repository: a PR URL can point to
-  another repository.
+- Take `<owner>/<repo>` from the `url` field (`https://github.com/<owner>/<repo>/pull/<N>`).
+  Write it literally in every later `gh` command: `-R <owner>/<repo>`,
+  `repos/<owner>/<repo>/...`. Shell variables do not survive between tool
+  calls, and an empty `-R` makes `gh` act on the current directory's repo. Never
+  rely on the current directory to find the repository: a PR URL can point
+  to another repository.
 - Files, with their size, from GitHub (paginated, no 100-file limit):
-  `gh api "repos/$R/pulls/<N>/files" --paginate --jq '.[] | "\(.status)\t+\(.additions)/-\(.deletions)\t\(.filename)"'`.
+  `gh api "repos/<owner>/<repo>/pulls/<N>/files" --paginate --jq '.[] | "\(.status)\t+\(.additions)/-\(.deletions)\t\(.filename)"'`.
 - No PR exists (`gh pr view` fails): **no-PR mode**. Base is
   `gh repo view --json defaultBranchRef --jq .defaultBranchRef.name`. Head is
   the branch argument, or `HEAD` when there is none. Files come from
@@ -55,7 +57,7 @@ PR mode — the local checkout can be stale and the base branch can be gone,
 so read from GitHub:
 
 ```bash
-gh api "repos/$R/pulls/<N>/files" --paginate --jq '.[]
+gh api "repos/<owner>/<repo>/pulls/<N>/files" --paginate --jq '.[]
   | select(.filename | IN("<path 1>", "<path 2>"))
   | "### \(.filename)\n\(.patch // "(no patch: binary or too large)")"'
 ```
@@ -63,7 +65,7 @@ gh api "repos/$R/pulls/<N>/files" --paginate --jq '.[]
 A file with no patch is too large for the API: list it under "Not read".
 No-PR mode: `git diff origin/<base>...<head> -- <files>`.
 Never check out the PR. To read a whole file at the PR head, use
-`gh api "repos/$R/contents/<path>?ref=<headRefOid>" --jq .content | base64 -d`.
+`gh api "repos/<owner>/<repo>/contents/<path>?ref=<headRefOid>" --jq .content | base64 -d`.
 
 Budget: about 1500 changed lines, counted as the sum of `additions` and
 `deletions` of the Read group before you read. Over budget, read in this order: SQL and
@@ -212,12 +214,12 @@ signature, and refuses the command when it cannot.
 
 ```bash
 ME=$(gh api user --jq .login)
-ID=$(gh api "repos/$R/issues/<N>/comments" --paginate \
+ID=$(gh api "repos/<owner>/<repo>/issues/<N>/comments" --paginate \
   --jq ".[] | select(.user.login == \"$ME\" and (.body | startswith(\"<!-- pr-risk -->\"))) | .id" | head -1)
 if [ -n "$ID" ]; then
-  gh api -X PATCH "repos/$R/issues/comments/$ID" -F body=@<body file> --jq .html_url
+  gh api -X PATCH "repos/<owner>/<repo>/issues/comments/$ID" -F body=@<body file> --jq .html_url
 else
-  gh pr comment <N> -R "$R" --body-file <body file>
+  gh pr comment <N> -R <owner>/<repo> --body-file <body file>
 fi
 ```
 Print the comment URL.
