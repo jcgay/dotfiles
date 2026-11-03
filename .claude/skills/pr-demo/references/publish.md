@@ -28,6 +28,8 @@ description. Keep GitHub's line breaks: each one shows in a comment.
 
 - No video (API demo): drop the 📹 line.
 - `--compare` with two videos: one 📹 line per file, base first, each named.
+- `--narrate`: add "🔊 with sound" to the 📹 line, so the reviewer unmutes it.
+  Publish the mixed `pr-<N>.webm`, never the `-raw` one.
 - The last line is `🤖 Jean-Claude`, after a blank line. A hook refuses the
   post without it.
 
