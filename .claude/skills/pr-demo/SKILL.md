@@ -9,9 +9,10 @@ Run the real application at the PR head, capture what the change does, and
 post it as a comment on the PR. A demo shows. It does not judge: no bug
 hunting, no code review, no risk verdict.
 
-Argument: `<PR number | PR URL | branch> [--compare]`. Without `--compare`,
-show the new behavior only. With `--compare`, run the PR base too and play
-the same scenario on both sides.
+Argument: `<PR number | PR URL | branch> [--compare] [--narrate]`. Without
+`--compare`, show the new behavior only. With `--compare`, run the PR base
+too and play the same scenario on both sides. With `--narrate`, a voice and
+captions explain the video step by step (UI and CLI captures).
 
 Write to the user in their language. Write the comment in the language of
 the PR description.
@@ -82,7 +83,9 @@ refactoring, tests, docs): say there is nothing to show and stop. Start
 nothing.
 
 Show the scenario in 10 lines or fewer: the capture type, the commit
-(`headRefOid`, short), each step or request, and what each one shows. Then
+(`headRefOid`, short), each step or request, and what each one shows. With
+`--narrate`, also the sentence said over each step (`references/narrate.md`);
+an API capture has no video: say `--narrate` does nothing there. Then
 wait. Change it as the user says. Start nothing before they agree.
 
 ## 4. Start the app
@@ -113,8 +116,8 @@ environment error there means stop (guardrail), not capture.
 
 ## 5. Capture
 
-Follow the reference file step 3 chose. Keep every capture file and the
-exact commands you ran.
+Follow the reference file step 3 chose, and `references/narrate.md` with
+`--narrate`. Keep every capture file and the exact commands you ran.
 
 ## 6. Publish
 

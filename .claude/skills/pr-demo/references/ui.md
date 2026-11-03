@@ -12,6 +12,8 @@ playwright-cli -s=pr-demo close
 ```
 
 - Always `-s=pr-demo`: the default session may be a browser the user opened.
+- Run it from the capture dir: it writes snapshots to `.playwright-cli/` in
+  the current directory.
 - The file name goes to `video-start`. `video-stop` takes no argument.
 - `--cursor` shows where each click lands. Keep it: the reviewer follows the
   pointer.
