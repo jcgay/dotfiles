@@ -1,0 +1,4 @@
+# Worktrunk — https://worktrunk.dev/config/
+# Tous les worktrees, ceux des agents Claude Code compris (hooks WorktreeCreate
+# du plugin worktrunk), au même endroit plutôt qu'à côté de chaque dépôt.
+worktree-path = "~/dev/agents-worktree/{{ repo }}-{{ branch | sanitize }}"

@@ -77,6 +77,7 @@ brew "git-delta"
 brew "git-lfs"
 brew "git-absorb"
 brew "git-filter-repo"
+brew "worktrunk"
 
 # ─── system/install.sh ─────────────────────────────────────────────────────
 cask "font-hack-nerd-font"

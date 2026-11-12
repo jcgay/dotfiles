@@ -154,6 +154,7 @@ set -Ux EDITOR micro          # variable Universelle (persiste entre sessions, t
 ### Outils intégrés
 - `z <truc>` — saut de dossier (zoxide). `zi` pour le mode interactif fzf.
 - Prompt : **starship** · versions JVM/JS : **mise** · fuzzy : **fzf**
+- `wt` — worktrees git (worktrunk). `wt list` pour l'état, `wt switch <branche>` pour y aller, `wt step prune` pour supprimer ceux déjà mergés. La fonction `functions/wt.fish` est générée par `wt config shell install` (bootstrap), pas suivie.
 
 Pour tout lister à tout moment : `abbr`, `alias`, `functions` (liste), `functions <nom>` (voir le code), `type <nom>` (c'est quoi ?).
 

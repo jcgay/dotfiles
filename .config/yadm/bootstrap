@@ -74,6 +74,9 @@ mise exec -- sdkmanager "platforms;android-36" "build-tools;36.0.0" "platform-to
 echo "Installation de fisher et plugins fish..."
 fish -c 'curl -sL https://raw.githubusercontent.com/jorgebucaran/fisher/main/functions/fisher.fish | source && fisher install < ~/.config/fish/fish_plugins'
 
+# Worktrunk (wt vient du Brewfile) : fonction fish générée pour que `wt switch` fasse le cd
+wt config shell install --yes || true
+
 # Claude Code — marketplaces, plugins, serveurs MCP (claude vient du Brewfile)
 if command -v claude &>/dev/null; then
   echo "Configuration de Claude Code (plugins + MCP)..."
@@ -126,6 +129,11 @@ if command -v claude &>/dev/null; then
   # build-brief : section de ~/.claude/CLAUDE.md, marketplace locale et plugin
   # (interactif ; CLAUDE.md doit exister, d'où le passage après rtk)
   build-brief --global || true
+
+  # Worktrunk : hooks WorktreeCreate/WorktreeRemove (les worktrees des agents suivent
+  # worktree-path de ~/.config/worktrunk/config.toml) et marqueurs d'activité dans `wt list`.
+  # Pas install-statusline : il remplacerait statusline-command.sh
+  wt config plugins claude install --yes || true
 
   # Skills Playwright Agent CLI (la CLI vient de mise : npm:@playwright/cli)
   # `install --skills` doit être lancé depuis le HOME → sous-shell avec cd
