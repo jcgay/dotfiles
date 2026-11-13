@@ -33,13 +33,18 @@ Templates branch on two axes: the class switches the git `user.email`; `yadm.arc
 - `.Brewfile` — Homebrew packages (`brew bundle --global`).
 - `.config/mise/config.toml` — JVM/JS toolchain versions (mise).
 - `.mackup.cfg` — manifest of GUI app prefs synced via Google Drive (Mackup). The prefs themselves are **not** in this repo.
-- `.local/bin/` — personal scripts. `dot` updates everything (yadm pull, brew, mise, macOS); `dotup` runs `brew upgrade && cleanup`.
+- `.local/bin/` — personal scripts. `dot` updates everything (yadm pull, brew, mise, macOS, Herdr clones via `herdr-upstream`); `dotup` runs `brew upgrade && cleanup`.
 - `.config/yadm/bootstrap` — new-machine setup (installs Homebrew, mise tools, Android SDK packages via `sdkmanager`, Fisher; switches shell to fish; sets up Claude Code: marketplaces/plugins via the `claude` CLI, `npx skills` skills, and each tool's own installer for plannotator, codebase-memory-mcp, rtk, build-brief, worktrunk and herdr; merges the `github-signature` hook and base settings into `~/.claude/settings.json` and turns on auto-update for GitHub marketplaces; SonarQube CLI/plugin/integration and the Vidal `merlin` plugin only for the `Work` class; optional `mackup restore`). Comments are in French. Re-runnable via `yadm bootstrap`.
 - `~/.claude/` — Claude Code config. Only hand-written files are tracked (`statusline-command.sh`, `subagent-statusline.py`, `rules/*.md`, `hooks/github-signature`, `skills/pr-risk/`, `skills/pr-demo/`: see its whitelist `.gitignore`). `settings.json` and `CLAUDE.md` are not tracked: plugins, MCP, hooks and the rtk/build-brief sections of `CLAUDE.md` are redone by bootstrap.
 
 ## Herdr desktop app
 
 `.config/herdr-app/` is the Herdr app's whole interface as files; its own `AGENTS.md` (rewritten by Herdr on every start, not tracked) documents layouts, keys and mods. Herdr overwrites its shipped layouts and mods at start, so customizations live in clones: the `jc` layout and the `pr`, `status-jc` and `tabs-jc` mods. Never commit the `gpui-kit.d.ts` and `jsconfig.json` Herdr writes into each mod. Check a mod with `herdr-app check ~/.config/herdr-app/mods/<name>`.
+
+Herdr never updates a clone, so the originals of our clones are committed too (`layouts/main.json`, `mods/tabs/`, `mods/workspace-status/`): they are the merge base. `herdr-upstream`, run by `dot`, finds every clone through its `cloned_from` and, when Herdr changed the original since the last commit, merges that change into the clone with `git merge-file`, after rewriting `mods/<original>/` asset paths to the clone's as `mod.clone` does. A conflict leaves the clone untouched and writes `<file>.conflict`; the script exits non-zero.
+
+- **Cloning another layout or mod:** use `layout.clone` / `mod.clone` (they write `cloned_from`), and commit the original in the same commit as the clone: the layout JSON, or every file of the mod folder except the two generated ones. Without it, `herdr-upstream` warns that the clone has no merge base.
+- **After an update:** resolve any `.conflict` into the clone, run `herdr-app check`, then commit the clones and the new originals together; the new originals become the next merge base. Line merges conflict on adjacent lines, which in a layout JSON is often a field next to one we changed.
 
 ## Tests
 
