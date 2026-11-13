@@ -1,7 +1,7 @@
 import { View, div } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
 import { spaces, panes, focused, exec, theme, layout } from "herdr";
-import { jenkinsBuild, checks, minutes } from "./model.js";
+import { jenkinsBuild, checks, minutes, deploymentsFor, parseContainers } from "./model.js";
 
 // The pull request of the shown space's branch (gh), and its Jenkins build (jk).
 const FIELDS = "number,title,state,isDraft,reviewDecision,reviewRequests,url,headRefName,baseRefName,additions,deletions,statusCheckRollup";
@@ -27,27 +27,45 @@ function visible() {
 export default class PullRequest extends View {
   init(_props, cx) {
     this.context = null; this.pr = null; this.build = null; this.error = null; this.loading = false; this.note = null;
+    this.deployed = []; this.scan = { at: 0, list: null };
     cx.timer.every(60000, (cx) => { if (visible()) this.refresh(cx); });
   }
 
-  refresh(cx) {
+  // Every container of the shared Docker hosts, through the wrappers in ~/.local/bin. One scan
+  // serves every space for 5 minutes: it inspects some 270 containers.
+  async containers(force) {
+    if (!force && this.scan.list && Date.now() - this.scan.at < 300000) return this.scan.list;
+    const lists = await Promise.all(["dockersw", "docker-sw2", "dockerbo"].map((cli) =>
+      exec("sh", ["-c", `${cli} ps -q | xargs ${cli} inspect --format '{{.Name}}|{{json .Config.Env}}'`], { timeout: 30000 })
+        .then((r) => parseContainers(r.stdout)).catch(() => [])));
+    this.scan = { at: Date.now(), list: lists.flat() };
+    return this.scan.list;
+  }
+
+  refresh(cx, force = false) {
     const where = location(), context = key();
-    if (context !== this.context) { this.context = context; this.pr = null; this.build = null; this.error = null; }
+    if (context !== this.context) { this.context = context; this.pr = null; this.build = null; this.error = null; this.deployed = []; }
     if (!where.cwd || !where.branch) { this.loading = false; return; }
     this.loading = true;
     cx.spawn(async (cx) => {
-      let pr = null, build = null, error = null;
+      let pr = null, build = null, error = null, deployed = [];
       try {
-        const r = await exec("gh", ["pr", "view", "--json", FIELDS], { cwd: where.cwd, on: where.on, timeout: 20000 });
+        const [r, origin] = await Promise.all([
+          exec("gh", ["pr", "view", "--json", FIELDS], { cwd: where.cwd, on: where.on, timeout: 20000 }),
+          exec("git", ["remote", "get-url", "origin"], { cwd: where.cwd, on: where.on }).catch(() => null),
+        ]);
         if (r.code === 0) pr = JSON.parse(r.stdout);
         else if (!/no (open )?pull requests? found/i.test(r.stderr)) error = (r.stderr || r.stdout).trim().split("\n")[0];
+        const repo = origin?.code === 0 ? origin.stdout.trim().replace(/\.git$/, "").split(/[/:]/).pop() : null;
         const jenkins = pr && checks(pr.statusCheckRollup).map((c) => jenkinsBuild(c.url)).find(Boolean);
-        if (jenkins) {
-          const j = await exec("jk", ["run", "view", jenkins.jobPath, String(jenkins.number), "--json"], { timeout: 20000 }).catch(() => null);
-          build = j?.code === 0 ? { ...jenkins, ...JSON.parse(j.stdout) } : { ...jenkins, unreachable: true };
-        }
+        const [j, containers] = await Promise.all([
+          jenkins ? exec("jk", ["run", "view", jenkins.jobPath, String(jenkins.number), "--json"], { timeout: 20000 }).catch(() => null) : null,
+          repo ? this.containers(force) : [],
+        ]);
+        if (jenkins) build = j?.code === 0 ? { ...jenkins, ...JSON.parse(j.stdout) } : { ...jenkins, unreachable: true };
+        deployed = deploymentsFor(containers, { repo, branch: pr?.headRefName ?? where.branch, pr: pr?.number, title: pr?.title });
       } catch (e) { error = String(e?.message ?? e); }
-      if (key() === context) { this.pr = pr; this.build = build; this.error = error; this.loading = false; }
+      if (key() === context) { this.pr = pr; this.build = build; this.error = error; this.deployed = deployed; this.loading = false; }
       cx.notify();
     });
   }
@@ -81,11 +99,15 @@ export default class PullRequest extends View {
     const review = pr && ({ APPROVED: ["Approuvée", t.done], CHANGES_REQUESTED: ["Changements demandés", t.blocked], REVIEW_REQUIRED: ["Revue attendue", t.muted] }[pr.reviewDecision]);
     const list = pr ? checks(pr.statusCheckRollup) : [];
     const running = b && !b.unreachable && b.status !== "completed";
+    const deployed = (el) => el.when(this.deployed.length > 0, (e) => e.child(section("Déployée sur")).children(this.deployed.map((url, i) =>
+      h_flex().id(`deployed-${i}`).h(24).gap(8).items_center().rounded(6).px(4).text_size(12).cursor_pointer().text_color(t.accent)
+        .hover((s) => s.bg(t.hover)).on_click(() => exec("open", [url])).child(div().flex_1().min_w(0).truncate().child(url.replace(/^https?:\/\//, ""))))));
 
     const body = !where.branch ? div().text_color(t.dim).child("Pas de branche git ici.")
       : this.error ? div().text_color(t.ansi1).child(this.error)
       : !pr ? v_flex().gap(10).child(div().text_color(t.dim).child(this.loading ? "Recherche de la PR…" : `Pas de PR pour ${where.branch}.`))
         .when(!this.loading, (e) => e.child(h_flex().child(button("pr-create", "Créer la PR", (cx) => this.act(cx, "Création", ["gh", "pr", "create", "--web"], { cwd: where.cwd, on: where.on })))))
+        .when(true, deployed)
       : v_flex().gap(4)
         .child(div().text_size(14).font_semibold().child(pr.title))
         .child(h_flex().gap(6).items_center().flex_wrap().pt(4)
@@ -95,6 +117,7 @@ export default class PullRequest extends View {
         .child(div().text_size(11).text_color(t.dim).child(`${pr.headRefName} → ${pr.baseRefName}`))
         .when((pr.reviewRequests ?? []).length > 0, (e) => e.child(div().text_size(11).text_color(t.muted)
           .child(`Revue demandée à ${pr.reviewRequests.map((r) => r.login ?? r.name ?? r.slug).join(", ")}`)))
+        .when(true, deployed)
         .when(Boolean(b), (e) => e.child(section("Jenkins")).child(b.unreachable
           ? div().text_size(12).text_color(t.dim).child("Jenkins injoignable (VPN ?)")
           : v_flex().gap(3).text_size(12)
@@ -120,7 +143,7 @@ export default class PullRequest extends View {
       .child(h_flex().h(42).flex_none().px(14).gap(8).items_center().border_b(1).border_color(t.border)
         .child(div().font_semibold().child("Pull request")).child(div().flex_1())
         .when(this.loading, (e) => e.child(div().text_size(11).text_color(t.dim).child("…")))
-        .child(div().id("pr-refresh").text_size(11).text_color(t.dim).cursor_pointer().hover((s) => s.text_color(t.foreground)).on_click((_e, cx) => { this.refresh(cx); cx.notify(); }).child("Rafraîchir")))
+        .child(div().id("pr-refresh").text_size(11).text_color(t.dim).cursor_pointer().hover((s) => s.text_color(t.foreground)).on_click((_e, cx) => { this.refresh(cx, true); cx.notify(); }).child("Rafraîchir")))
       .child(v_flex().id("pr-body").flex_1().min_h(0).overflow_y_scroll().p(14).child(body))
       .when(Boolean(this.note), (e) => e.child(div().px(14).pb(10).text_size(11).text_color(t.muted).child(this.note)));
   }
