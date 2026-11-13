@@ -5,6 +5,7 @@
 !.gitignore
 !statusline-command.sh
 !subagent-statusline.py
+!.ponytail-band
 !rules/
 !rules/git-commit.md
 !rules/github.md
