@@ -140,6 +140,7 @@ set -Ux EDITOR micro          # variable Universelle (persiste entre sessions, t
 > `git` est wrappé en fonction pour forcer `LANG=en_US.UTF-8`. Si tu écris une fonction qui appelle git en interne, utilise **`command git`** sinon récursion infinie.
 
 ### Système / macOS (`conf.d/system.fish`)
+`LANG` est forcé à `en_US.UTF-8` (comme Ghostty), pour que les terminaux ouverts par d'autres apps (Herdr…) aient la même langue.
 `pubkey` (clé SSH → presse-papier) · `ip` (IP publique) · `cleanup` (purge `.DS_Store`) · `show`/`hide` (fichiers cachés Finder) · `casks` · `t` (`tree -ah --du`) · `mkpjava` (arbo Maven/Gradle)
 
 ### Docker (`conf.d/docker.fish`)

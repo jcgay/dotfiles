@@ -12,6 +12,9 @@ set -gx MERLIN_DB_PATH /Volumes/sourcecode/arthur/karadoc/build/dbs/sqlite
 set -gx ANDROID_HOME /opt/homebrew/share/android-commandlinetools
 fish_add_path $ANDROID_HOME/platform-tools
 
+# Locale — Ghostty sets en_US, apps launched from the GUI (Herdr...) pass macOS's fr_FR
+set -gx LANG en_US.UTF-8
+
 # Editor
 set -gx EDITOR micro
 
