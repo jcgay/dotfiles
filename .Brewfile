@@ -138,6 +138,7 @@ cask "zed"
 cask "bruno"
 cask "http-toolkit"
 cask "agentsview"
+cask "herdr-app" if Hardware::CPU.arm?
 cask "keka"
 cask "vmlx" if Hardware::CPU.arm?
 
