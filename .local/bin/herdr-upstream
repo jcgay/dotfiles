@@ -1,0 +1,87 @@
+#!/bin/bash
+#
+# herdr-upstream
+#
+# Herdr never updates a clone (a layout or mod carrying "cloned_from") and rewrites its shipped
+# originals on every start. The originals are committed in yadm as merge base: when Herdr changed
+# one, this merges that change into the clone (git merge-file), leaving our own edits in place.
+# A conflict leaves the clone untouched and writes <clone file>.conflict to resolve by hand.
+# Once the clones are right, commit the new originals: they become the next merge base.
+
+set -uo pipefail
+
+app=${HERDR_APP_HOME:-$HOME/.config/herdr-app}
+rel=${app#"$HOME"/} # yadm paths are relative to $HOME
+cd "$HOME" || exit 1 # yadm ls-files prints paths relative to the current folder
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+changed=() conflicts=0 checked=()
+
+# merge <original> <clone> [<from> <to>]: both relative to $app. A mod clone has its asset paths
+# rewritten (mods/tabs/ -> mods/tabs-jc/): the originals get the same rewrite before the merge,
+# so only our own edits differ from them.
+merge() {
+   local original=$1 clone=$2 from=${3:-} to=${4:-}
+   [ -f "$app/$clone" ] || return 0
+   if [ ! -f "$app/$original" ]; then
+      echo "⚠️  $original is no longer shipped by Herdr: check $clone by hand"
+      return 0
+   fi
+   yadm diff --quiet HEAD -- "$app/$original" && return 0
+   changed+=("$rel/$original")
+   yadm show "HEAD:$rel/$original" >"$tmp/base"
+   cp "$app/$original" "$tmp/new"
+   if [ -n "$from" ]; then
+      sed -i '' "s|$from|$to|g" "$tmp/base" "$tmp/new"
+   fi
+   cp "$app/$clone" "$tmp/merged"
+   if git merge-file -L "$clone" -L "$original (committed)" -L "$original (Herdr)" \
+      "$tmp/merged" "$tmp/base" "$tmp/new"; then
+      if ! cmp -s "$tmp/merged" "$app/$clone"; then
+         cp "$tmp/merged" "$app/$clone"
+         echo "✅ $clone: Herdr's changes to $original merged"
+      fi
+   else
+      cp "$tmp/merged" "$app/$clone.conflict"
+      echo "❌ $clone: conflicts with Herdr's changes to $original, resolve $clone.conflict"
+      conflicts=$((conflicts + 1))
+   fi
+}
+
+for meta in "$app"/layouts/*.json "$app"/mods/*/mod.json; do
+   [ -f "$meta" ] || continue
+   origin=$(jq -r '.cloned_from.name // empty' "$meta" 2>/dev/null)
+   [ -n "$origin" ] || continue
+   case $meta in
+   "$app"/layouts/*)
+      clone=layouts/$(basename "$meta")
+      if ! yadm ls-files --error-unmatch "$app/layouts/$origin.json" >/dev/null 2>&1; then
+         echo "⚠️  $clone is cloned from layouts/$origin.json, which yadm does not track: commit it as merge base"
+         continue
+      fi
+      merge "layouts/$origin.json" "$clone"
+      ;;
+   *)
+      name=$(basename "$(dirname "$meta")")
+      files=$(yadm ls-files -- "$app/mods/$origin")
+      if [ -z "$files" ]; then
+         echo "⚠️  mods/$name is cloned from mods/$origin, which yadm does not track: commit it as merge base"
+         continue
+      fi
+      while IFS= read -r file; do
+         file=${file#"$rel"/mods/"$origin"/}
+         merge "mods/$origin/$file" "mods/$name/$file" "mods/$origin/" "mods/$name/"
+      done <<<"$files"
+      checked+=("$name")
+      ;;
+   esac
+done
+
+if [ ${#changed[@]} -gt 0 ]; then
+   for name in "${checked[@]}"; do
+      herdr-app check "$app/mods/$name" >/dev/null 2>&1 || echo "❌ herdr-app check fails on mods/$name"
+   done
+   echo "Herdr changed: ${changed[*]}"
+   echo "Once the clones are right: yadm add ${changed[*]/#/~/} && yadm commit"
+fi
+[ "$conflicts" -eq 0 ]
