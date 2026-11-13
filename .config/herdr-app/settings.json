@@ -1,7 +1,9 @@
 {
   "zoom": 1,
   "sounds": {
-    "enabled": false
+    "enabled": true,
+    "done": "sounds/silence.mp3",
+    "blocked": "sounds/silence.mp3"
   },
   "font_ligatures": false,
   "minimum_contrast": 1,
