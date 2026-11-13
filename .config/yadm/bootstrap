@@ -66,6 +66,12 @@ if [ "$(yadm config local.class)" = "Work" ] && [ ! -x "$HOME/.local/share/sonar
   curl -o- https://raw.githubusercontent.com/SonarSource/sonarqube-cli/refs/heads/master/user-scripts/install.sh | bash
 fi
 
+# jira-merged : passe en Done Dev les tickets de mes PR mergées. bootout d'abord, pour pouvoir rejouer.
+if [ "$(yadm config local.class)" = "Work" ]; then
+  launchctl bootout "gui/$(id -u)/fr.jcgay.jira-merged" 2>/dev/null || true # pas encore chargé : code 3, et set -e
+  launchctl bootstrap "gui/$(id -u)" ~/Library/LaunchAgents/fr.jcgay.jira-merged.plist
+fi
+
 # mise — installe tous les outils JVM (Java, Gradle, Kotlin, etc.)
 echo "Installation des outils JVM via mise..."
 mise install

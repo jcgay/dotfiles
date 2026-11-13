@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>fr.jcgay.jira-merged</string>
+	<!-- fish, for the Homebrew PATH and the gh/jira tokens of conf.d/secrets.fish -->
+	<key>ProgramArguments</key>
+	<array>
+		<string>/opt/homebrew/bin/fish</string>
+		<string>-c</string>
+		<string>jira-merged</string>
+	</array>
+	<!-- every half hour; the script keeps to workdays, 08:00 to 19:00 -->
+	<key>StartCalendarInterval</key>
+	<array>
+		<dict><key>Minute</key><integer>0</integer></dict>
+		<dict><key>Minute</key><integer>30</integer></dict>
+	</array>
+	<key>StandardOutPath</key>
+	<string>/Users/jcgay/Library/Logs/jira-merged.log</string>
+	<key>StandardErrorPath</key>
+	<string>/Users/jcgay/Library/Logs/jira-merged.log</string>
+</dict>
+</plist>
