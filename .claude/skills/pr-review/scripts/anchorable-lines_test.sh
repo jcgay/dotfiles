@@ -26,7 +26,7 @@ deleted file mode 100644
 diff --git a/b c.md b/b c.md
 new file mode 100644
 --- /dev/null
-+++ b/b c.md
++++ b/b c.md	
 @@ -0,0 +1 @@
 +hello
 DIFF

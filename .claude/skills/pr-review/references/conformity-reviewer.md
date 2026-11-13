@@ -1,6 +1,6 @@
 # Conformity reviewer prompt
 
-Fill the placeholders and dispatch a `general-purpose` subagent with the text
+Fill the placeholders (`{REPO_DIR}` is `<repo-dir>` from SKILL.md section 1) and dispatch a `general-purpose` subagent with the text
 below. `{TICKET}` is the ticket's summary, description and acceptance criteria
 as read from JIRA, or the line `No ticket read: <reason>`.
 

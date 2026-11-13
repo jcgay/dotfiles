@@ -21,22 +21,34 @@ GitHub (review body, inline comment, reply) ends with a blank line then
 
 ## 1. Find the target
 
-- `gh pr view <arg> --json number,title,body,url,headRefName,headRefOid,baseRefName,state`
-  (no argument: same command on the current branch).
+- `gh auth status` first: not authenticated, stop and say so.
+- `gh pr view <arg> --json number,title,body,url,headRefName,headRefOid,baseRefName,state,isCrossRepository`
+  (no argument: same command on the current branch). Only the error "no pull
+  requests found" means no-PR mode; any other error (network, unknown
+  number): stop and show it. A closed or merged PR: say so and stop, unless
+  the user named it explicitly.
 - Take `<owner>/<repo>` from `url` and write it literally in every later
   `gh` call (`-R <owner>/<repo>`, `repos/<owner>/<repo>/...`). Shell variables
   do not survive between tool calls, and a PR URL can name another repository
   than the current directory.
 - **PR mode**: diff from GitHub, `gh pr diff <N> -R <owner>/<repo>`; save it
-  to a literal file in the session scratchpad (`pr.diff`). Base SHA:
+  to a literal file in the session scratchpad (`pr.diff`). It fails with HTTP
+  406 on a very large PR: say so and stop. Base SHA:
   `gh api repos/<owner>/<repo>/pulls/<N> --jq .base.sha`; head SHA:
   `headRefOid`.
-- **No-PR mode** (`gh pr view` fails): base is the default branch
+- **Local code for the reviewers** (`<repo-dir>`): the reviews read the
+  surrounding code, so both SHAs must exist locally. When the current
+  directory is that repository (`gh repo view --json nameWithOwner`), it is
+  `<repo-dir>`: `git fetch -q origin pull/<N>/head <baseRefName>`. Otherwise
+  clone it into the scratchpad (`gh repo clone <owner>/<repo> <scratchpad>/repo
+  -- --filter=blob:none`), fetch the same refs there, and use that clone.
+  Pass `<repo-dir>` to every reviewer.
+- **No-PR mode**: base is the default branch
   (`gh repo view --json defaultBranchRef --jq .defaultBranchRef.name`), head
   the branch argument or `HEAD`; `git fetch -q origin <base>`, base SHA is
   `git merge-base origin/<base> <head>`, diff is `git diff <base-sha> <head>`.
   Nothing will be posted.
-- `gh` not authenticated, or empty diff: stop and say so.
+- Empty diff: stop and say so.
 - Front files: changed paths matching `*.ts *.tsx *.js *.jsx *.html *.css
   *.scss *.vue *.svelte`, minus `*.spec.*`, `*.test.*` and `*.config.*`.
 
@@ -64,8 +76,8 @@ come back as a task notification.
 1. **In one message, start the subagents** (`general-purpose`), each told
    that its review is read-only and that it must return findings with path,
    line and severity:
-   - `ponytail:ponytail-review` on `<base-sha>..<head>` (load the skill with
-     the Skill tool, then review).
+   - `ponytail:ponytail-review` on `<base-sha>..<head-sha>` in `<repo-dir>`
+     (load the skill with the Skill tool, then review).
    - Only if a front file changed: `impeccable:impeccable` with
      `audit <front files>`.
    - Only if section 2 found something to compare with: the conformity
@@ -77,8 +89,9 @@ come back as a task notification.
    - Only with `--ux`: `impeccable:impeccable` with `critique <main front
      file or page>`. Tell it it runs inside pr-review: end with
      `Questions skipped: pr-review` instead of asking.
-3. Wait for every subagent. A review that fails: go on with the others and
-   name it in the report.
+3. Merge nothing before every review is back: each subagent, the
+   `code-review` task notification, and the critique with `--ux`. A review
+   that fails: go on with the others and name it in the report.
 
 ## 4. Merge
 
@@ -119,8 +132,9 @@ Severity:
    on. A finding is `anchored` when its path, side and line are in that list.
    One unanchorable inline comment makes GitHub reject the whole review (422).
 2. Already posted: `gh api repos/<owner>/<repo>/pulls/<N>/comments --paginate
-   --jq '.[] | select(.body | endswith("🤖 Jean-Claude")) | "\(.path)\t\(.line)"'`.
-   Drop a finding whose path and line are already there.
+   --jq '.[] | select(.in_reply_to_id == null and (.body | rtrimstr("\n") | endswith("🤖 Jean-Claude"))) | "\(.path)\t\(.side)\t\(.line // .original_line)"'`.
+   Drop a finding whose path, side and line are already there (an outdated
+   comment keeps its line in `original_line`).
 3. Write the payload to a literal scratchpad file (`review.json`):
    `{"commit_id": "<head-sha>", "event": "COMMENT", "body": …, "comments":
    [{"path", "line", "side", "body"}]}` — one comment per anchored, confirmed
@@ -128,7 +142,8 @@ Severity:
    a two-line summary with counts per severity; conformity to the ticket;
    findings not anchored; "À vérifier"; the `--ux` critique; reviews that
    failed or were skipped.
-4. `gh api repos/<owner>/<repo>/pulls/<N>/reviews --method POST --input <literal path>`.
+4. `gh api repos/<owner>/<repo>/pulls/<N>/reviews --method POST --input <literal path>
+   --jq '"\(.id) \(.html_url)"'`: the review id and its URL for the report.
    Never `APPROVE` nor `REQUEST_CHANGES`.
 5. Get the comment ids from the PR comments, not the review's own comments
    endpoint, which returns `line: null`:
@@ -138,10 +153,15 @@ Severity:
 
 ## 6. Fix (`--fix` only)
 
-- Allowed only when the current branch is the PR head branch
-  (`git branch --show-current` = `headRefName`, same repository), or in
-  no-PR mode on the current branch. Otherwise: the review is posted, then
-  say `--fix` needs the branch checked out, and stop.
+- Allowed only when all hold: the current directory is the PR's repository,
+  `isCrossRepository` is false (a fork's branch is not pushed to `origin`),
+  `git branch --show-current` = `headRefName`, and `git rev-parse HEAD` =
+  `headRefOid` (no local commit that is not in the PR). In no-PR mode: the
+  current branch. Otherwise: the review is posted, then say why `--fix`
+  cannot run, and stop.
+- Never stage a file you did not change for a finding: `git add <path>…`
+  by name, never `git add -A` or `.`; files already modified before the run
+  stay out of the fixups.
 - Invoke `superpowers:receiving-code-review` before touching any finding.
   Verify each finding against the code. Fix every valid `bloquant` and
   `important`, and the valid `mineur` ones worth it. A rejected finding gets
@@ -161,10 +181,19 @@ Severity:
   `git merge-base --is-ancestor origin/<headRefName> HEAD` must succeed, then
   `git push origin HEAD:refs/heads/<headRefName>`. Never force. Remote moved
   or push rejected: stop, post no reply, say the fixups are local.
-- After the push, reply in each thread that has a `comment_id`:
-  `gh api repos/<owner>/<repo>/pulls/<N>/comments/<comment_id>/replies -f body='…'`
-  — "Corrigé dans <short-sha>." or "Non corrigé : <reason>." Findings in the
-  body only get no reply.
+- After the push, reply in each thread that has a `comment_id`. Write each
+  reply to a literal scratchpad file (apostrophes break inline quoting), for
+  example:
+
+  ```
+  Corrigé dans <short-sha> : <what changed, one sentence>.
+
+  🤖 Jean-Claude
+  ```
+
+  or `Non corrigé : <reason>.` with the same signature. Send it with
+  `gh api repos/<owner>/<repo>/pulls/<N>/comments/<comment_id>/replies -F body=@<literal path>`.
+  Findings in the body only get no reply.
 
 ## 7. Report
 

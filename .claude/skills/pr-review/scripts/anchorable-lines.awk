@@ -2,9 +2,9 @@
 # "path side line" for every line GitHub accepts an inline review comment on:
 # RIGHT = new file line (added or context), LEFT = old file line (removed).
 /^diff --git / { path = ""; inhunk = 0; next }
-/^--- / && !inhunk { old = substr($0, 5); sub(/^a\//, "", old); next }
+/^--- / && !inhunk { old = substr($0, 5); sub(/\t$/, "", old); sub(/^a\//, "", old); next }
 /^\+\+\+ / && !inhunk {
-  path = substr($0, 5); sub(/^b\//, "", path)
+  path = substr($0, 5); sub(/\t$/, "", path); sub(/^b\//, "", path)
   if (path == "/dev/null") path = old
   next
 }
