@@ -1,0 +1,27 @@
+# Herdr — https://herdr.dev/tui/docs/config-reference/
+# Défauts complets : herdr --default-config ; recharger : prefix+shift+r
+
+onboarding = false
+
+[theme]
+# Reprend la palette ANSI (gruvbox) de Ghostty plutôt qu'un thème à part
+name = "terminal"
+
+[worktrees]
+# Même racine que worktrunk (~/.config/worktrunk/config.toml)
+directory = "~/dev/agents-worktree"
+
+[ui]
+status_indicators = "symbols"
+
+[ui.toast]
+# Notification macOS quand un agent en arrière-plan finit ou attend une réponse
+delivery = "system"
+
+[[keys.command]]
+key = "prefix+alt+g"
+type = "popup"
+command = "tig"
+description = "tig"
+width = "90%"
+height = "90%"

@@ -135,6 +135,9 @@ if command -v claude &>/dev/null; then
   # Pas install-statusline : il remplacerait statusline-command.sh
   wt config plugins claude install --yes || true
 
+  # Herdr : hook qui donne l'état et la session de Claude Code (reprise après redémarrage)
+  herdr integration install claude || true
+
   # Skills Playwright Agent CLI (la CLI vient de mise : npm:@playwright/cli)
   # `install --skills` doit être lancé depuis le HOME → sous-shell avec cd
   (cd "$HOME" && mise exec -- playwright-cli install --skills) || true
