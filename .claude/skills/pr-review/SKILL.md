@@ -148,11 +148,15 @@ Severity:
   a one-sentence technical reason.
 - Run the checks the repository documents (AGENTS.md, CLAUDE.md) on the
   modules you touched. A check that fails because of your fix: fix it or
-  revert that fix and mark the finding "laissée".
+  revert that fix and mark the finding "laissée". A failure unrelated to the
+  change (Docker image not pulled, network): name it in the report and go on,
+  once the tests of the touched classes are green in their JUnit XML.
 - One `git commit --fixup=<sha>` per corrected commit, following the user's
   commit rules; never autosquash. The corrected commit:
   `git blame -L <line>,<line> <head> -- <path>` when it is in
   `<base-sha>..HEAD`, else the latest commit of that range touching the file.
+  A finding that a commit message claims something false: `git commit
+  --fixup=amend:<sha>` carries both the code fix and the corrected message.
 - PR mode, push: `git fetch origin <headRefName>`, then
   `git merge-base --is-ancestor origin/<headRefName> HEAD` must succeed, then
   `git push origin HEAD:refs/heads/<headRefName>`. Never force. Remote moved
