@@ -14,7 +14,7 @@
 
 - Les fichiers versionnés portent le suffixe yadm `##class.Work`. Ils sont committés avec `rtk proxy yadm` (le yadm nu échoue sous le hook RTK).
 - Organisation : `softwarevidal`. Fenêtre : PR mergées depuis 7 jours.
-- Statut cible, écrit à l'identique : `Done Dev`. Statuts qu'on déplace : `En cours`, `Code Review`, et aucun autre.
+- Statut cible, écrit à l'identique : `Done Dev`. Statuts qu'on déplace : `En cours` seulement.
 - Commentaire JIRA : `PR <owner/repo>#<n> mergée`.
 - Horaires : du lundi au vendredi, de 08:00 à 19:00 inclus, lancement à :00 et :30.
 - Les messages de commit suivent `~/.claude/rules/git-commit.md` (anglais, corps qui explique le pourquoi, trailer `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`).
@@ -38,7 +38,7 @@
 **Interfaces:**
 - Produces, dans `jira-merged` (sourçable : `main "$@"` n'est appelé que si `[[ ${BASH_SOURCE[0]} == "$0" ]]`) :
   - `keys_of <branch> <title>` : affiche les clés uniques, une par ligne, dans l'ordre (branche puis titre). Motif `[A-Z][A-Z0-9]+-[0-9]+` sur toute la branche, et sur le titre seulement avant le premier `:` (un titre sans `:` ne donne aucune clé).
-  - `movable <status>` : code 0 seulement pour `En cours` ou `Code Review`.
+  - `movable <status>` : code 0 seulement pour `En cours`.
   - `working_hours <jour 1-7> <HHMM>` : code 0 seulement si jour ≤ 5 et `0800` ≤ HHMM ≤ `1900`.
 
 - [ ] **Step 1: Écrire le self-check** (style de `~/.claude/hooks/github-signature.test` : muet si tout passe, `FAIL …` et code 1 sinon). Il source `./jira-merged` depuis son dossier.
@@ -49,7 +49,7 @@ eq "$(keys_of feat 'MERLIN-1, MERLIN-2: Sujet')" $'MERLIN-1\nMERLIN-2'
 eq "$(keys_of fix-thing 'Fix regression from MERLIN-2300')" ""
 eq "$(keys_of utf-8-fix 'Handle UTF-8: bytes')" "UTF-8"   # branche en minuscules : rien ; titre : voir note
 eq "$(keys_of redundant-alert 'Compute the period once')" ""
-ok movable "En cours"; ok movable "Code Review"
+ok movable "En cours"; ko movable "Code Review"
 ko movable "Done Dev"; ko movable "Ouvert"; ko movable "Rouvert"
 ok working_hours 1 0800; ok working_hours 5 1900; ok working_hours 3 1230
 ko working_hours 6 1000; ko working_hours 7 1000; ko working_hours 2 0759; ko working_hours 2 1930

@@ -40,7 +40,7 @@ que quelqu'un a posé après le mien.
 - **Quels tickets** : les clés (`[A-Z][A-Z0-9]+-[0-9]+`) de la branche et du titre avant
   le premier `:` (convention `MERLIN-2321: Sujet`). Une clé citée plus loin dans le titre
   (« régression de MERLIN-2300 ») est ignorée. Une PR peut porter plusieurs clés.
-- **Garde-fou** : le ticket n'est déplacé que s'il est encore « En cours » ou « Code Review ».
+- **Garde-fou** : le ticket n'est déplacé que s'il est encore « En cours » (Code Review ne sert pas dans l'équipe).
   Ouvert, déjà avancé, rouvert : on n'y touche pas.
 - **À moi seulement** : le ticket m'est assigné, ou n'est assigné à personne et j'en suis le
   rapporteur. Sinon : une notification, et il reste où il est.
