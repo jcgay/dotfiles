@@ -6,7 +6,7 @@ import { View, div } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input, Scrollbar, ScrollHandle } from "gpui-base";
 import { props, closeOverlay, theme, focused, spaces, exec, appHome, readTextFile, notify } from "herdr";
 import { branchFor, parseQuery, jiraProjects, jql, parseJiraIssues, parseGhIssues, existingWork, baseChoices } from "./lib.js";
-import { start, run, jira, myName } from "./work.js";
+import { start, cmd, jira, myName } from "./work.js";
 
 const lines = (s) => s.split("\n").map((l) => l.trim()).filter(Boolean);
 
@@ -58,9 +58,9 @@ export default class StartWork extends View {
     await exec("git", ["fetch", "--quiet", "origin"], { cwd: main, timeout: 60000 }).catch(() => null);
     myName().then((name) => { this.me = name; cx.notify(); }).catch(() => {});
     const [refs, head, subjects, config] = await Promise.all([
-      run("git", ["for-each-ref", "--sort=-committerdate", "--format=%(refname:short)", "refs/heads", "refs/remotes/origin"], main).catch(() => ""),
-      run("git", ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"], main).catch(() => "origin/master"),
-      run("git", ["log", "--since=12.months", "--format=%s"], main).catch(() => ""),
+      cmd("git", ["for-each-ref", "--sort=-committerdate", "--format=%(refname:short)", "refs/heads", "refs/remotes/origin"], main).catch(() => ""),
+      cmd("git", ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"], main).catch(() => "origin/master"),
+      cmd("git", ["log", "--since=12.months", "--format=%s"], main).catch(() => ""),
       readTextFile(`${appHome()}/mods/start-work/config.json`).then((t) => JSON.parse(t ?? "{}")).catch(() => ({})),
     ]);
     const defaultBranch = head.trim().replace(/^origin\//, "");
@@ -69,8 +69,8 @@ export default class StartWork extends View {
     this.ctx.branches = [...new Set(all.map((b) => b.replace(/^origin\//, "")))];
     this.ctx.projects = config.jira?.[this.repo.name] ? [].concat(config.jira[this.repo.name]) : jiraProjects(lines(subjects));
     const [prs, mergedPrs] = await Promise.all([
-      run("gh", ["pr", "list", "--state", "open", "--limit", "100", "--json", "number,title,headRefName"], main).then(JSON.parse).catch(() => []),
-      run("gh", ["pr", "list", "--state", "merged", "--limit", "200", "--json", "headRefName"], main).then(JSON.parse).catch(() => []),
+      cmd("gh", ["pr", "list", "--state", "open", "--limit", "100", "--json", "number,title,headRefName"], main).then(JSON.parse).catch(() => []),
+      cmd("gh", ["pr", "list", "--state", "merged", "--limit", "200", "--json", "headRefName"], main).then(JSON.parse).catch(() => []),
     ]);
     this.ctx.prs = prs;
     // Delivered: a merged PR only. `git branch --merged` also lists a branch just created, with no
@@ -93,9 +93,9 @@ export default class StartWork extends View {
       const jiraCall = q.kind === "key" ? jira(["issue", "view", q.key, "--raw"], main)
         : q.kind === "issue" || !projects.length ? null
         : jiraList(jql({ projects, mine: q.kind === "empty", text: q.kind === "text" ? q.text : undefined }));
-      const ghCall = q.kind === "issue" ? run("gh", ["issue", "view", String(q.number), ...gh], main)
+      const ghCall = q.kind === "issue" ? cmd("gh", ["issue", "view", String(q.number), ...gh], main)
         : q.kind === "key" ? null
-        : run("gh", ["issue", "list", "--state", "open", "--limit", "20", ...gh, ...(q.kind === "empty" ? ["--assignee", "@me"] : ["--search", q.text])], main);
+        : cmd("gh", ["issue", "list", "--state", "open", "--limit", "20", ...gh, ...(q.kind === "empty" ? ["--assignee", "@me"] : ["--search", q.text])], main);
       const [j, g] = await Promise.allSettled([jiraCall, ghCall]);
       if (seq !== this.seq) return; // a newer query is on its way
       const notes = [], rows = [];
@@ -123,7 +123,7 @@ export default class StartWork extends View {
     this.branch.set_value(s ? this.resume()?.branch ?? branchFor(s) : "");
   }
 
-  close() { closeOverlay(props().overlay); }
+  dismiss() { closeOverlay(props().overlay); }
 
   go(cx) {
     const item = this.selected(), branch = this.branch.value().trim();
@@ -131,21 +131,27 @@ export default class StartWork extends View {
     if (this.busy || !this.ready || !item || !branch || this.shown !== this.seq) return;
     const work = this.resume();
     const state = { repo: this.repo, item, base: this.bases[this.base], branch, take: this.take && item.kind === "jira", resume: work?.branch === branch ? work : null };
-    this.busy = true; this.error = "";
+    this.busy = true; this.error = ""; this.phase = "";
     cx.spawn(async (cx) => {
       try {
-        const notes = await start(state, cx);
-        for (const n of notes) notify({ title: "start-work", body: n, level: "warning" });
-        this.close();
+        const notes = await start(state, cx, (phase) => { this.phase = phase; cx.notify(); });
+        for (const n of notes) notify({ title: "start-work", body: n, level: "warning", timeout: 60000 });
+        this.busy = false; // before closing: close() reports a run cut short
+        this.dismiss();
       } catch (e) { this.error = String(e?.message ?? e); }
-      this.busy = false;
+      this.busy = false; this.phase = "";
       cx.notify();
     });
     cx.notify();
   }
 
+  // Closed while working (Esc is Herdr's, it closes even then): the run is cancelled, so say where.
+  async close() {
+    if (this.busy) notify({ title: "start-work interrompu", body: `Fenêtre fermée pendant : ${this.phase || "la création"}. Ce qui était fait reste fait (ticket, worktree) ; vérifie et relance.`, level: "error", timeout: 60000 });
+  }
+
   key(e, cx) {
-    if (e.key === "escape") return this.close();
+    if (e.key === "escape") { if (this.busy) return cx.stop_propagation(); return this.dismiss(); }
     const n = this.rows.length;
     if ((e.key === "down" || e.key === "up") && n) {
       this.at = (this.at + (e.key === "down" ? 1 : n - 1)) % n;
@@ -201,7 +207,7 @@ export default class StartWork extends View {
           .when(Boolean(this.error), (el) => el.child(div().max_w(320).text_size(11).text_color(t.ansi1).child(this.error)))
           .child(div().id("go").h(30).px(14).flex().items_center().rounded(7).text_size(12)
             .bg(enabled ? t.solid : t.raised).text_color(enabled ? t.solid_foreground : t.dim).when(Boolean(enabled), (e) => e.cursor_pointer())
-            .on_click((_e, cx) => this.go(cx)).child(this.busy ? "Création…" : resuming ? "Reprendre" : "Créer"))))
+            .on_click((_e, cx) => this.go(cx)).child(this.busy ? (this.phase || "Création…") : resuming ? "Reprendre" : "Créer"))))
       .child(h_flex().justify_end().text_size(11).text_color(t.dim).child("↑↓ choisir · ↵ créer · esc fermer"));
   }
 }

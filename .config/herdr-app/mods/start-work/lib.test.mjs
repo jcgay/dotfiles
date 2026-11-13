@@ -127,6 +127,16 @@ test("spaceIn: a space started in the folder with no terminal there", () => {
   assert.deepEqual(spaceIn("/w/a", ["/w/a"], [{ tab: "t1", cwd: "/elsewhere" }], spaces), { space: spaces[0], tab: null });
 });
 
+import { clipboardIsText } from "./lib.js";
+
+test("clipboard: plain text only, as osascript's clipboard info lists it", () => {
+  assert.equal(clipboardIsText("«class utf8», 15, «class ut16», 32, string, 15, Unicode text, 30"), true);
+  assert.equal(clipboardIsText(""), true);
+  assert.equal(clipboardIsText("«class PNGf», 1024, TIFF picture, 4096"), false);
+  assert.equal(clipboardIsText("«class furl», 40, «class utf8», 20"), false);
+  assert.equal(clipboardIsText("«class RTF », 300, «class utf8», 15, string, 15"), false);
+});
+
 test("a colleague's ticket keeps their name when Jira hides their email", () => {
   const theirs = { ...jiraOne, fields: { ...jiraOne.fields, assignee: { emailAddress: null, displayName: "Charles Metivier" } } };
   const [item] = parseJiraIssues(JSON.stringify([theirs]));

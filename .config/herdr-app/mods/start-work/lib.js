@@ -122,3 +122,11 @@ export function spaceIn(path, checkouts, panes, spaces) {
   const started = spaces.find((sp) => sp.folder === path);
   return started ? { space: started, tab: null } : null;
 }
+
+// `osascript -e 'clipboard info'` ("«class utf8», 15, string, 15, …"): true when the clipboard
+// holds only plain text (or nothing), which pbpaste/pbcopy can save and restore whole.
+const TEXT = new Set(["«class utf8»", "«class ut16»", "string", "Unicode text"]);
+export function clipboardIsText(info) {
+  const parts = info.split(",").map((s) => s.trim()).filter(Boolean);
+  return parts.filter((_, i) => i % 2 === 0).every((type) => TEXT.has(type));
+}

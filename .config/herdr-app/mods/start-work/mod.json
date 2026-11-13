@@ -1,1 +1,1 @@
-{ "place": "none", "title": "Commencer un travail", "overlay": { "kind": "dialog", "width": 680, "height": 480 } }
+{ "place": "none", "title": "Commencer un travail", "overlay": { "kind": "dialog", "modal": true, "width": 680, "height": 480 } }
