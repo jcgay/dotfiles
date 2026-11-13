@@ -1,0 +1,3 @@
+# herdr-core (hc), le serveur des terminaux de l'app Herdr — `hc --help`
+# Sinon il prend $SHELL de celui qui le démarre : zsh quand c'est Claude Code
+shell = ["fish", "--login"]
