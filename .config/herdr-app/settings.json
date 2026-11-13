@@ -1,9 +1,10 @@
 {
-  "zoom": 1.2,
+  "zoom": 1,
   "sounds": {
-    "enabled": true
+    "enabled": false
   },
   "font_ligatures": false,
-  "minimum_contrast": 1.0,
-  "theme": "ghostty"
+  "minimum_contrast": 1,
+  "theme": "ghostty",
+  "telemetry": false
 }
