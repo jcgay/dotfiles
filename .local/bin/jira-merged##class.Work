@@ -10,9 +10,10 @@ set -uo pipefail
 
 # The JIRA keys a pull request carries: all of its branch's, and its title's before the first ':'
 # (`MERLIN-2321: Subject`), so a key cited later ("regression from MERLIN-2300") is not ours.
-# A fake key (`UTF-8: ...`) costs a "by hand" notification, never a move: jira finds no ticket.
+# A fake key (`UTF-8: ...`) costs one "by hand" notification a day: jira finds no ticket.
 keys_of() {
    local branch=$1 title=$2 head=""
+   [[ $title == Revert* ]] && return 0 # a revert undoes the work: its ticket is not done
    [[ $title == *:* ]] && head=${title%%:*}
    printf '%s\n%s\n' "$branch" "$head" | grep -oE '[A-Z][A-Z0-9]+-[0-9]+' | awk '!seen[$0]++'
 }
@@ -22,5 +23,73 @@ movable() { [ "$1" = "En cours" ]; }
 
 # <day 1-7> <HHMM>: Monday to Friday, 08:00 to 19:00 included.
 working_hours() { [ "$1" -le 5 ] && [ $((10#$2)) -ge 800 ] && [ $((10#$2)) -le 1900 ]; }
+
+# Arguments reach AppleScript through argv: a quote in a PR title cannot break the script.
+notify() {
+   osascript -e 'on run argv' -e 'display notification (item 2 of argv) with title (item 1 of argv)' -e 'end run' "$1" "$2"
+}
+
+# <id> <title> <message>: a failure that lasts (expired token, unknown key) is told once a day,
+# not on every half-hour run.
+notify_once() {
+   local seen
+   seen=$state/notified-$(date +%F)
+   grep -qxF -- "$1" "$seen" 2>/dev/null && return 0
+   notify "$2" "$3" && echo "$1" >> "$seen"
+}
+
+# Does this `jira issue view --raw` ticket belong to <me>: assigned to me, or to nobody and
+# reported by me.
+mine() {
+   jq -e --arg me "$2" '(.fields.assignee.emailAddress // null) as $a
+      | $a == $me or ($a == null and .fields.reporter.emailAddress == $me)' <<<"$1" >/dev/null
+}
+
+# Last week's merged PRs are read on every run. $state/handled keeps each "<key> <repo>#<n>"
+# once moved or found not mine, so a ticket someone puts back "En cours" stays there.
+# JIRA_MERGED_NOW="<day> <HHMM>" stands in for the clock in tests; JIRA_MERGED_DRY_RUN=1 prints
+# the moves instead of making them.
+main() {
+   local state now prs pr repo number title branch key raw status me pair
+   state=${JIRA_MERGED_STATE:-$HOME/.local/state/jira-merged}
+   now=${JIRA_MERGED_NOW:-$(date '+%u %H%M')}
+   # shellcheck disable=SC2086 # two words on purpose: day and time
+   working_hours $now || return 0
+   mkdir -p "$state" && touch "$state/handled"
+   if ! me=$(jira me) || ! prs=$(gh search prs --owner softwarevidal --author @me --merged \
+      --merged-at ">=$(date -v-7d +%F)" --json number,title,url,repository --limit 100); then
+      notify_once gh "jira-merged" "gh ou jira a échoué, voir ~/Library/Logs/jira-merged.log"
+      return 1
+   fi
+   while IFS= read -r pr; do
+      repo=$(jq -r .repository.nameWithOwner <<<"$pr")
+      number=$(jq -r .number <<<"$pr")
+      title=$(jq -r .title <<<"$pr")
+      if ! branch=$(gh pr view "$(jq -r .url <<<"$pr")" --json headRefName -q .headRefName </dev/null); then
+         branch=""
+         notify_once "$repo#$number" "À faire à la main" "$repo#$number : branche illisible, ses tickets ne sont pas lus"
+      fi
+      for key in $(keys_of "$branch" "$title"); do
+         pair="$key $repo#$number"
+         grep -qxF -- "$pair" "$state/handled" && continue
+         if ! raw=$(jira issue view "$key" --raw </dev/null) || ! status=$(jq -er .fields.status.name <<<"$raw"); then
+            notify_once "$pair" "À faire à la main" "$key (PR $repo#$number) : ticket illisible"
+            continue
+         fi
+         movable "$status" || continue
+         if ! mine "$raw" "$me"; then
+            notify_once "$pair" "À faire à la main" "$key (PR $repo#$number) : ticket d'un autre, laissé en cours"
+            [ -n "${JIRA_MERGED_DRY_RUN:-}" ] || echo "$pair" >> "$state/handled"
+         elif [ -n "${JIRA_MERGED_DRY_RUN:-}" ]; then
+            echo "jira issue move $key \"Done Dev\" --comment \"PR $repo#$number mergée\""
+         elif jira issue move "$key" "Done Dev" --comment "PR $repo#$number mergée" </dev/null; then
+            echo "$pair" >> "$state/handled"
+            notify "$key → Done Dev" "$title"
+         else
+            notify_once "$pair" "À faire à la main" "$key : Done Dev refusé"
+         fi
+      done
+   done < <(jq -c '.[]' <<<"$prs")
+}
 
 [[ ${BASH_SOURCE[0]} == "$0" ]] && main "$@"

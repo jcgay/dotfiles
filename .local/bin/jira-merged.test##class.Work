@@ -13,9 +13,83 @@ eq "$(keys_of feat 'MERLIN-1, MERLIN-2: Sujet')" $'MERLIN-1\nMERLIN-2'
 eq "$(keys_of fix-thing 'Fix regression from MERLIN-2300')" ""
 eq "$(keys_of utf-8-fix 'Handle UTF-8: bytes')" "UTF-8" # lowercase branch: nothing; title: a fake key costs a notification
 eq "$(keys_of redundant-alert 'Compute the period once')" ""
+eq "$(keys_of revert-5452-APIREST-1529-x 'Revert "APIREST-1529: Erreur 400"')" ""
 ok movable "En cours"
 ko movable "Code Review"; ko movable "Done Dev"; ko movable "Ouvert"; ko movable "Rouvert"
 ok working_hours 1 0800; ok working_hours 5 1900; ok working_hours 3 1230
 ko working_hours 6 1000; ko working_hours 7 1000; ko working_hours 2 0759; ko working_hours 2 1930
+
+# main, against fake gh / jira / osascript that log their arguments to $tmp/calls.
+tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
+mkdir "$tmp/bin"
+cat > "$tmp/bin/gh" <<'X'
+#!/usr/bin/env bash
+echo "gh $*" >> "$CALLS"
+[ -n "${FAKE_GH_FAIL:-}" ] && exit 1
+case "$1 $2" in
+  "search prs") cat <<'J'
+[{"number":3,"title":"NOPE-1: x","url":"u0","repository":{"nameWithOwner":"softwarevidal/arthur"}},
+ {"number":5452,"title":"APIREST-1529: Erreur 400","url":"u1","repository":{"nameWithOwner":"softwarevidal/arthur"}},
+ {"number":9,"title":"Revert \"APIREST-1529: Erreur 400\"","url":"u9","repository":{"nameWithOwner":"softwarevidal/arthur"}},
+ {"number":7,"title":"MERLIN-9: Déjà fait","url":"u2","repository":{"nameWithOwner":"softwarevidal/arthur"}},
+ {"number":8,"title":"OTHER-1: pas à moi","url":"u8","repository":{"nameWithOwner":"softwarevidal/arthur"}},
+ {"number":10,"title":"MERLIN-2321: non assigné","url":"u10","repository":{"nameWithOwner":"softwarevidal/arthur"}},
+ {"number":11,"title":"Fix X","url":"u11","repository":{"nameWithOwner":"softwarevidal/arthur"}}]
+J
+  ;;
+  "pr view") case "$3" in u9) echo revert-5452-APIREST-1529-x ;; u11) exit 1 ;; *) echo x ;; esac ;;
+esac
+X
+cat > "$tmp/bin/jira" <<'X'
+#!/usr/bin/env bash
+echo "jira $*" >> "$CALLS"
+[ "$1" = me ] && { echo me@x; exit 0; }
+[ "$2" = move ] && exit 0
+f() { printf '{"fields":{"status":{"name":"%s"},"assignee":%s,"reporter":{"emailAddress":"%s"}}}\n' "$@"; }
+case "$3" in
+  APIREST-1529) f "En cours" '{"emailAddress":"me@x"}' other@x ;;
+  MERLIN-9) f "Done Dev" '{"emailAddress":"me@x"}' me@x ;;
+  OTHER-1) f "En cours" '{"emailAddress":"other@x"}' me@x ;;
+  MERLIN-2321) f "En cours" null me@x ;;
+  *) exit 1 ;;
+esac
+X
+cat > "$tmp/bin/osascript" <<'X'
+#!/usr/bin/env bash
+echo "osascript $*" >> "$CALLS"
+X
+chmod +x "$tmp/bin"/*
+export CALLS=$tmp/calls JIRA_MERGED_STATE=$tmp/state
+run() { : > "$CALLS"; (PATH=$tmp/bin:$PATH JIRA_MERGED_NOW=$1 main >/dev/null 2>&1); }
+has() { grep -qF -- "$1" "$CALLS" || { echo "FAIL want call: $1"; fail=1; }; }
+hasnt() { ! grep -qF -- "$1" "$CALLS" || { echo "FAIL unwanted call: $1"; fail=1; }; }
+
+run "2 1000"
+has 'jira issue move APIREST-1529 Done Dev --comment PR softwarevidal/arthur#5452 mergée'
+has 'APIREST-1529 → Done Dev'
+hasnt 'arthur#9 mergée'                 # a revert never moves its ticket
+hasnt 'issue move MERLIN-9'
+hasnt 'issue move NOPE-1'
+has 'NOPE-1 (PR'                        # unreadable ticket: notified
+hasnt 'issue move OTHER-1'
+has 'OTHER-1 (PR'                       # someone else's ticket: notified, not moved
+has 'issue move MERLIN-2321'            # nobody's, reported by me: mine
+has 'arthur#11'                         # gh pr view failed: notified
+# A ticket put back "En cours" by someone after my move stays there, and a failure is told once a day.
+run "2 1030"
+hasnt 'issue move'
+hasnt 'NOPE-1 (PR'
+hasnt 'OTHER-1 (PR'
+hasnt 'arthur#11'
+rm -rf "$JIRA_MERGED_STATE"
+run "6 1000"
+[ ! -s "$CALLS" ] || { echo "FAIL calls on a Saturday"; fail=1; }
+FAKE_GH_FAIL=1 run "2 1000"; eq $? 1
+has 'gh ou jira a échoué'
+FAKE_GH_FAIL=1 run "2 1030"
+hasnt 'gh ou jira a échoué'
+rm -rf "$JIRA_MERGED_STATE"
+JIRA_MERGED_DRY_RUN=1 run "2 1000"
+hasnt 'issue move'
 
 exit $fail
