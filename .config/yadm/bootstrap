@@ -55,6 +55,11 @@ fi
 echo "Création du workspace Go..."
 mkdir -p ~/dev/golang/{src,bin,pkg}
 
+# Worktrees de l'app Herdr avec ceux de worktrunk et de la TUI herdr : l'app écrit
+# en dur dans ~/.herdr/worktrees. Un vrai dossier déjà présent est laissé tel quel.
+mkdir -p ~/dev/agents-worktree ~/.herdr
+[ -e ~/.herdr/worktrees ] || ln -s ~/dev/agents-worktree ~/.herdr/worktrees
+
 # SonarQube CLI, machines de travail seulement (pas de formule brew — installe dans ~/.local/share/sonarqube-cli)
 if [ "$(yadm config local.class)" = "Work" ] && [ ! -x "$HOME/.local/share/sonarqube-cli/bin/sonar" ]; then
   echo "Installation de SonarQube CLI..."
