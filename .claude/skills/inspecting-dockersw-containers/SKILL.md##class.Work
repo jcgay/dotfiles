@@ -1,0 +1,79 @@
+---
+name: inspecting-dockersw-containers
+description: Use when inspecting, debugging or querying a container deployed on Vidal's shared QA Docker hosts — any URL on *.dockersw.vidal.net, *.dockersw2.vidal.fr or *.dockerbo.vidal.net, a "[DEPLOY_PR]" deployment, a Jenkins "deploy to dockersw" stage, logs of a deployed app, its nginx-proxy, or a Merlin MySQL database. Triggers include "sur dockersw", "sur docker-sw2", "sur dockersw2", "sur dockerbo", "le conteneur déployé", "regarde les logs de".
+---
+
+# Inspecting containers on dockersw, docker-sw2 and dockerbo
+
+Three remote Docker daemons, each driven by a plain `docker` wrapper in `~/.local/bin`.
+Every docker subcommand works: `ps`, `logs`, `exec`, `inspect`, `cp`, `stats`, `port`, `images`.
+
+| Public URLs | CLI | Daemon | Notes |
+|---|---|---|---|
+| `http://<name>.dockersw.vidal.net` | `dockersw` | `tcp://dockersw.vidal.net:4243` | Docker 20.10: the wrapper sets `DOCKER_API_VERSION=1.41`. Compose v2 names, `<project>-<service>-1`. |
+| `https://<name>.dockersw2.vidal.fr` | `docker-sw2` (`docker-compose-sw2`) | `dockersw2.vidal.net:2376`, TLS | Client certs in `~/.dockersw2/`. Compose v1 names, `<project>_<service>_1`. Daemon on `.net`, public URLs on `.fr`. |
+| `http://<name>.dockerbo.vidal.net` | `dockerbo` | `tcp://dockerbo.vidal.net:4243` | Docker 18.09: the wrapper sets `DOCKER_API_VERSION=1.39`. Mostly plain `docker run` containers named after their host (`lycos-main`, `renoshield-qa`). |
+
+Always use the wrappers.
+
+## From a URL to a container
+
+Every host routes through a jwilder `nginx-proxy` container: a container is reachable at the
+host named in its `VIRTUAL_HOST` env (port `VIRTUAL_PORT`). The subdomain is usually close to
+the container name, so try a grep first:
+
+```sh
+dockersw ps --format '{{.Names}}\t{{.Image}}\t{{.Status}}' | grep -i <name>
+```
+
+If nothing matches, look for the exact `VIRTUAL_HOST`:
+
+```sh
+for id in $(dockersw ps -q); do dockersw inspect --format '{{.Name}}{{range .Config.Env}} {{.}}{{end}}' "$id"; done | grep 'VIRTUAL_HOST=<name>\.'
+```
+
+## Everyday commands
+
+```sh
+dockersw logs --since 30m <c> 2>&1 | grep ...       # logs go to stderr too
+dockersw exec <c> sh -c '...'                        # one sh -c per call, quote for the remote shell
+dockersw exec -i <c> curl -s -X POST --data-binary @- http://localhost:8080/... < body.xml   # skip the proxy
+dockersw inspect <c> --format '{{json .Config.Env}}' | tr ',' '\n' | grep -viE 'token|secret|password|key'
+dockersw inspect <c> --format '{{range .Mounts}}{{.Source}} -> {{.Destination}}{{"\n"}}{{end}}'
+dockersw cp <c>:/data/app.db ./                     # copy -wal and -shm along with a SQLite file
+dockersw stats --no-stream <c>
+```
+
+Never print env values that hold secrets; filter them as above.
+
+## nginx-proxy (every host)
+
+- `exec nginx-proxy sh -c 'nginx -T'` dumps the generated config; find a vhost with
+  `awk '/server_name <host>;/{f=1} f'`.
+- Per-host settings live in `/etc/nginx/vhost.d/<full host name>` (a volume, kept across
+  redeploys). Writing one changes a shared host: ask first. Then `nginx -t` and send HUP to
+  the `docker-gen` process so it regenerates and reloads.
+- `docker-sw2` serves both HTTP and HTTPS (letsencrypt companion), so check the 443 server block.
+- Jenkins deployments attach the stack's network to the proxy (`docker network connect <net> nginx-proxy`);
+  a 502 right after a deploy often means that step did not run.
+
+## Merlin databases
+
+`*_database_1` are MySQL 5.5, schema `vxpper` for france, schema `deu` for germany... :
+
+```sh
+docker-sw2 exec <db> sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" deu -e "SELECT ..."' 2>&1 | grep -v Warning
+```
+
+Tables are MyISAM files owned by root: they are read only, an `UPDATE` fails with error 1036. Do not try to chown them.
+Column names differ from SQLite `vxp.db` (`posologyunit.unitId`, not `id`): `SHOW CREATE TABLE` first.
+
+## Rules
+
+- These are shared hosts with other teams' deployments. Read freely. Anything that writes needs
+  the user's go-ahead first: `run`, `rm`, `pull`, `restart`, `exec -u 0`, writes inside a
+  container, or nginx changes. The auto-mode classifier blocks remote shell writes anyway.
+- No hostile or heavy inputs (fuzzing, poison queries) against dockersw: they have already
+  taken the whole host down. Run those against a local karadoc.
+- `dockersw-cleaner` removes containers whose `VIDAL_TTL_DAYS` has expired. If a deployment
+  disappeared, check its logs first (`dockersw logs dockersw-cleaner`).
