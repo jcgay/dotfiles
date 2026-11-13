@@ -1,0 +1,14 @@
+# Self-checks of the Herdr desktop app mods: pure functions only, no Herdr needed.
+name: test
+on:
+  push:
+  pull_request:
+jobs:
+  herdr-mods:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24 # same as .config/mise/config.toml
+      - run: node --test .config/herdr-app/mods/*/*.test.mjs
