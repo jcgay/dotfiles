@@ -9,6 +9,9 @@ used_pct=$(echo "$input" | jq -r '.context_window.used_percentage // empty')
 cost=$(echo "$input" | jq -r '.cost.total_cost_usd // empty')
 added=$(echo "$input" | jq -r '.cost.total_lines_added // 0')
 removed=$(echo "$input" | jq -r '.cost.total_lines_removed // 0')
+# Absent before the session's first API response: https://code.claude.com/docs/en/statusline
+limit_pct=$(echo "$input" | jq -r '.rate_limits.five_hour.used_percentage // empty')
+limit_reset=$(echo "$input" | jq -r '.rate_limits.five_hour.resets_at // empty')
 
 [ -z "$repo_name" ] && repo_name=$(basename "${project_dir:-$cwd}")
 
@@ -30,6 +33,7 @@ yellow=$'\033[33m'
 green=$'\033[32m'
 red=$'\033[31m'
 dark_gray="$(rgb 60 60 60)"
+dim_gray=$'\033[90m'
 
 # green(0,200,80) -> yellow(220,200,0) -> red(220,40,20), pct in 0..100
 gradient() {
@@ -65,6 +69,12 @@ if [ -n "$used_pct" ]; then
   read -r pr pg pb <<< "$(gradient "$used_pct")"
   pct_col="$(rgb "$pr" "$pg" "$pb")"
   out="${out}${sep}${bar} ${emoji} ${pct_col}${intpct}%${reset}"
+fi
+
+if [ -n "$limit_pct" ]; then
+  read -r lr lg lb <<< "$(gradient "$limit_pct")"
+  out="${out}${sep}⏳ 5h $(rgb "$lr" "$lg" "$lb")$(printf '%.0f' "$limit_pct")%${reset}"
+  [ -n "$limit_reset" ] && out="${out} ${dim_gray}↻$(date -r "$limit_reset" +%H:%M)${reset}"
 fi
 
 [ -n "$cost" ] && out="${out}${sep}${yellow}\$$(printf '%.2f' "$cost")${reset}"
