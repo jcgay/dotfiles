@@ -18,5 +18,7 @@
 !skills/pr-risk/*
 !skills/pr-demo/
 !skills/pr-demo/**
+!skills/pr-review/
+!skills/pr-review/**
 !skills/inspecting-dockersw-containers/
 !skills/inspecting-dockersw-containers/SKILL.md##class.Work
