@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Self-check for jira-merged: ./jira-merged.test (silent on success)
+cd "$(dirname "$0")" || exit 1
+# shellcheck source=jira-merged
+source ./jira-merged
+fail=0
+eq() { [ "$1" = "$2" ] || { printf 'FAIL want %q got %q\n' "$2" "$1"; fail=1; }; }
+ok() { "$@" || { echo "FAIL want ok: $*"; fail=1; }; }
+ko() { ! "$@" || { echo "FAIL want ko: $*"; fail=1; }; }
+
+eq "$(keys_of APIREST-1529-compress-prisca-url 'APIREST-1529: Erreur 400')" "APIREST-1529"
+eq "$(keys_of feat 'MERLIN-1, MERLIN-2: Sujet')" $'MERLIN-1\nMERLIN-2'
+eq "$(keys_of fix-thing 'Fix regression from MERLIN-2300')" ""
+eq "$(keys_of utf-8-fix 'Handle UTF-8: bytes')" "UTF-8" # lowercase branch: nothing; title: a fake key costs a notification
+eq "$(keys_of redundant-alert 'Compute the period once')" ""
+ok movable "En cours"
+ko movable "Code Review"; ko movable "Done Dev"; ko movable "Ouvert"; ko movable "Rouvert"
+ok working_hours 1 0800; ok working_hours 5 1900; ok working_hours 3 1230
+ko working_hours 6 1000; ko working_hours 7 1000; ko working_hours 2 0759; ko working_hours 2 1930
+
+exit $fail

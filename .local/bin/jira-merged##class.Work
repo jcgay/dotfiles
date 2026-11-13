@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+#
+# jira-merged
+#
+# Moves to Done Dev the JIRA tickets of my merged softwarevidal pull requests: I forget to move
+# them myself. Run by launchd (~/Library/LaunchAgents/fr.jcgay.jira-merged.plist), every half
+# hour on workdays. Design: ~/docs/superpowers/specs/2026-11-13-jira-merged-design.md
+
+set -uo pipefail
+
+# The JIRA keys a pull request carries: all of its branch's, and its title's before the first ':'
+# (`MERLIN-2321: Subject`), so a key cited later ("regression from MERLIN-2300") is not ours.
+# A fake key (`UTF-8: ...`) costs a "by hand" notification, never a move: jira finds no ticket.
+keys_of() {
+   local branch=$1 title=$2 head=""
+   [[ $title == *:* ]] && head=${title%%:*}
+   printf '%s\n%s\n' "$branch" "$head" | grep -oE '[A-Z][A-Z0-9]+-[0-9]+' | awk '!seen[$0]++'
+}
+
+# Only a ticket still in progress is moved: one already further, or reopened, is someone's call.
+movable() { [ "$1" = "En cours" ]; }
+
+# <day 1-7> <HHMM>: Monday to Friday, 08:00 to 19:00 included.
+working_hours() { [ "$1" -le 5 ] && [ $((10#$2)) -ge 800 ] && [ $((10#$2)) -le 1900 ]; }
+
+[[ ${BASH_SOURCE[0]} == "$0" ]] && main "$@"
