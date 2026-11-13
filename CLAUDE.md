@@ -37,6 +37,10 @@ Templates branch on two axes: the class switches the git `user.email`; `yadm.arc
 - `.config/yadm/bootstrap` — new-machine setup (installs Homebrew, mise tools, Android SDK packages via `sdkmanager`, Fisher; switches shell to fish; sets up Claude Code: marketplaces/plugins via the `claude` CLI, `npx skills` skills, and each tool's own installer for plannotator, codebase-memory-mcp, rtk, build-brief, worktrunk and herdr; merges the `github-signature` hook and base settings into `~/.claude/settings.json` and turns on auto-update for GitHub marketplaces; SonarQube CLI/plugin/integration and the Vidal `merlin` plugin only for the `Work` class; optional `mackup restore`). Comments are in French. Re-runnable via `yadm bootstrap`.
 - `~/.claude/` — Claude Code config. Only hand-written files are tracked (`statusline-command.sh`, `subagent-statusline.py`, `rules/*.md`, `hooks/github-signature`, `skills/pr-risk/`, `skills/pr-demo/`: see its whitelist `.gitignore`). `settings.json` and `CLAUDE.md` are not tracked: plugins, MCP, hooks and the rtk/build-brief sections of `CLAUDE.md` are redone by bootstrap.
 
+## Herdr desktop app
+
+`.config/herdr-app/` is the Herdr app's whole interface as files; its own `AGENTS.md` (rewritten by Herdr on every start, not tracked) documents layouts, keys and mods. Herdr overwrites its shipped layouts and mods at start, so customizations live in clones: the `jc` layout and the `pr`, `status-jc` and `tabs-jc` mods. Never commit the `gpui-kit.d.ts` and `jsconfig.json` Herdr writes into each mod. Check a mod with `herdr-app check ~/.config/herdr-app/mods/<name>`.
+
 ## Tests
 
 A mod keeps the logic worth testing (parsing `lsof`, `gh`, `jk` or `docker inspect` output, matching ports or deployments) in a pure module that imports nothing from Herdr (`ports.js`, `model.js`), next to a `*.test.mjs` for `node:test`. Run them all with:
