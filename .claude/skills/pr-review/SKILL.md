@@ -130,9 +130,11 @@ Severity:
    failed or were skipped.
 4. `gh api repos/<owner>/<repo>/pulls/<N>/reviews --method POST --input <literal path>`.
    Never `APPROVE` nor `REQUEST_CHANGES`.
-5. Get the comment ids: `gh api repos/<owner>/<repo>/pulls/<N>/reviews/<review-id>/comments
-   --jq '.[] | "\(.id)\t\(.path)\t\(.line)"'`; store each as the finding's
-   `comment_id`.
+5. Get the comment ids from the PR comments, not the review's own comments
+   endpoint, which returns `line: null`:
+   `gh api repos/<owner>/<repo>/pulls/<N>/comments --paginate --jq '.[] |
+   select(.pull_request_review_id == <review-id>) | "\(.id)\t\(.path)\t\(.line)"'`;
+   store each as the finding's `comment_id`.
 
 ## 6. Fix (`--fix` only)
 
