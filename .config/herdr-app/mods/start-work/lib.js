@@ -79,3 +79,46 @@ export function promptFor(item) {
   if (item.kind === "issue") return `${brainstorm} ${item.url} : ${item.title}`;
   return `${brainstorm} ${item.title}`;
 }
+
+const plain = (s) => (s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+
+// The transition that starts work: to an "in progress" category state, and named like it.
+// The category alone is not enough: MERLIN has six indeterminate states (Bloqué, En validation…).
+export function pickStartTransition(transitions) {
+  const t = transitions.find((t) => t.to?.statusCategory?.key === "indeterminate" && /en cours|in progress/.test(`${plain(t.name)} ${plain(t.to?.name)}`));
+  return t ? { id: t.id, name: t.name } : null;
+}
+
+// The work in progress for an item: an open PR whose title starts with its key, else an open PR on
+// a branch carrying its key or number, else the newest branch carrying them, outside backup/ and
+// not delivered (merged into the base, or carrying a merged PR). prs: open ones only; branches:
+// newest first, without "origin/".
+export function existingWork(item, branches, prs, delivered) {
+  const id = item.kind === "jira" ? item.key : item.kind === "issue" ? String(item.number) : null;
+  if (!id) return null;
+  const head = item.kind === "jira" ? new RegExp(`(^|/)${id}(?![0-9])`, "i") : new RegExp(`(^|/)${id}-`);
+  const title = new RegExp(`^[^A-Za-z0-9]*${id}(?![0-9])`, "i");
+  const pr = (item.kind === "jira" && prs.find((p) => title.test(p.title))) || prs.find((p) => head.test(p.headRefName));
+  const branch = pr?.headRefName ?? branches.find((b) => head.test(b) && !b.startsWith("backup/") && !delivered.has(b));
+  return branch ? { branch, pr: prs.find((p) => p.headRefName === branch) ?? null } : null;
+}
+
+// Where new work starts: the default branch, then origin's sprint-* branches (newest first).
+export function baseChoices(defaultBranch, remoteBranches) {
+  const sprints = remoteBranches.map((b) => b.replace(/^origin\//, "")).filter((b) => b.startsWith("sprint-"));
+  return [defaultBranch, ...new Set(sprints)];
+}
+
+// The space showing a terminal in this checkout, and that terminal's tab. A terminal in another
+// checkout nested in it (.claude/worktrees/…) does not count. A space only started there answers
+// when no terminal is there. panes and spaces: as Herdr's panes() and spaces() give them.
+export function spaceIn(path, checkouts, panes, spaces) {
+  const dirs = [path, ...checkouts];
+  const under = (cwd, dir) => cwd === dir || cwd.startsWith(`${dir}/`);
+  const checkout = (cwd) => dirs.filter((dir) => under(cwd, dir)).sort((a, b) => b.length - a.length)[0];
+  const inside = panes.find((p) => p.cwd && checkout(p.cwd) === path);
+  const space = inside && spaces.find((sp) => sp.tabs.some((t) => t.id === inside.tab));
+  if (space) return { space, tab: inside.tab };
+  const started = spaces.find((sp) => sp.folder === path);
+  return started ? { space: started, tab: null } : null;
+}

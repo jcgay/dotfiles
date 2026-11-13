@@ -68,6 +68,65 @@ test("prompts", () => {
   assert.equal(promptFor({ kind: "free", title: "idée" }), "/superpowers:brainstorming idée");
 });
 
+import { pickStartTransition, existingWork, baseChoices, spaceIn } from "./lib.js";
+
+const t = (name, to, cat) => ({ id: name, name, to: { name: to, statusCategory: { key: cat } } });
+const merlin = [
+  t("Selected for Development", "Selected for Development", "new"),
+  t("Attente Validation", "En Validation PO", "indeterminate"),
+  t("En validation", "En validation", "indeterminate"),
+  t("In Progress", "En cours", "indeterminate"),
+  t("Bloqué", "Bloqué", "indeterminate"),
+  t("Invalid", "Invalid", "done"),
+  t("Done Dev", "Done Dev", "indeterminate"),
+];
+
+test("the start transition is the in-progress one, not any indeterminate", () => {
+  assert.equal(pickStartTransition(merlin).name, "In Progress");
+  assert.equal(pickStartTransition([t("Bloqué", "Bloqué", "indeterminate"), t("Open", "Ouvert", "new")]), null);
+  assert.equal(pickStartTransition([t("Démarrer", "En Cours", "indeterminate")]).name, "Démarrer");
+  assert.equal(pickStartTransition([t("In Progress", "En cours", "done")]), null);
+});
+
+const jira = { kind: "jira", key: "MERLIN-2321", title: "T" };
+
+test("existing work: an open PR titled with the key wins", () => {
+  const pr = { number: 9, title: "MERLIN-2321: Accept pack", headRefName: "x" };
+  assert.deepEqual(existingWork(jira, [], [pr], new Set()), { branch: "x", pr });
+});
+
+test("existing work: newest undelivered branch, never backup/ nor a longer key", () => {
+  const branches = ["backup/MERLIN-2321", "MERLIN-23210-other", "MERLIN-2321-old", "MERLIN-2321"];
+  assert.deepEqual(existingWork(jira, branches, [], new Set(["MERLIN-2321-old"])), { branch: "MERLIN-2321", pr: null });
+  assert.equal(existingWork(jira, branches, [], new Set(["MERLIN-2321-old", "MERLIN-2321"])), null);
+});
+
+test("existing work for issues and free work", () => {
+  const issue = { kind: "issue", number: 5355, title: "T" };
+  assert.equal(existingWork(issue, ["15355-x", "5355-inflections"], [], new Set()).branch, "5355-inflections");
+  assert.equal(existingWork({ kind: "free", title: "x" }, ["x"], [], new Set()), null);
+});
+
+test("base choices: the default branch, then sprint branches", () => {
+  assert.deepEqual(baseChoices("master", ["origin/HEAD", "origin/master", "origin/sprint-la-search", "origin/sprint-old", "origin/feature"]),
+    ["master", "sprint-la-search", "sprint-old"]);
+});
+
+test("spaceIn: the space with a terminal in the checkout", () => {
+  const spaces = [{ id: "s1", folder: "/r", tabs: [{ id: "t1" }] }, { id: "s2", folder: "/w/a", tabs: [{ id: "t2" }] }];
+  assert.deepEqual(spaceIn("/w/a", ["/r", "/w/a"], [{ tab: "t2", cwd: "/w/a/sub" }], spaces), { space: spaces[1], tab: "t2" });
+});
+
+test("spaceIn: a nested checkout is not its parent", () => {
+  const spaces = [{ id: "s1", folder: "/r", tabs: [{ id: "t1" }] }];
+  assert.deepEqual(spaceIn("/r", ["/r", "/r/.claude/worktrees/a"], [{ tab: "t1", cwd: "/r/.claude/worktrees/a" }], spaces), { space: spaces[0], tab: null });
+});
+
+test("spaceIn: a space started in the folder with no terminal there", () => {
+  const spaces = [{ id: "s1", folder: "/w/a", tabs: [{ id: "t1" }] }];
+  assert.deepEqual(spaceIn("/w/a", ["/w/a"], [{ tab: "t1", cwd: "/elsewhere" }], spaces), { space: spaces[0], tab: null });
+});
+
 test("a colleague's ticket keeps their name when Jira hides their email", () => {
   const theirs = { ...jiraOne, fields: { ...jiraOne.fields, assignee: { emailAddress: null, displayName: "Charles Metivier" } } };
   const [item] = parseJiraIssues(JSON.stringify([theirs]));
