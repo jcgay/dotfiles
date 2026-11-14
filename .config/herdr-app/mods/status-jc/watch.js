@@ -95,7 +95,7 @@ export function emptyEntry() {
 
 // What to do with one PR this round: a new entry, the step to launch (or null), a toast (or null). Pure.
 export function decide(s, entry, tab, ctx) {
-  const e = structuredClone(entry);
+  const e = JSON.parse(JSON.stringify(entry)); // Herdr's runtime has no structuredClone
   e.told = { jenkins: false, sonar: false, ...e.told };
   e.url = s.url;
   e.title = s.title;
@@ -171,4 +171,39 @@ export function decide(s, entry, tab, ctx) {
   if (!REVIEW.includes(step)) e.attempts[step]++;
   e.launched = { step, head: s.head, tab: tabName(s.number, step) };
   return out(LABELS.running, step, toast);
+}
+
+// A launch that could not start: the attempt is not counted and the previous launch stays.
+export function undoLaunch(entry, before, step, label, error = null) {
+  const attempts = { ...entry.attempts };
+  if (!REVIEW.includes(step)) attempts[step]--;
+  return { ...entry, attempts, launched: before.launched, label, error };
+}
+
+// The first message of a watch agent. Fixes push to the PR branch through an explicit refspec.
+export function promptFor(step, s) {
+  const push = `git push origin HEAD:refs/heads/${s.branch}`;
+  const folder = "Ce dossier est un worktree détaché réservé à la surveillance des PR.";
+  switch (step) {
+    case "jenkins": {
+      const { url, jobPath, number } = s.jenkins;
+      return `Le build Jenkins de ${s.url} a échoué sur ${s.head.slice(0, 8)} (${url}). ${folder} `
+        + `Lis le log avec \`jk run log ${jobPath} ${number}\` ; sans VPN, Jenkins est injoignable : dis-le et arrête-toi. `
+        + `Si l'échec vient du code de la PR, corrige, commite et pousse avec \`${push}\` (jamais de push forcé, jamais sur une autre branche). `
+        + `S'il vient de l'infrastructure ou d'un test instable, relance avec \`jk run rerun ${jobPath} ${number}\` sans rien pousser.`;
+    }
+    case "sonar":
+      return `SonarCloud remonte des problèmes sur ${s.url} (${s.sonar.url}). ${folder} `
+        + `Lis les nouvelles issues et les security hotspots de la pull request ${s.number} (MCP SonarQube, paramètre \`pullRequest\`) `
+        + `et corrige-les tous, bloquants ou non. Commite et pousse avec \`${push}\` (jamais de push forcé, jamais sur une autre branche).`;
+    case "qa":
+      return `/testing-api-pull-requests ${s.url}\n\nArrête-toi une fois le rapport posté (étape 7) : aucune correction, aucun push.`;
+    default:
+      return `/${step} ${s.url}`;
+  }
+}
+
+// `git remote get-url origin` → owner/name on GitHub, or null.
+export function repoOfRemote(url) {
+  return /github\.com[:/]([^/\s]+\/[^/\s]+?)(?:\.git)?\/?\s*$/.exec(url ?? "")?.[1] ?? null;
 }

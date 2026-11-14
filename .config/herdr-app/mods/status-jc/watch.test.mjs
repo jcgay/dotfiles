@@ -1,7 +1,7 @@
 // node --test ~/.config/herdr-app/mods/status-jc/watch.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { searchSince, sonarFindings, markers, signalsOf, checks, jenkinsBuild, decide, emptyEntry, tabName, LABELS } from "./watch.js";
+import { searchSince, sonarFindings, markers, signalsOf, checks, jenkinsBuild, decide, emptyEntry, tabName, LABELS, promptFor, repoOfRemote, undoLaunch } from "./watch.js";
 
 // Real summaries: arthur#5458 (passed) and arthur#5449 (failed gate).
 const PASSED = `Issues  
@@ -306,4 +306,57 @@ test("repo that never had jenkins still gets review", () => {
   const old = { ...at() };
   delete old.seen;
   assert.equal(decide(green({ jenkins: null, sonar: null }), old, NO_TAB, CTX).launch, "pr-risk", "old entries without seen");
+});
+
+const PR = {
+  url: "https://github.com/softwarevidal/arthur/pull/5459", number: 5459, branch: "MERLIN-2320", head: "0123456789abcdef",
+  jenkins: { state: "ko", url: "https://jenkins/job/team.software/job/github/job/arthur/job/PR-5459/1/", jobPath: "team.software/github/arthur/PR-5459", number: 1 },
+  sonar: { state: "ko", url: "https://sonarcloud.io/dashboard?id=vidal_arthur&pullRequest=5459" },
+};
+
+test("promptFor names the PR in every step", () => {
+  for (const step of ["jenkins", "sonar", "pr-risk", "pr-demo", "qa"]) assert.match(promptFor(step, PR), /pull\/5459/, step);
+});
+
+test("promptFor jenkins reads the log and pushes to the PR branch only", () => {
+  const p = promptFor("jenkins", PR);
+  assert.match(p, /jk run log team\.software\/github\/arthur\/PR-5459 1/);
+  assert.match(p, /jk run rerun team\.software\/github\/arthur\/PR-5459 1/);
+  assert.match(p, /git push origin HEAD:refs\/heads\/MERLIN-2320/);
+  assert.match(p, /01234567/);
+  assert.doesNotMatch(p, /--force/);
+});
+
+test("promptFor sonar reads the pull request issues", () => {
+  const p = promptFor("sonar", PR);
+  assert.match(p, /pullRequest/);
+  assert.match(p, /git push origin HEAD:refs\/heads\/MERLIN-2320/);
+  assert.doesNotMatch(p, /--force/);
+});
+
+test("promptFor review steps run their skill", () => {
+  assert.equal(promptFor("pr-risk", PR), `/pr-risk ${PR.url}`);
+  assert.equal(promptFor("pr-demo", PR), `/pr-demo ${PR.url}`);
+  const qa = promptFor("qa", PR);
+  assert.ok(qa.startsWith(`/testing-api-pull-requests ${PR.url}`));
+  assert.match(qa, /étape 7/);
+});
+
+test("repoOfRemote reads GitHub remotes only", () => {
+  assert.equal(repoOfRemote("git@github.com:softwarevidal/arthur.git"), "softwarevidal/arthur");
+  assert.equal(repoOfRemote("https://github.com/softwarevidal/arthur"), "softwarevidal/arthur");
+  assert.equal(repoOfRemote("https://github.com/softwarevidal/arthur.git\n"), "softwarevidal/arthur");
+  assert.equal(repoOfRemote("git@gitlab.vidal.net:team/arthur.git"), null);
+  assert.equal(repoOfRemote(""), null);
+});
+
+test("undoLaunch gives the attempt and the previous launch back", () => {
+  const before = at({ attempts: { jenkins: 1, sonar: 0 }, launched: { step: "pr-risk", head: "h0", tab: "t" } });
+  const r = decide(green({ jenkins: jenkinsKo }), before, NO_TAB, CTX);
+  assert.equal(r.launch, "jenkins");
+  const undone = undoLaunch(r.entry, before, "jenkins", "à toi");
+  assert.deepEqual([undone.attempts.jenkins, undone.launched, undone.label, undone.error], [1, before.launched, "à toi", null]);
+  assert.equal(undone.url, r.entry.url, "keeps what decide learnt of the PR");
+  const failed = undoLaunch(decide(green(), at(), NO_TAB, CTX).entry, at(), "pr-risk", "erreur", "fatal: boom");
+  assert.deepEqual([failed.attempts, failed.launched, failed.error], [at().attempts, null, "fatal: boom"]);
 });

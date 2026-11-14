@@ -1,7 +1,11 @@
 import { View, div, svg } from "gpui-kit";
 import { h_flex } from "gpui-base";
-import { spaces, agents, panes, terminals, theme, run, window, keys, exec, home } from "herdr";
+import { spaces, agents, panes, terminals, theme, run, window, keys, exec, home, shared, setShared } from "herdr";
 import { parseListeners, parseParents, parseCwds, spaceOf, health } from "./ports.js";
+import { round } from "./watcher.js";
+
+const WATCH = "pr-watch";
+const FRESH = { on: true, prs: {}, error: null, at: 0 };
 
 // workspace-status, plus the ports the shown space's programs listen on.
 export default class WorkspaceStatus extends View {
@@ -9,6 +13,27 @@ export default class WorkspaceStatus extends View {
     this.ports = []; // [{ port, space, state: "up" | "starting" }]
     cx.timer.every(5000, (cx) => this.refresh(cx));
     this.refresh(cx);
+    // The PR watch lives here: this bar is always shown, the PR panel is not.
+    cx.timer.after(60000, (cx) => this.watch(cx));
+    cx.timer.every(300000, (cx) => this.watch(cx));
+  }
+
+  // Rounds run while the watch is off too: the panel stays fresh, decide launches nothing.
+  watch(cx) {
+    if (this.watching) return;
+    this.watching = true;
+    cx.spawn(async () => {
+      let next;
+      try {
+        next = await round(shared(WATCH) ?? FRESH, this);
+      } catch (e) {
+        next = { ...(shared(WATCH) ?? FRESH), error: e?.message ?? String(e), at: Date.now() };
+      } finally {
+        this.watching = false;
+      }
+      // The panel's switch may have flipped during the round: keep it.
+      setShared(WATCH, { ...next, on: shared(WATCH)?.on ?? next.on });
+    });
   }
 
   // lsof finds the listeners, their parents or folder name the space, curl says if they answer.
