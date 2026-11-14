@@ -45,7 +45,8 @@ ces trois situations :
     (`[N New issues]`, `[N Security Hotspots]` avec N > 0). Ce résumé est le format SonarCloud
     constaté le 14/11/2026 sur arthur#5458 (passé, 0 issue) et #5449 (échoué) ; s'il ne se lit
     pas, on se rabat sur la seule `conclusion`.
-  - **Revue** : la PR n'est pas en brouillon et aucun check n'est `ko` ni en cours. Trois étapes,
+  - **Revue** : la PR n'est pas en brouillon, au moins un check a rapporté sur le commit de tête
+    et aucun check n'est `ko` ni en cours. Trois étapes,
     une par tour et dans cet ordre, chacune sautée si la PR a déjà un commentaire à moi qui
     commence par son marqueur :
     1. `/pr-risk` — marqueur `<!-- pr-risk -->` (déjà en place) ;
@@ -53,9 +54,10 @@ ces trois situations :
        son scénario avant de démarrer quoi que ce soit (garde-fou non négociable du skill) :
        l'agent reste `blocked` et Herdr me prévient. S'il n'y a rien à montrer, il s'arrête sans
        commenter ;
-    3. `/testing-api-pull-requests`, seulement si le dépôt a ce skill
-       (`.agents/skills/testing-api-pull-requests/` ou `.claude/skills/…`) — marqueur
-       `<!-- testing-api-pull-requests -->`. *(Choix validé)* Le prompt lui demande de
+    3. `/testing-api-pull-requests`, seulement si le dépôt a ce skill et que son modèle de rapport
+       porte le marqueur (`.agents/skills/testing-api-pull-requests/references/report.md` ou
+       `.claude/skills/…`) — marqueur `<!-- testing-api-pull-requests -->`. Sans marqueur, la QA
+       serait relancée à chaque commit de tête. *(Choix validé)* Le prompt lui demande de
        s'arrêter au rapport posté (étape 7) : ni correction ni push ; les corrections restent mon
        choix, en réponse au rapport.
 
@@ -80,13 +82,18 @@ ces trois situations :
   - Le worktree de surveillance est réutilisé d'une étape à l'autre : avant chaque lancement,
     `git fetch` puis `git checkout --detach origin/<branche>`. S'il a des modifications non
     commitées ou des commits non poussés laissés par un agent précédent, on ne lance pas et la
-    PR passe « à toi ».
+    PR passe « à toi ». Non poussé veut dire : ni sur origin, ni sur une ancienne valeur de
+    `origin/<branche>` (son reflog), ni sur ce que la surveillance a extrait (reflog de `HEAD`) ;
+    un rebase suivi d'un push forcé de ma part ne bloque donc pas la PR.
   - Un space Herdr par worktree de surveillance (`space.new { folder, argv: ["claude"], task }`
     au premier lancement), puis un onglet par agent (`tab.new { space, … }`).
   - Sans clone local trouvé, la PR est affichée « pas de clone local » et rien n'est lancé.
 - **Un seul agent à la fois par PR**, et **au plus 3 agents de surveillance en même temps**.
   Au-delà, les déclencheurs attendent le tour suivant. Un agent « tourne » tant que son onglet
-  existe et que son statut est `working` ou `blocked`.
+  existe et que son statut est `working` ou `blocked` ; un agent de revue, tant que son onglet
+  existe sans que son marqueur soit sur la PR (voir « Enchaînement »). Tous les onglets
+  `⟳ #<n> …` de la PR comptent, pas seulement le dernier lancé. Un bail `shared("pr-watch-lease")`
+  empêche deux tours de tourner en même temps.
 - **Priorité dans une PR** : Jenkins avant Sonar (un build cassé fausse souvent l'analyse), et la
   revue seulement quand tout est vert (voir « Enchaînement »).
 - **Budget** : une tentative, c'est un agent lancé pour réparer un check donné (Jenkins ou Sonar)
@@ -95,17 +102,23 @@ ces trois situations :
   zéro quand le check repasse au vert, ou quand je pousse moi-même. *(Décision de conception)*
   Pour distinguer mon push de celui de l'agent (même identité git) : le registre note, pour
   chaque tentative, le commit de tête au lancement ; tout commit de tête apparu tant que l'onglet
-  de cet agent existe, quel que soit son statut (`done` compris), est à l'agent. Un nouveau
+  de cet agent de correction existe, quel que soit son statut (`done` compris), est à l'agent. Un nouveau
   commit de tête vu sans onglet de surveillance ouvert pour la PR est à moi. Les lancements de
   revue (`pr-risk`, QA) ne sont pas comptés : le marqueur suffit à ne pas les répéter.
 - **Enchaînement** *(décision de conception)* :
   - Jenkins `ko`, qu'un agent tourne ou qu'il soit « à toi » : rien d'autre ne se lance sur la PR.
   - Sonar à corriger (Jenkins vert) : la revue attend. Si Sonar passe « à toi » mais que son
     quality gate est vert, la revue se lance quand même ; s'il est rouge, elle attend.
-  - Un agent de revue (`pr-risk`, `pr-demo`, QA) dont l'onglet se ferme, ou qui finit
-    (`done`/`idle`), sans que son marqueur soit sur la PR, n'est pas relancé : l'étape est
-    « terminée sans commentaire » (cas normal de `pr-demo` sans rien à montrer) et la suivante
-    peut partir. Pas de toast. La liste des étapes lancées vit dans le registre, par commit de
+  - Un autre check `ko` (ni Jenkins ni Sonar, que personne ne corrige ici) : la revue attend et la
+    PR passe « à toi », sans toast. Avec plusieurs contextes Jenkins, un contexte `ko` l'emporte.
+  - Un agent de revue (`pr-risk`, `pr-demo`, QA) sans son marqueur sur la PR garde la PR, et pour
+    `pr-demo` et la QA la place de karadoc, tant que son onglet existe, quel que soit son statut :
+    un Claude qui attend une réponse texte (l'approbation du scénario de `pr-demo`) se lit
+    `done`/`idle`, pas `blocked`. L'étape finit quand son marqueur apparaît, ou quand je ferme
+    l'onglet : elle est alors « terminée sans commentaire » pour ce commit (cas normal de
+    `pr-demo` sans rien à montrer), n'est pas relancée, et la suivante peut partir. Pas de toast.
+    Une étape de correction (Jenkins, Sonar) finit dès que son agent n'est plus `working` ou
+    `blocked`. La liste des étapes lancées vit dans le registre, par commit de
     tête : un nouveau push ne relance pas une étape déjà commentée, mais en relance une
     terminée sans commentaire.
 - **Ce que l'agent fait** : il pousse lui-même sur la branche de la PR, avec une refspec
@@ -113,7 +126,7 @@ ces trois situations :
   (`jk run log`), corrige si l'échec vient du code de la PR, et relance le build (`jk run rerun`)
   si l'échec vient de l'infrastructure ou d'un test instable. Pour Sonar, il lit les issues de la
   PR (MCP ou CLI Sonar, avec la clé de PR) et les corrige toutes, bloquantes ou non. Les messages
-  de départ sont écrits dans `model.js` et testés.
+  de départ sont écrits dans `watch.js` et testés.
 - **Registre** : l'état partagé `shared("pr-watch")`, que Herdr persiste et que
   tous les mods peuvent lire (le panneau `pr` ne fait que le lire et basculer `on`), garde, par PR, les tentatives par check, le dernier commit vu et l'état « à toi ». Il survit à un
   redémarrage de l'application. Le runtime de Herdr n'a pas `structuredClone` : les entrées sont
@@ -121,9 +134,10 @@ ces trois situations :
   rapporté et manque sur un nouveau commit, pour ne pas remettre le budget à zéro tant que la CI
   n'a pas rapporté.
 - **Interrupteur** : un bouton du panneau coupe ou relance la surveillance ; l'état est gardé dans
-  le registre. Coupée, rien n'est lancé, l'affichage continue.
+  le registre. Un registre neuf démarre coupé. Coupée, rien n'est lancé, l'affichage continue.
 - **Dans le panneau** : sous la PR courante, une section « Surveillance » liste les PR suivies
-  avec leur état en un mot (`ok`, `en attente`, `agent en cours`, `à toi`, `pas de clone local`) ;
+  avec leur état en un mot (`ok`, `en attente`, `agent en cours`, `à toi`, `pas de clone local`),
+  et l'âge du dernier tour (« dernier tour il y a N min ») pour voir une surveillance arrêtée ;
   un clic sur une PR avec un agent montre son onglet (`agent.focus`), un clic sur « à toi » ouvre
   la PR.
 
