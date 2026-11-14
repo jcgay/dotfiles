@@ -66,6 +66,13 @@ test("signalsOf combines Jenkins, Sonar and markers", () => {
   assert.equal(s.reported, true);
 });
 
+test("signalsOf reads a self-hosted SonarQube check like SonarCloud", () => {
+  const view = { repo: "r/a", number: 511, title: "T", url: "u", isDraft: false, headRefName: "b", headRefOid: "abc", comments: [], statusCheckRollup: [] };
+  const run = { name: "SonarQube Code Analysis", status: "completed", conclusion: "failure", details_url: "http://build/x",
+    output: { summary: "Failed conditions  \n[6 New issues](http://build/issues)  \n" } };
+  assert.deepEqual(signalsOf(view, [run], "jcgay").sonar, { state: "ko", failed: true, issues: 6, hotspots: 0, url: "http://build/x" });
+});
+
 test("signalsOf: any ko check fails, a ko Jenkins context wins, no check at all is not reported", () => {
   const view = { repo: "r/a", number: 1, title: "T", url: "u", isDraft: false, headRefName: "b", headRefOid: "abc", comments: [] };
   const jk = (name, state, n) => ({ context: `continuous-integration/jenkins/${name}`, state, targetUrl: `https://jenkins/job/a/job/${name}/${n}/` });

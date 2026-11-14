@@ -52,7 +52,7 @@ export function signalsOf(view, checkRuns, me) {
   const all = checks(view.statusCheckRollup);
   const builds = all.map((c) => ({ c, b: jenkinsBuild(c.url) })).filter((x) => x.b);
   const build = builds.find((x) => x.c.state === "ko") ?? builds[0];
-  const run = (checkRuns ?? []).find((r) => r.name === "SonarCloud Code Analysis");
+  const run = (checkRuns ?? []).find((r) => /^Sonar(Cloud|Qube) Code Analysis$/.test(r.name));
   const found = sonarFindings(run);
   const sonar = found && {
     state: run.status && run.status !== "completed" ? "running" : found.failed || found.issues + found.hotspots > 0 ? "ko" : "ok",
@@ -221,9 +221,10 @@ export function promptFor(step, s) {
         + `S'il vient de l'infrastructure ou d'un test instable, relance avec \`jk run rerun ${jobPath} ${number}\` sans rien pousser.`;
     }
     case "sonar":
-      return `SonarCloud remonte des problèmes sur ${s.url} (${s.sonar.url}). ${folder} `
-        + `Lis les nouvelles issues et les security hotspots de la pull request ${s.number} (MCP SonarQube, paramètre \`pullRequest\`) `
-        + `et corrige-les tous, bloquants ou non. Commite et pousse avec \`${push}\` (jamais de push forcé, jamais sur une autre branche).`;
+      return `Sonar remonte des problèmes sur ${s.url} (${s.sonar.url}). ${folder} `
+        + `Lis les nouvelles issues et les security hotspots de la pull request ${s.number} : sur sonarcloud.io avec le MCP SonarQube (paramètre \`pullRequest\`), `
+        + `sur un SonarQube interne avec son API web. Si tu ne peux pas les lire, dis-le et arrête-toi. Sinon `
+        + `corrige-les tous, bloquants ou non. Commite et pousse avec \`${push}\` (jamais de push forcé, jamais sur une autre branche).`;
     case "qa":
       return `/testing-api-pull-requests ${s.url}\n\nArrête-toi une fois le rapport posté (étape 7) : aucune correction, aucun push.`;
     default:

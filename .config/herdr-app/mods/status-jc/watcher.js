@@ -1,5 +1,5 @@
 // One round of the PR watch: gh, git and Herdr side effects around the pure decisions of watch.js.
-import { exec, spaces, agents, panes, run, notify, readTextFile, home, shared, setShared } from "herdr";
+import { exec, spaces, agents, panes, run, focused, notify, readTextFile, home, shared, setShared } from "herdr";
 import { searchSince, signalsOf, decide, emptyEntry, promptFor, repoOfRemote, undoLaunch, holdingTabs, checkoutBases, LABELS } from "./watch.js";
 
 const MAX_AGENTS = 3;
@@ -84,9 +84,15 @@ export async function prepareWorktree(clone, repo, branch) {
 }
 
 function start(path, name, task) {
+  const was = focused();
   const space = spaces().find((s) => !s.machine && s.folder === path);
   if (space) run("tab.new", { space: space.id, folder: path, name, argv: ["claude"], task });
   else run("space.new", { folder: path, tab: name, argv: ["claude"], task });
+  // A background launch must not steal focus: put the user back where they were.
+  if (!was) return;
+  run("space.select", { id: was.space });
+  run("tab.select", { id: was.tab });
+  if (was.pane) run("pane.focus", { pane: was.pane });
 }
 
 // Every watch tab ("⟳ #<n> <step>") that holds its PR, given each watched PR's markers.
