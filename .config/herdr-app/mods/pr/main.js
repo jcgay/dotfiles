@@ -1,6 +1,6 @@
 import { View, div } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
-import { spaces, panes, focused, exec, theme, layout } from "herdr";
+import { spaces, panes, agents, focused, exec, theme, layout, run, shared, setShared } from "herdr";
 import { jenkinsBuild, checks, minutes, deploymentsFor, parseContainers } from "./model.js";
 
 // The pull request of the shown space's branch (gh), and its Jenkins build (jk).
@@ -139,12 +139,34 @@ export default class PullRequest extends View {
           .when(Boolean(b && !b.unreachable && !running && b.result !== "SUCCESS"), (e) => e.child(button("pr-rerun", "Relancer",
             (cx) => this.act(cx, "Relance", ["jk", "run", "rerun", b.jobPath, String(b.number)], { timeout: 30000 })))));
 
+    // The PR watch (status-jc writes it): all PRs, so it shows even without one in this space.
+    const reg = shared("pr-watch") ?? null, entries = Object.entries(reg?.prs ?? {});
+    const labelColor = (l) => l === "à toi" || l === "erreur" ? t.blocked : l === "agent en cours" ? t.working : l === "ok" ? t.done : t.dim;
+    const open = (entry) => {
+      const agent = entry.launched && agents().find((a) => a.tab_name === entry.launched.tab);
+      const terminal = agent && panes().find((p) => p.pane === agent.pane)?.terminal;
+      if (terminal) run("agent.focus", { terminal }); else exec("open", [entry.url]);
+    };
+    const watch = v_flex().gap(2)
+      .child(section("Surveillance"))
+      .child(h_flex().id("watch-switch").h(24).gap(8).items_center().rounded(6).px(4).text_size(12).cursor_pointer().hover((s) => s.bg(t.hover))
+        .on_click(() => setShared("pr-watch", { on: false, prs: {}, error: null, at: 0, ...reg, on: !reg?.on }))
+        .child(dot(reg?.on ? "ok" : "ko")).child(div().child(reg?.on ? "Surveillance active" : "Surveillance coupée")))
+      .when(!reg, (e) => e.child(div().text_size(11).text_color(t.dim).child("Surveillance : pas encore de tour")))
+      .when(Boolean(reg?.error), (e) => e.child(div().text_size(11).text_color(t.ansi1).child(reg.error)))
+      .children(entries.map(([k, entry], i) => v_flex().id(`watch-${i}`).rounded(6).px(4).py(2).text_size(12).cursor_pointer().hover((s) => s.bg(t.hover))
+        .on_click(() => open(entry))
+        .child(h_flex().h(20).gap(8).items_center()
+          .child(div().flex_1().min_w(0).truncate().child(`#${k.split("#")[1]} ${k.split("#")[0].split("/").pop()}`))
+          .child(div().flex_none().text_color(labelColor(entry.label)).child(entry.label ?? "")))
+        .when(Boolean(entry.error), (e) => e.child(div().text_size(11).text_color(t.ansi1).child(entry.error)))));
+
     return v_flex().id("pr").size_full().min_h(0).rounded(10).overflow_hidden().bg(t.background).border_1().border_color(t.border).text_color(t.foreground).text_size(13)
       .child(h_flex().h(42).flex_none().px(14).gap(8).items_center().border_b(1).border_color(t.border)
         .child(div().font_semibold().child("Pull request")).child(div().flex_1())
         .when(this.loading, (e) => e.child(div().text_size(11).text_color(t.dim).child("…")))
         .child(div().id("pr-refresh").text_size(11).text_color(t.dim).cursor_pointer().hover((s) => s.text_color(t.foreground)).on_click((_e, cx) => { this.refresh(cx, true); cx.notify(); }).child("Rafraîchir")))
-      .child(v_flex().id("pr-body").flex_1().min_h(0).overflow_y_scroll().p(14).child(body))
+      .child(v_flex().id("pr-body").flex_1().min_h(0).overflow_y_scroll().p(14).child(body).child(watch))
       .when(Boolean(this.note), (e) => e.child(div().px(14).pb(10).text_size(11).text_color(t.muted).child(this.note)));
   }
 }
