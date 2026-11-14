@@ -85,10 +85,11 @@ export const tabName = (number, step) => `⟳ #${number} ${step}`;
 // - told: the "à toi" toast of that check was shown; reset together with its attempts.
 // - launched: the step running or last launched, with the head it started on and its tab name.
 // - silent: per head, the review steps that ended without leaving their marker.
+// - seen: that check reported on some head of this PR; null on a later head then means "not reported yet".
 export function emptyEntry() {
   return {
     url: "", title: "", head: null, attempts: { jenkins: 0, sonar: 0 }, told: { jenkins: false, sonar: false },
-    launched: null, silent: {}, label: LABELS.waiting, error: null,
+    seen: { jenkins: false, sonar: false }, launched: null, silent: {}, label: LABELS.waiting, error: null,
   };
 }
 
@@ -105,6 +106,10 @@ export function decide(s, entry, tab, ctx) {
     return out(LABELS.error);
   }
   e.error = null;
+  e.seen = { jenkins: false, sonar: false, ...e.seen };
+  for (const c of ["jenkins", "sonar"]) if (s[c]) e.seen[c] = true;
+  // A check this PR had but the head lacks has not reported yet: wait, as for a running one.
+  const state = (c) => s[c]?.state ?? (e.seen[c] ? "running" : "ok");
 
   if (s.head !== e.head) {
     // A head that appears while the agent's tab exists (done included) is the agent's push: keep its budget.
@@ -123,7 +128,7 @@ export function decide(s, entry, tab, ctx) {
   if (tab.running) return out(LABELS.running);
 
   for (const c of ["jenkins", "sonar"]) {
-    if (!s[c] || s[c].state === "ok") {
+    if (s[c]?.state === "ok") {
       e.attempts[c] = 0;
       e.told[c] = false;
     }
@@ -138,18 +143,18 @@ export function decide(s, entry, tab, ctx) {
   };
 
   let step;
-  if (s.jenkins?.state === "ko") {
+  if (state("jenkins") === "ko") {
     if (e.attempts.jenkins >= BUDGET) {
       refuse("jenkins");
       return out(LABELS.yours, null, toast);
     }
     step = "jenkins";
-  } else if (s.jenkins?.state === "running" || s.pending || s.sonar?.state === "running") {
+  } else if (state("jenkins") === "running" || s.pending || state("sonar") === "running") {
     return out(LABELS.waiting);
-  } else if (s.sonar?.state === "ko" && e.attempts.sonar < BUDGET) {
+  } else if (state("sonar") === "ko" && e.attempts.sonar < BUDGET) {
     step = "sonar";
   } else {
-    if (s.sonar?.state === "ko") {
+    if (state("sonar") === "ko") {
       refuse("sonar");
       if (s.sonar.failed) return out(LABELS.yours, null, toast);
     }
