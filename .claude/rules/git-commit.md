@@ -2,8 +2,9 @@
 
 Applies whenever you write a commit message (or a PR description).
 
-Commit at the end of each task, on the current branch, without asking me —
-including on `master`/`main`. Push still only when I ask.
+Commit at the end of each task without asking me. Never on `master`/`main`
+unless I explicitly say so: create a branch first. Push only when I ask,
+except for opening the draft pull request below.
 
 ## Review feedback
 
@@ -13,6 +14,10 @@ commits, one per commit being corrected (find it with `git blame` /
 I run `git rebase -i --autosquash` myself.
 
 ## Pull request
+
+Open the pull request as a draft (`gh pr create --draft`) right after the
+branch's first commit, without asking me, following the steps below. I mark
+it ready for review myself. Later commits stay local until I ask for a push.
 
 Once the branch has an open pull request (`gh pr view --json number`), every
 new commit carries `Closes #<PR>` in its footer.
