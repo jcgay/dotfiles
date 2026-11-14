@@ -1,9 +1,11 @@
 // One round of the PR watch: gh, git and Herdr side effects around the pure decisions of watch.js.
-import { exec, spaces, agents, panes, run, notify, readTextFile, home } from "herdr";
-import { searchSince, signalsOf, decide, emptyEntry, promptFor, repoOfRemote, undoLaunch, LABELS } from "./watch.js";
+import { exec, spaces, agents, panes, run, notify, readTextFile, home, shared, setShared } from "herdr";
+import { searchSince, signalsOf, decide, emptyEntry, promptFor, repoOfRemote, undoLaunch, holdingTabs, checkoutBases, LABELS } from "./watch.js";
 
 const MAX_AGENTS = 3;
 const KARADOC = ["pr-demo", "qa"];
+const LEASE = "pr-watch-lease";
+const LEASE_MS = 240000; // a round older than this died without clearing its lease
 const VIEW_FIELDS = "number,title,url,isDraft,headRefName,headRefOid,statusCheckRollup,comments";
 
 const firstLine = (text) => (text ?? "").trim().split("\n")[0] || null;
@@ -19,7 +21,7 @@ async function signals(pr, me, before) {
   const repo = pr.repository.nameWithOwner;
   try {
     const view = JSON.parse(await sh("gh", ["pr", "view", String(pr.number), "-R", repo, "--json", VIEW_FIELDS]));
-    const runs = JSON.parse(await sh("gh", ["api", `repos/${repo}/commits/${view.headRefOid}/check-runs`]));
+    const runs = JSON.parse(await sh("gh", ["api", `repos/${repo}/commits/${view.headRefOid}/check-runs?per_page=100`]));
     return signalsOf({ ...view, repo }, runs.check_runs, me);
   } catch (e) {
     const url = `https://github.com/${repo}/pull/${pr.number}`;
@@ -54,8 +56,9 @@ async function findClone(repo) {
 
 async function cloneOf(repo) {
   const clone = await findClone(repo);
-  const skill = (dir) => readTextFile(`${clone}/${dir}/skills/testing-api-pull-requests/SKILL.md`);
-  const hasQa = clone !== null && ((await skill(".agents")) ?? (await skill(".claude"))) !== null;
+  // Without the marker in its report template, a QA would be relaunched on every head.
+  const report = (dir) => readTextFile(`${clone}/${dir}/skills/testing-api-pull-requests/references/report.md`);
+  const hasQa = clone !== null && /^<!-- testing-api-pull-requests -->$/m.test((await report(".agents")) ?? (await report(".claude")) ?? "");
   return { clone, hasQa };
 }
 
@@ -67,8 +70,15 @@ export async function prepareWorktree(clone, repo, branch) {
     await sh("git", ["-C", clone, "worktree", "add", "--detach", path, `origin/${branch}`]);
     return { path };
   }
+  // Unpushed: commits on top of what the watch checked out and of anything origin/<branch> pointed to,
+  // so a rebase + force-push of mine does not leave the agent's old base looking unpushed.
+  const tracked = await exec("git", ["reflog", "show", "--format=%H", `refs/remotes/origin/${branch}`], { cwd: path });
+  const bases = [
+    ...checkoutBases(await sh("git", ["reflog", "show", "--format=%H|%gs", "HEAD"], path), branch),
+    ...(tracked.code === 0 ? tracked.stdout.split("\n").filter(Boolean) : []),
+  ];
   if ((await sh("git", ["status", "--porcelain"], path)).trim()
-    || (await sh("git", ["rev-list", "HEAD", "--not", "--remotes=origin"], path)).trim()) return { dirty: true };
+    || (await sh("git", ["rev-list", "HEAD", "--not", "--remotes=origin", ...bases], path)).trim()) return { dirty: true };
   await sh("git", ["checkout", "--detach", `origin/${branch}`], path);
   return { path };
 }
@@ -79,9 +89,14 @@ function start(path, name, task) {
   else run("space.new", { folder: path, tab: name, argv: ["claude"], task });
 }
 
-// Watch tabs listed by agents() as running: "⟳ #<n> <step>".
-function runningTabs() {
-  return agents().filter((a) => a.tab_name.startsWith("⟳ ") && ["working", "blocked"].includes(a.status)).map((a) => a.tab_name);
+// Every watch tab ("⟳ #<n> <step>") that holds its PR, given each watched PR's markers.
+function heldTabs(all) {
+  const names = new Set(spaces().flatMap((s) => s.tabs.map((t) => t.name)).filter((n) => n?.startsWith("⟳ ")));
+  const list = agents();
+  for (const a of list) if (a.tab_name.startsWith("⟳ ")) names.add(a.tab_name);
+  const tabs = [...names].map((name) => ({ name, status: list.find((a) => a.tab_name === name)?.status ?? null }));
+  // A PR whose signals failed this round has unknown markers: its review tabs keep holding.
+  return holdingTabs(tabs, (n) => { const s = all.find((x) => x.number === n); return s ? s.markers ?? new Set() : null; });
 }
 
 function tabOf(entry) {
@@ -94,11 +109,27 @@ function tabOf(entry) {
 }
 
 // Only the current head's finished-without-comment steps matter: keeps the registry bounded.
-const pruned = (e) => ({ ...e, silent: e.silent[e.head] ? { [e.head]: e.silent[e.head] } : {} });
+const pruned = (e) => {
+  const silent = e.silent ?? {};
+  return { ...e, silent: silent[e.head] ? { [e.head]: silent[e.head] } : {} };
+};
 
-// One watch round: reads my open PRs, decides, launches; returns the new registry. `cache` keeps `me`.
+// One watch round: reads my open PRs, decides, launches; returns the new registry, or null when another round
+// holds the lease (two status-jc copies must not launch twice). `cache` keeps `me` and this copy's lease id.
 export async function round(registry, cache = {}) {
   const at = Date.now();
+  cache.lease ??= `${at}-${Math.random()}`;
+  const lease = shared(LEASE);
+  if (lease && lease.id !== cache.lease && at - lease.at < LEASE_MS) return null;
+  setShared(LEASE, { at, id: cache.lease });
+  try {
+    return await roundUnderLease(registry, cache, at);
+  } finally {
+    if (shared(LEASE)?.id === cache.lease) setShared(LEASE, null);
+  }
+}
+
+async function roundUnderLease(registry, cache, at) {
   let found;
   try {
     cache.me ??= (await sh("gh", ["api", "user", "--jq", ".login"])).trim();
@@ -116,28 +147,34 @@ export async function round(registry, cache = {}) {
   const prs = {};
   for (const s of all) {
     const before = registry.prs[s.key] ?? emptyEntry();
-    const busy = [...runningTabs(), ...launched];
-    const { clone, hasQa } = repos.get(s.repo);
-    const ctx = { on: registry.on, slots: MAX_AGENTS - busy.length, karadocFree: !busy.some((t) => KARADOC.some((k) => t.endsWith(` ${k}`))), hasQa };
-    const r = decide(s, before, tabOf(before), ctx);
-    if (r.toast) notify({ title: r.toast, body: s.url, level: "warning" });
-    let entry = r.entry;
-    if (r.launch) {
-      if (clone === null) entry = undoLaunch(entry, before, r.launch, LABELS.noClone);
-      else {
-        try {
-          const wt = await prepareWorktree(clone, s.repo, s.branch);
-          if (wt.dirty) entry = undoLaunch(entry, before, r.launch, LABELS.yours);
-          else {
-            start(wt.path, entry.launched.tab, promptFor(r.launch, s));
-            launched.push(entry.launched.tab);
+    try {
+      const busy = [...new Set([...heldTabs(all), ...launched])];
+      const { clone, hasQa } = repos.get(s.repo);
+      const ctx = { on: registry.on, slots: MAX_AGENTS - busy.length, karadocFree: !busy.some((t) => KARADOC.some((k) => t.endsWith(` ${k}`))), hasQa };
+      const tab = { ...tabOf(before), busy: busy.some((t) => t.startsWith(`⟳ #${s.number} `)) };
+      const r = decide(s, before, tab, ctx);
+      if (r.toast) notify({ title: r.toast, body: s.url, level: "warning" });
+      let entry = r.entry;
+      if (r.launch) {
+        if (clone === null) entry = undoLaunch(entry, r.launch, LABELS.noClone);
+        else {
+          try {
+            const wt = await prepareWorktree(clone, s.repo, s.branch);
+            if (wt.dirty) entry = undoLaunch(entry, r.launch, LABELS.yours);
+            else {
+              start(wt.path, entry.launched.tab, promptFor(r.launch, s));
+              launched.push(entry.launched.tab);
+            }
+          } catch (e) {
+            entry = undoLaunch(entry, r.launch, LABELS.error, e.message);
           }
-        } catch (e) {
-          entry = undoLaunch(entry, before, r.launch, LABELS.error, e.message);
         }
       }
+      prs[s.key] = pruned(entry);
+    } catch (e) {
+      // One broken PR keeps the others' launch records.
+      prs[s.key] = pruned({ ...before, label: LABELS.error, error: e?.message ?? String(e) });
     }
-    prs[s.key] = pruned(entry);
   }
   return { ...registry, prs, error: null, at };
 }

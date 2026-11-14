@@ -1,7 +1,7 @@
 // node --test ~/.config/herdr-app/mods/status-jc/watch.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { searchSince, sonarFindings, markers, signalsOf, checks, jenkinsBuild, decide, emptyEntry, tabName, LABELS, promptFor, repoOfRemote, undoLaunch } from "./watch.js";
+import { searchSince, sonarFindings, markers, signalsOf, checks, jenkinsBuild, decide, emptyEntry, tabName, LABELS, promptFor, repoOfRemote, undoLaunch, holdingTabs, checkoutBases } from "./watch.js";
 
 // Real summaries: arthur#5458 (passed) and arthur#5449 (failed gate).
 const PASSED = `Issues  
@@ -62,6 +62,20 @@ test("signalsOf combines Jenkins, Sonar and markers", () => {
   assert.equal(s.error, null);
   assert.equal(signalsOf({ ...view, statusCheckRollup: [] }, [], "jcgay").sonar, null);
   assert.equal(signalsOf({ ...view, statusCheckRollup: [{ name: "x", status: "IN_PROGRESS" }] }, [], "jcgay").pending, true);
+  assert.equal(s.failing, true);
+  assert.equal(s.reported, true);
+});
+
+test("signalsOf: any ko check fails, a ko Jenkins context wins, no check at all is not reported", () => {
+  const view = { repo: "r/a", number: 1, title: "T", url: "u", isDraft: false, headRefName: "b", headRefOid: "abc", comments: [] };
+  const jk = (name, state, n) => ({ context: `continuous-integration/jenkins/${name}`, state, targetUrl: `https://jenkins/job/a/job/${name}/${n}/` });
+  const s = signalsOf({ ...view, statusCheckRollup: [jk("branch", "SUCCESS", 1), jk("pr-merge", "FAILURE", 2)] }, [], "me");
+  assert.deepEqual([s.jenkins.state, s.jenkins.number, s.failing], ["ko", 2, true]);
+  const other = signalsOf({ ...view, statusCheckRollup: [jk("branch", "SUCCESS", 1), { name: "lint", conclusion: "FAILURE" }] }, [], "me");
+  assert.deepEqual([other.jenkins.state, other.failing], ["ok", true]);
+  const none = signalsOf({ ...view, statusCheckRollup: [] }, [], "me");
+  assert.deepEqual([none.failing, none.reported], [false, false]);
+  assert.equal(signalsOf({ ...view, statusCheckRollup: [] }, [{ name: "x" }], "me").reported, true, "a check-run alone reports");
 });
 
 test("copied helpers still work", () => {
@@ -75,7 +89,7 @@ const green = (over = {}) => ({
   title: "T", branch: "b", head: "h1", draft: false,
   jenkins: { state: "ok", url: "https://jenkins/x/1/", jobPath: "x", number: 1 },
   sonar: { state: "ok", failed: false, issues: 0, hotspots: 0, url: "https://sonarcloud.io/x" },
-  pending: false, markers: new Set(), error: null, ...over,
+  pending: false, failing: false, reported: true, markers: new Set(), error: null, ...over,
 });
 const jenkinsKo = { state: "ko", url: "https://jenkins/x/1/", jobPath: "x", number: 1 };
 const sonarKo = (failed) => ({ state: "ko", failed, issues: 2, hotspots: 0, url: "https://sonarcloud.io/x" });
@@ -139,8 +153,8 @@ test("marker skips a step", () => {
   assert.equal(decide(green({ markers: new Set(["pr-demo"]) }), at({ silent: { h1: ["pr-risk"] } }), NO_TAB, CTX).launch, "qa");
 });
 
-test("silent step not relaunched on same head but relaunched on new head", () => {
-  const ended = decide(green(), at({ launched: { step: "pr-demo", head: "h1", tab: "⟳ #5462 pr-demo" } }), DONE, CTX);
+test("review tab closed without marker: silent on that head, relaunched on a new head", () => {
+  const ended = decide(green(), at({ launched: { step: "pr-demo", head: "h1", tab: "⟳ #5462 pr-demo" } }), NO_TAB, CTX);
   assert.deepEqual(ended.entry.silent, { h1: ["pr-demo"] });
   const markersRisk = new Set(["pr-risk"]);
   assert.equal(decide(green({ markers: markersRisk }), ended.entry, NO_TAB, CTX).launch, "qa");
@@ -157,6 +171,15 @@ test("agent push keeps attempts", () => {
     assert.equal(r.entry.attempts.sonar, 1);
     assert.equal(r.entry.head, "h2");
   }
+});
+
+test("a review tab left open does not own my push", () => {
+  const r = decide(green({ head: "h2", jenkins: jenkinsKo }), at({ attempts: { jenkins: 2, sonar: 0 }, launched: demo }), DONE, CTX);
+  assert.equal(r.entry.attempts.jenkins, 0);
+});
+
+test("draft without any check stays a draft", () => {
+  assert.equal(decide(green({ draft: true, jenkins: null, sonar: null, reported: false }), at(), NO_TAB, CTX).entry.label, "brouillon");
 });
 
 test("my push resets attempts", () => {
@@ -228,7 +251,7 @@ test("off launches nothing", () => {
   assert.equal(r.entry.label, "en attente");
   assert.equal(r.entry.attempts.jenkins, 0);
   assert.equal(r.entry.launched, null);
-  const ended = decide(green(), at({ launched: { step: "pr-risk", head: "h1", tab: "t" } }), DONE, { ...CTX, on: false });
+  const ended = decide(green(), at({ launched: { step: "pr-risk", head: "h1", tab: "t" } }), NO_TAB, { ...CTX, on: false });
   assert.deepEqual(ended.entry.silent, { h1: ["pr-risk"] }, "display keeps updating while off");
 });
 
@@ -350,13 +373,75 @@ test("repoOfRemote reads GitHub remotes only", () => {
   assert.equal(repoOfRemote(""), null);
 });
 
-test("undoLaunch gives the attempt and the previous launch back", () => {
+test("undoLaunch gives the attempt back and forgets the launch", () => {
   const before = at({ attempts: { jenkins: 1, sonar: 0 }, launched: { step: "pr-risk", head: "h0", tab: "t" } });
   const r = decide(green({ jenkins: jenkinsKo }), before, NO_TAB, CTX);
   assert.equal(r.launch, "jenkins");
-  const undone = undoLaunch(r.entry, before, "jenkins", "à toi");
-  assert.deepEqual([undone.attempts.jenkins, undone.launched, undone.label, undone.error], [1, before.launched, "à toi", null]);
+  const undone = undoLaunch(r.entry, "jenkins", "à toi");
+  assert.deepEqual([undone.attempts.jenkins, undone.launched, undone.label, undone.error], [1, null, "à toi", null]);
   assert.equal(undone.url, r.entry.url, "keeps what decide learnt of the PR");
-  const failed = undoLaunch(decide(green(), at(), NO_TAB, CTX).entry, at(), "pr-risk", "erreur", "fatal: boom");
+  const failed = undoLaunch(decide(green(), at(), NO_TAB, CTX).entry, "pr-risk", "erreur", "fatal: boom");
   assert.deepEqual([failed.attempts, failed.launched, failed.error], [at().attempts, null, "fatal: boom"]);
+});
+
+const demo = { step: "pr-demo", head: "h1", tab: "⟳ #5462 pr-demo" };
+
+test("review tab that exists without its marker holds the PR, whatever its status", () => {
+  for (const tab of [DONE, RUNNING]) {
+    const r = decide(green({ markers: new Set(["pr-risk"]) }), at({ launched: demo }), tab, CTX);
+    assert.deepEqual([r.launch, r.entry.label, r.entry.launched, r.entry.silent], [null, "agent en cours", demo, {}]);
+  }
+});
+
+test("review marker appears: step done, next step goes", () => {
+  const r = decide(green({ markers: new Set(["pr-risk", "pr-demo"]) }), at({ launched: demo }), DONE, CTX);
+  assert.equal(r.launch, "qa");
+  assert.deepEqual(r.entry.silent, {});
+});
+
+test("fix step still ends when its agent stops working", () => {
+  const r = decide(green({ sonar: sonarKo(false) }), at({ launched: { step: "jenkins", head: "h1", tab: "⟳ #5462 jenkins" } }), DONE, CTX);
+  assert.equal(r.launch, "sonar");
+});
+
+test("another watch agent of the PR blocks it", () => {
+  const r = decide(green({ jenkins: jenkinsKo }), at(), { ...NO_TAB, busy: true }, CTX);
+  assert.deepEqual([r.launch, r.entry.label, r.entry.attempts.jenkins], [null, "agent en cours", 0]);
+});
+
+test("review waits while any check is ko", () => {
+  const r = decide(green({ failing: true }), at(), NO_TAB, CTX);
+  assert.equal(r.launch, null);
+  assert.equal(decide(green({ failing: true, sonar: sonarKo(false) }), at(), NO_TAB, CTX).launch, "sonar", "sonar is still fixed");
+});
+
+test("no check reported on the head: no review", () => {
+  const r = decide(green({ jenkins: null, sonar: null, reported: false }), at(), NO_TAB, CTX);
+  assert.deepEqual([r.launch, r.entry.label], [null, "en attente"]);
+});
+
+test("holdingTabs: working or blocked agents, and review tabs without their marker", () => {
+  const markersOf = (n) => ({ 1: new Set(["pr-risk"]), 2: new Set(["pr-risk", "pr-demo"]) })[n] ?? null;
+  const got = holdingTabs([
+    { name: "⟳ #1 pr-demo", status: "idle" }, // waits for my reply: holds karadoc
+    { name: "⟳ #2 pr-demo", status: "done" }, // marker posted: free
+    { name: "⟳ #2 jenkins", status: "working" },
+    { name: "⟳ #1 jenkins", status: "done" },
+    { name: "⟳ #3 qa", status: null }, // PR not watched any more
+    { name: "⟳ #1 pr-risk", status: null }, // marker posted, no agent
+    { name: "claude", status: "working" },
+  ], markersOf);
+  assert.deepEqual(got, ["⟳ #1 pr-demo", "⟳ #2 jenkins"]);
+});
+
+test("checkoutBases: the commits the watch checked out, not the agent's", () => {
+  const reflog = [
+    "c3|checkout: moving from c2 to foo",
+    "c2|commit: agent",
+    "c1|checkout: moving from c0 to origin/MERLIN-1",
+    "c9|checkout: moving from c8 to origin/MERLIN-10",
+    "c0|",
+  ].join("\n");
+  assert.deepEqual(checkoutBases(reflog, "MERLIN-1"), ["c1", "c0"]);
+  assert.deepEqual(checkoutBases("", "b"), []);
 });

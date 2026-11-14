@@ -50,7 +50,8 @@ export function markers(comments, me) {
 
 export function signalsOf(view, checkRuns, me) {
   const all = checks(view.statusCheckRollup);
-  const build = all.map((c) => ({ c, b: jenkinsBuild(c.url) })).find((x) => x.b);
+  const builds = all.map((c) => ({ c, b: jenkinsBuild(c.url) })).filter((x) => x.b);
+  const build = builds.find((x) => x.c.state === "ko") ?? builds[0];
   const run = (checkRuns ?? []).find((r) => r.name === "SonarCloud Code Analysis");
   const found = sonarFindings(run);
   const sonar = found && {
@@ -64,6 +65,8 @@ export function signalsOf(view, checkRuns, me) {
     jenkins: build && { state: build.c.state, url: build.c.url, ...build.b },
     sonar,
     pending: all.some((c) => c.state === "running"),
+    failing: all.some((c) => c.state === "ko"),
+    reported: all.length > 0 || (checkRuns ?? []).length > 0,
     markers: markers(view.comments, me),
     error: null,
   };
@@ -84,7 +87,7 @@ export const tabName = (number, step) => `⟳ #${number} ${step}`;
 // - attempts: fix agents launched per check since it was last green or I last pushed.
 // - told: the "à toi" toast of that check was shown; reset together with its attempts.
 // - launched: the step running or last launched, with the head it started on and its tab name.
-// - silent: per head, the review steps that ended without leaving their marker.
+// - silent: per head, the review steps whose tab closed without their marker.
 // - seen: that check reported on some head of this PR; null on a later head then means "not reported yet".
 export function emptyEntry() {
   return {
@@ -93,7 +96,27 @@ export function emptyEntry() {
   };
 }
 
+// Watch tabs ([{ name, status }]) that hold their PR, and for pr-demo/qa karadoc: a working or blocked agent, or a review
+// step whose tab exists without its marker (a Claude waiting for a text reply reads idle). markersOf(number): Set, or null.
+export function holdingTabs(tabs, markersOf) {
+  return tabs.filter(({ name, status }) => {
+    const m = /^⟳ #(\d+) (\S+)$/.exec(name);
+    if (!m) return false;
+    if (["working", "blocked"].includes(status)) return true;
+    const found = markersOf(Number(m[1]));
+    return REVIEW.includes(m[2]) && found !== null && !found.has(m[2]);
+  }).map((t) => t.name);
+}
+
+// `git reflog show --format=%H|%gs HEAD` of a watch worktree → the commits the watch itself checked out
+// (worktree add, checkout of origin/<branch>): what the agent found, not what it committed.
+export function checkoutBases(reflog, branch) {
+  return reflog.split("\n").map((l) => l.split("|"))
+    .filter(([h, gs]) => h && (gs === "" || (gs?.startsWith("checkout: ") && gs.endsWith(` to origin/${branch}`)))).map(([h]) => h);
+}
+
 // What to do with one PR this round: a new entry, the step to launch (or null), a toast (or null). Pure.
+// tab: { exists, running } of entry.launched's tab, busy: another watch tab holds this PR (holdingTabs).
 export function decide(s, entry, tab, ctx) {
   const e = JSON.parse(JSON.stringify(entry)); // Herdr's runtime has no structuredClone
   e.told = { jenkins: false, sonar: false, ...e.told };
@@ -112,20 +135,23 @@ export function decide(s, entry, tab, ctx) {
   const state = (c) => s[c]?.state ?? (e.seen[c] ? "running" : "ok");
 
   if (s.head !== e.head) {
-    // A head that appears while the agent's tab exists (done included) is the agent's push: keep its budget.
-    if (!(e.launched && tab.exists)) {
+    // A head that appears while a fix agent's tab exists (done included) is its push: keep its budget.
+    // Review agents never push, and their tab may stay open for long.
+    if (!(e.launched && tab.exists && !REVIEW.includes(e.launched.step))) {
       e.attempts = { jenkins: 0, sonar: 0 };
       e.told = { jenkins: false, sonar: false };
     }
     e.head = s.head;
   }
 
-  if (e.launched && !tab.running) {
-    const { step, head } = e.launched;
-    if (REVIEW.includes(step) && !s.markers.has(step)) e.silent[head] = [...(e.silent[head] ?? []), step];
+  // A review step lasts until its marker appears or its tab closes; a fix step until its agent stops working.
+  const review = e.launched && REVIEW.includes(e.launched.step) && !s.markers.has(e.launched.step);
+  const holds = review ? tab.exists : tab.running;
+  if (e.launched && !holds) {
+    if (review) e.silent[e.launched.head] = [...(e.silent[e.launched.head] ?? []), e.launched.step];
     e.launched = null;
   }
-  if (tab.running) return out(LABELS.running);
+  if ((e.launched && holds) || tab.busy) return out(LABELS.running);
 
   for (const c of ["jenkins", "sonar"]) {
     if (s[c]?.state === "ok") {
@@ -159,6 +185,8 @@ export function decide(s, entry, tab, ctx) {
       if (s.sonar.failed) return out(LABELS.yours, null, toast);
     }
     if (!s.draft) {
+      if (s.failing) return out(LABELS.yours, null, toast); // a ko check nobody here fixes
+      if (!s.reported) return out(LABELS.waiting);
       const silent = e.silent[s.head] ?? [];
       step = REVIEW.find((r) => (r !== "qa" || ctx.hasQa) && !s.markers.has(r) && !silent.includes(r));
     }
@@ -173,11 +201,11 @@ export function decide(s, entry, tab, ctx) {
   return out(LABELS.running, step, toast);
 }
 
-// A launch that could not start: the attempt is not counted and the previous launch stays.
-export function undoLaunch(entry, before, step, label, error = null) {
+// A launch that could not start: the attempt is not counted and nothing runs.
+export function undoLaunch(entry, step, label, error = null) {
   const attempts = { ...entry.attempts };
   if (!REVIEW.includes(step)) attempts[step]--;
-  return { ...entry, attempts, launched: before.launched, label, error };
+  return { ...entry, attempts, launched: null, label, error };
 }
 
 // The first message of a watch agent. Fixes push to the PR branch through an explicit refspec.
