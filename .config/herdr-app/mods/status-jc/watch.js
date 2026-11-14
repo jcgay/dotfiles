@@ -216,7 +216,7 @@ export function promptFor(step, s) {
     case "jenkins": {
       const { url, jobPath, number } = s.jenkins;
       return `Le build Jenkins de ${s.url} a échoué sur ${s.head.slice(0, 8)} (${url}). ${folder} `
-        + `Lis le log avec \`jk run log ${jobPath} ${number}\` ; sans VPN, Jenkins est injoignable : dis-le et arrête-toi. `
+        + `Lis le log avec \`jk log ${jobPath} ${number}\` ; sans VPN, Jenkins est injoignable : dis-le et arrête-toi. `
         + `Si l'échec vient du code de la PR, corrige, commite et pousse avec \`${push}\` (jamais de push forcé, jamais sur une autre branche). `
         + `S'il vient de l'infrastructure ou d'un test instable, relance avec \`jk run rerun ${jobPath} ${number}\` sans rien pousser.`;
     }

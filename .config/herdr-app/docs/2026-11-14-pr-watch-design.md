@@ -123,7 +123,7 @@ ces trois situations :
     terminée sans commentaire.
 - **Ce que l'agent fait** : il pousse lui-même sur la branche de la PR, avec une refspec
   explicite (`git push origin HEAD:refs/heads/<branche>`). Pour Jenkins, il lit le log
-  (`jk run log`), corrige si l'échec vient du code de la PR, et relance le build (`jk run rerun`)
+  (`jk log`), corrige si l'échec vient du code de la PR, et relance le build (`jk run rerun`)
   si l'échec vient de l'infrastructure ou d'un test instable. Pour Sonar, il lit les issues de la
   PR (MCP ou CLI Sonar, avec la clé de PR) et les corrige toutes, bloquantes ou non. Les messages
   de départ sont écrits dans `watch.js` et testés.

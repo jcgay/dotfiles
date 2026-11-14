@@ -350,7 +350,7 @@ test("promptFor names the PR in every step", () => {
 
 test("promptFor jenkins reads the log and pushes to the PR branch only", () => {
   const p = promptFor("jenkins", PR);
-  assert.match(p, /jk run log team\.software\/github\/arthur\/PR-5459 1/);
+  assert.match(p, /jk log team\.software\/github\/arthur\/PR-5459 1/);
   assert.match(p, /jk run rerun team\.software\/github\/arthur\/PR-5459 1/);
   assert.match(p, /git push origin HEAD:refs\/heads\/MERLIN-2320/);
   assert.match(p, /01234567/);
