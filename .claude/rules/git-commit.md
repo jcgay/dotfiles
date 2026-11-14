@@ -4,7 +4,7 @@ Applies whenever you write a commit message (or a PR description).
 
 Commit at the end of each task without asking me. Never on `master`/`main`
 unless I explicitly say so: create a branch first. Push only when I ask,
-except for opening the draft pull request below.
+except to a branch with a pull request (see below).
 
 ## Review feedback
 
@@ -17,7 +17,9 @@ I run `git rebase -i --autosquash` myself.
 
 Open the pull request as a draft (`gh pr create --draft`) right after the
 branch's first commit, without asking me, following the steps below. I mark
-it ready for review myself. Later commits stay local until I ask for a push.
+it ready for review myself. Then push every new commit of the branch,
+fixups included, as soon as it is made, so the pull request follows the
+work. Never force-push without asking me.
 
 Once the branch has an open pull request (`gh pr view --json number`), every
 new commit carries `Closes #<PR>` in its footer.
@@ -44,7 +46,7 @@ the guess was wrong, the commits made before it get the trailer too:
 1. List `git log <base>..HEAD` and show it to me; I may drop some.
 2. For each remaining commit, `git commit --fixup=amend:<sha>` with the
    original message plus the trailer. Skip the ones that already have it.
-3. Don't autosquash, don't push: same as review fixups.
+3. Don't autosquash: same as review fixups.
 
 ## Subject
 
