@@ -1,7 +1,7 @@
 import { View, div } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
 import { spaces, panes, agents, focused, exec, theme, layout, run, shared, setShared } from "herdr";
-import { jenkinsBuild, checks, minutes, deploymentsFor, parseContainers } from "./model.js";
+import { jenkinsBuild, checks, minutes, deploymentsFor, parseContainers, watchBranch } from "./model.js";
 
 // The pull request of the shown space's branch (gh), and its Jenkins build (jk).
 const FIELDS = "number,title,state,isDraft,reviewDecision,reviewRequests,url,headRefName,baseRefName,additions,deletions,statusCheckRollup";
@@ -9,7 +9,9 @@ const FIELDS = "number,title,state,isDraft,reviewDecision,reviewRequests,url,hea
 function location() {
   const space = spaces().find((s) => s.active), f = focused();
   const pane = f?.pane ? panes().find((p) => p.pane === f.pane) : null;
-  return { cwd: pane?.cwd || f?.cwd || space?.folder || null, branch: pane?.branch ?? space?.branch ?? null, on: space?.machine ?? null };
+  const cwd = pane?.cwd || f?.cwd || space?.folder || null, branch = pane?.branch ?? space?.branch ?? null;
+  const detached = branch ? null : watchBranch(cwd);
+  return { cwd, branch: branch ?? detached, detached: Boolean(detached), on: space?.machine ?? null };
 }
 const key = () => JSON.stringify(location());
 
@@ -51,7 +53,7 @@ export default class PullRequest extends View {
       let pr = null, build = null, error = null, deployed = [];
       try {
         const [r, origin] = await Promise.all([
-          exec("gh", ["pr", "view", "--json", FIELDS], { cwd: where.cwd, on: where.on, timeout: 20000 }),
+          exec("gh", ["pr", "view", ...(where.detached ? [where.branch] : []), "--json", FIELDS], { cwd: where.cwd, on: where.on, timeout: 20000 }),
           exec("git", ["remote", "get-url", "origin"], { cwd: where.cwd, on: where.on }).catch(() => null),
         ]);
         if (r.code === 0) pr = JSON.parse(r.stdout);

@@ -1,7 +1,7 @@
 // node --test ~/.config/herdr-app/mods/pr/model.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { jenkinsBuild, checks, minutes, parseContainers, deploymentsFor, deployKey } from "./model.js";
+import { jenkinsBuild, checks, minutes, parseContainers, deploymentsFor, deployKey, watchBranch } from "./model.js";
 
 test("jenkins build url", () => {
   assert.deepEqual(jenkinsBuild("https://jenkins.vidal.net/job/team.software/job/github/job/arthur/job/PR-5459/1/display/redirect"),
@@ -54,4 +54,11 @@ test("DockerBo deploy key from the PR title", () => {
   ].join("\n"));
   assert.deepEqual(deploymentsFor(cs, { repo: "babel", branch: "MM-1505-x", pr: 2415, title: "MM-1505: fix [DEPLOY_PR][mm1505]" }),
     ["http://babel-mm1505.dockerbo.vidal.net"]);
+});
+
+test("branch of a PR watch worktree", () => {
+  assert.equal(watchBranch("/Users/jc/dev/agents-worktree/arthur/MERLIN-2321-watch"), "MERLIN-2321");
+  assert.equal(watchBranch("/Users/jc/dev/agents-worktree/ordostruct/feat/local-posology-families-watch"), "feat/local-posology-families");
+  assert.equal(watchBranch("/Volumes/sourcecode/arthur-5355"), null);
+  assert.equal(watchBranch(null), null);
 });

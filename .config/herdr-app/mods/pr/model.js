@@ -59,3 +59,9 @@ export function deploymentsFor(containers, { repo, branch, pr, title }) {
   }
   return [...urls].sort();
 }
+
+// A PR watch worktree (status-jc's watcher) is detached, so Herdr gives no branch: its path names it.
+// …/agents-worktree/ordostruct/feat/x-watch → "feat/x"
+export function watchBranch(cwd) {
+  return /\/agents-worktree\/[^/]+\/(.+)-watch\/?$/.exec(cwd ?? "")?.[1] ?? null;
+}
