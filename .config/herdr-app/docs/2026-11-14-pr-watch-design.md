@@ -28,8 +28,11 @@ ces trois situations :
 - **Quand** : un tour de surveillance toutes les 5 minutes, dès le lancement de l'application,
   que le panneau ait été ouvert ou non. *(Choix validé)* Une copie de mod ne démarre qu'à son
   premier affichage et repart de zéro à un changement de layout (`AGENTS.md`) : le tour tourne
-  donc depuis `status-jc`, toujours affiché dans le layout `jc`, en important un module partagé
-  (`mods/pr/watch.js` par exemple) ; le panneau `pr` lit le registre pour afficher l'état. Un
+  donc depuis `status-jc`, toujours affiché dans le layout `jc`, avec tout le code de
+  surveillance dans `mods/status-jc/` (`watch.js` pour les décisions pures, `watcher.js` pour les
+  effets d'un tour, les minuteurs dans `main.js`) : Herdr refuse un import hors du dossier du mod
+  (`herdr-app check` : « resolves outside the application directory »). Le panneau `pr` lit le
+  registre pour afficher l'état. Un
   seul hôte du tour : le panneau ne lance jamais d'agent lui-même. L'affichage détaillé de la PR
   du space courant garde son comportement actuel : mise à jour à l'ouverture du panneau, au
   changement de space ou de pane, et par « Rafraîchir ».
@@ -111,9 +114,12 @@ ces trois situations :
   si l'échec vient de l'infrastructure ou d'un test instable. Pour Sonar, il lit les issues de la
   PR (MCP ou CLI Sonar, avec la clé de PR) et les corrige toutes, bloquantes ou non. Les messages
   de départ sont écrits dans `model.js` et testés.
-- **Registre** : un fichier JSON dans `~/.config/herdr-app` (par exemple `data/pr-watch.json`)
-  garde, par PR, les tentatives par check, le dernier commit vu et l'état « à toi ». Il survit à un
-  redémarrage de l'application.
+- **Registre** : l'état partagé `shared("pr-watch")`, que Herdr persiste et que
+  tous les mods peuvent lire (le panneau `pr` ne fait que le lire et basculer `on`), garde, par PR, les tentatives par check, le dernier commit vu et l'état « à toi ». Il survit à un
+  redémarrage de l'application. Le runtime de Herdr n'a pas `structuredClone` : les entrées sont
+  copiées en JSON. Le champ `seen` d'une entrée fait compter comme « en cours » un check qui a déjà
+  rapporté et manque sur un nouveau commit, pour ne pas remettre le budget à zéro tant que la CI
+  n'a pas rapporté.
 - **Interrupteur** : un bouton du panneau coupe ou relance la surveillance ; l'état est gardé dans
   le registre. Coupée, rien n'est lancé, l'affichage continue.
 - **Dans le panneau** : sous la PR courante, une section « Surveillance » liste les PR suivies
@@ -157,8 +163,9 @@ ces trois situations :
 - **A. Tout dans le mod `pr`** *(retenue)*. Il connaît déjà gh, jk et Herdr ; décisions pures
   dans `model.js`, testées avec `node --test`. Rien ne tourne application fermée, mais les agents
   visibles en ont besoin de toute façon. Amendée ensuite : le tour est hébergé par `status-jc`
-  (toujours affiché) en important le code de `mods/pr/`, parce qu'une copie du panneau ne démarre
-  qu'à son premier affichage.
+  (toujours affiché) avec tout le code de surveillance dans `mods/status-jc/`, parce qu'une copie du
+  panneau ne démarre qu'à son premier affichage et que Herdr refuse les imports hors du dossier
+  d'un mod ; le registre est `shared("pr-watch")`.
 - **B. Un mod de surveillance invisible séparé du panneau.** Plus de séparation, mais deux mods
   doivent partager un état sans API pour ça : plus de code pour le même résultat.
 - **C. Un démon hors de Herdr (launchd).** Tourne application fermée, mais doit piloter Herdr de
