@@ -1,6 +1,9 @@
 ---
 name: pr-risk
 description: Use when deciding how dangerous a pull request is and whether it needs human review — before merging, before opening one, or to triage how much attention a colleague's or agent's PR deserves. Not for code-quality review.
+argument-hint: "[PR number|URL|branch]"
+context: fork
+agent: general-purpose
 ---
 
 # PR risk
@@ -11,6 +14,12 @@ naming, structure or code quality. Never judge CI status.
 
 Write every report in English close to ASD-STE100: short sentences, one idea
 per sentence, active voice, common words.
+
+This skill runs in a forked subagent, so the diffs it reads stay out of the
+caller's conversation. You see nothing of that conversation: the target is
+the argument, or the current branch. Your last message is all the caller
+gets: make it the terminal verdict of step 7, complete, then the comment
+URL (no-PR mode: the comment body to paste).
 
 ## 1. Find the target
 
