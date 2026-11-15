@@ -29,45 +29,79 @@ function visible() {
 export default class PullRequest extends View {
   init(_props, cx) {
     this.context = null; this.pr = null; this.build = null; this.error = null; this.loading = false; this.note = null;
-    this.deployed = []; this.scan = { at: 0, list: null };
+    this.deployed = []; this.scan = { at: 0, list: null, pending: null };
+    // Last state of each space or pane seen, shown at once when it comes back while a refresh runs;
+    // finished Jenkins builds, which never change; the repo name of each checkout.
+    this.seen = new Map(); this.builds = new Map(); this.remotes = new Map(); this.turns = new Map();
     cx.timer.every(60000, (cx) => { if (visible()) this.refresh(cx); });
   }
 
   // Every container of the shared Docker hosts, through the wrappers in ~/.local/bin. One scan
-  // serves every space for 5 minutes: it inspects some 270 containers.
-  async containers(force) {
-    if (!force && this.scan.list && Date.now() - this.scan.at < 300000) return this.scan.list;
-    const lists = await Promise.all(["dockersw", "docker-sw2", "dockerbo"].map((cli) =>
+  // serves every space for 5 minutes: it inspects some 270 containers. Concurrent callers share it.
+  containers(force) {
+    if (!force && this.scan.list && Date.now() - this.scan.at < 300000) return Promise.resolve(this.scan.list);
+    this.scan.pending ??= Promise.all(["dockersw", "docker-sw2", "dockerbo"].map((cli) =>
       exec("sh", ["-c", `${cli} ps -q | xargs ${cli} inspect --format '{{.Name}}|{{json .Config.Env}}'`], { timeout: 30000 })
-        .then((r) => parseContainers(r.stdout)).catch(() => [])));
-    this.scan = { at: Date.now(), list: lists.flat() };
-    return this.scan.list;
+        .then((r) => parseContainers(r.stdout)).catch(() => [])))
+      .then((lists) => { this.scan = { at: Date.now(), list: lists.flat(), pending: null }; return this.scan.list; });
+    return this.scan.pending;
   }
 
+  // The repo name of origin, asked once per checkout (retried if git failed).
+  repo(where) {
+    const id = `${where.on ?? ""}|${where.cwd}`;
+    if (!this.remotes.has(id)) this.remotes.set(id, exec("git", ["remote", "get-url", "origin"], { cwd: where.cwd, on: where.on })
+      .then((o) => o.code === 0 ? o.stdout.trim().replace(/\.git$/, "").split(/[/:]/).pop() : null).catch(() => null)
+      .then((name) => { if (!name) this.remotes.delete(id); return name; }));
+    return this.remotes.get(id);
+  }
+
+  // Each answer shows as it comes: the PR as soon as gh answers, then its build and deployments.
   refresh(cx, force = false) {
     const where = location(), context = key();
-    if (context !== this.context) { this.context = context; this.pr = null; this.build = null; this.error = null; this.deployed = []; }
+    if (context !== this.context) {
+      const seen = this.seen.get(context);
+      Object.assign(this, { context, pr: null, build: null, error: null, deployed: [] }, seen);
+    }
     if (!where.cwd || !where.branch) { this.loading = false; return; }
     this.loading = true;
+    // Only the latest refresh of a context writes: an older one may answer last.
+    const turn = (this.turns.get(context) ?? 0) + 1;
+    this.turns.set(context, turn);
+    const live = () => this.turns.get(context) === turn;
+    const show = (patch) => {
+      if (!live()) return;
+      this.seen.set(context, { ...this.seen.get(context), ...patch });
+      if (key() === context) Object.assign(this, patch);
+      cx.notify();
+    };
     cx.spawn(async (cx) => {
-      let pr = null, build = null, error = null, deployed = [];
+      // The scan does not wait for gh, only for the repo name: no origin, nothing to look for.
+      const repo = this.repo(where), scan = repo.then((name) => name && this.containers(force));
       try {
-        const [r, origin] = await Promise.all([
-          exec("gh", ["pr", "view", ...(where.detached ? [where.branch] : []), "--json", FIELDS], { cwd: where.cwd, on: where.on, timeout: 20000 }),
-          exec("git", ["remote", "get-url", "origin"], { cwd: where.cwd, on: where.on }).catch(() => null),
-        ]);
+        const r = await exec("gh", ["pr", "view", ...(where.detached ? [where.branch] : []), "--json", FIELDS], { cwd: where.cwd, on: where.on, timeout: 20000 });
+        let pr = null, error = null;
         if (r.code === 0) pr = JSON.parse(r.stdout);
         else if (!/no (open )?pull requests? found/i.test(r.stderr)) error = (r.stderr || r.stdout).trim().split("\n")[0];
-        const repo = origin?.code === 0 ? origin.stdout.trim().replace(/\.git$/, "").split(/[/:]/).pop() : null;
         const jenkins = pr && checks(pr.statusCheckRollup).map((c) => jenkinsBuild(c.url)).find(Boolean);
-        const [j, containers] = await Promise.all([
-          jenkins ? exec("jk", ["run", "view", jenkins.jobPath, String(jenkins.number), "--json"], { timeout: 20000 }).catch(() => null) : null,
-          repo ? this.containers(force) : [],
+        const id = jenkins && `${jenkins.jobPath}#${jenkins.number}`, done = id && this.builds.get(id);
+        // The build already shown stays until jk answers, if it is still this one.
+        const prev = this.seen.get(context)?.build;
+        show({ pr, error, build: !jenkins ? null : done ?? (prev && `${prev.jobPath}#${prev.number}` === id ? prev : null) });
+        await Promise.all([
+          // A jk failure, unreadable JSON included, marks the build unreachable but keeps the PR.
+          jenkins && !done && exec("jk", ["run", "view", jenkins.jobPath, String(jenkins.number), "--json"], { timeout: 20000 })
+            .then((j) => j.code === 0 ? { ...jenkins, ...JSON.parse(j.stdout) } : null).catch(() => null)
+            .then((found) => {
+              const build = found ?? { ...jenkins, unreachable: true };
+              if (build.status === "completed") this.builds.set(id, build);
+              show({ build });
+            }),
+          repo.then(async (name) => show({ deployed: name
+            ? deploymentsFor(await scan, { repo: name, branch: pr?.headRefName ?? where.branch, pr: pr?.number, title: pr?.title }) : [] })),
         ]);
-        if (jenkins) build = j?.code === 0 ? { ...jenkins, ...JSON.parse(j.stdout) } : { ...jenkins, unreachable: true };
-        deployed = deploymentsFor(containers, { repo, branch: pr?.headRefName ?? where.branch, pr: pr?.number, title: pr?.title });
-      } catch (e) { error = String(e?.message ?? e); }
-      if (key() === context) { this.pr = pr; this.build = build; this.error = error; this.deployed = deployed; this.loading = false; }
+      } catch (e) { show({ pr: null, build: null, deployed: [], error: String(e?.message ?? e) }); }
+      if (live() && key() === context) this.loading = false;
       cx.notify();
     });
   }
