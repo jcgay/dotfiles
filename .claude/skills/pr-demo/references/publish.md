@@ -30,23 +30,17 @@ description. Keep GitHub's line breaks: each one shows in a comment.
 - `--compare` with two videos: one 📹 line per file, base first, each named.
 - `--narrate`: add "🔊 with sound" to the 📹 line, so the reviewer unmutes it.
   Publish the mixed `pr-<N>.webm`, never the `-raw` one.
-- The last line is `🤖 Jean-Claude`, after a blank line. A hook refuses the
-  post without it.
+- The last line is `🤖 Jean-Claude`, after a blank line.
 
 ## Post or edit
 
-Write the body file's absolute path literally in the post command, never
-through a variable: the signature hook reads that path to find the
-signature, and refuses the command when it cannot.
-
 ```bash
-ME=$(gh api user --jq .login)
-gh api "repos/<owner>/<repo>/issues/<N>/comments" --paginate \
-  --jq ".[] | select(.user.login == \"$ME\" and (.body | startswith(\"<!-- pr-demo -->\"))) | .id" | head -1
+~/.claude/scripts/gh-pr-upsert-comment <owner>/<repo> <N> pr-demo <absolute path of the body file>
 ```
 
-An id printed: `gh api -X PATCH repos/<owner>/<repo>/issues/comments/<id> -F body=@<absolute path> --jq .html_url`.
-None: `gh pr comment <N> -R <owner>/<repo> --body-file <absolute path>`.
+It edits the `<!-- pr-demo -->` comment you already posted on the PR, or
+creates it, and prints the comment URL. It refuses a body without the marker
+on its first line or without the signature.
 
 ## Hand the video over
 

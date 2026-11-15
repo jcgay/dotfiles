@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# Post a marked comment on a pull request, or edit the one already there:
+# one comment per marker and per PR, however many times a skill runs.
+#   gh-pr-upsert-comment <owner>/<repo> <PR number> <marker> <body file>
+# The body must start with "<!-- <marker> -->" and end with a blank line then
+# the signature of ~/.claude/rules/github.md. The github-signature hook cannot
+# see the gh calls made here, so the check is done here. Prints the comment URL.
+set -euo pipefail
+sig='🤖 Jean-Claude'
+die() { echo "gh-pr-upsert-comment: $*" >&2; exit 1; }
+
+[ $# -eq 4 ] || { echo "usage: gh-pr-upsert-comment <owner>/<repo> <PR number> <marker> <body file>" >&2; exit 2; }
+repo=$1 pr=$2 marker="<!-- $3 -->" body=$4
+[[ $repo == ?*/?* ]] || die "not an <owner>/<repo>: '$repo'"
+[[ $pr =~ ^[0-9]+$ ]] || die "not a PR number: '$pr'"
+[ -f "$body" ] || die "no body file: '$body'"
+[ "$(head -n 1 "$body")" = "$marker" ] || die "the body must start with the line '$marker'"
+text=$(<"$body") # drops the trailing newlines
+[[ $text == *$'\n\n'"$sig" ]] || die "the body must end with a blank line then '$sig'"
+
+me=$(gh api user --jq .login)
+ids=$(gh api "repos/$repo/issues/$pr/comments" --paginate | jq -r --arg me "$me" --arg marker "$marker" \
+  '.[] | select(.user.login == $me and (.body | startswith($marker))) | .id')
+id=${ids%%$'\n'*}
+if [ -n "$id" ]; then
+  gh api -X PATCH "repos/$repo/issues/comments/$id" -F "body=@$body" --jq .html_url
+else
+  gh pr comment "$pr" -R "$repo" --body-file "$body"
+fi

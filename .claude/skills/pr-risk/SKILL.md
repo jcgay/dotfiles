@@ -213,22 +213,14 @@ graph LR
 - "Blast radius" only for Medium and High, and only with callers you found.
   Keep it under 10 nodes. Quote every node label.
 
-- The last line is `🤖 Jean-Claude`, after a blank line. A hook refuses the
-  post without it.
+- The last line is `🤖 Jean-Claude`, after a blank line.
 
-Post without asking. Edit the existing comment, never add a second one.
-Write the body file's absolute path literally (`<body file>` below), never
-through a variable: the signature hook reads that path to find the
-signature, and refuses the command when it cannot.
+Post without asking:
 
 ```bash
-ME=$(gh api user --jq .login)
-ID=$(gh api "repos/<owner>/<repo>/issues/<N>/comments" --paginate \
-  --jq ".[] | select(.user.login == \"$ME\" and (.body | startswith(\"<!-- pr-risk -->\"))) | .id" | head -1)
-if [ -n "$ID" ]; then
-  gh api -X PATCH "repos/<owner>/<repo>/issues/comments/$ID" -F body=@<body file> --jq .html_url
-else
-  gh pr comment <N> -R <owner>/<repo> --body-file <body file>
-fi
+~/.claude/scripts/gh-pr-upsert-comment <owner>/<repo> <N> pr-risk <body file>
 ```
-Print the comment URL.
+
+It edits the `<!-- pr-risk -->` comment you already posted on the PR, or
+creates it: never a second one. It refuses a body without the marker on its
+first line or without the signature. Print the comment URL it prints.
