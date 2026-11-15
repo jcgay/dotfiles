@@ -55,29 +55,46 @@ export default class StartWork extends View {
     cx.notify();
     cx.timer.after(100, () => this.input.focus());
     const main = this.repo.main;
-    await exec("git", ["fetch", "--quiet", "origin"], { cwd: main, timeout: 60000 }).catch(() => null);
+    // Only the bases and the branches need the fetch: the rest starts with it, and the search
+    // shows as soon as the Jira projects are known. Starting still waits for the fetch (this.ready),
+    // so a base is never an old origin/<branch>.
+    const fetched = exec("git", ["fetch", "--quiet", "origin"], { cwd: main, timeout: 60000 }).catch(() => null);
     myName().then((name) => { this.me = name; cx.notify(); }).catch(() => {});
-    const [refs, head, subjects, config] = await Promise.all([
+    const refs = () => Promise.all([
       cmd("git", ["for-each-ref", "--sort=-committerdate", "--format=%(refname:short)", "refs/heads", "refs/remotes/origin"], main).catch(() => ""),
       cmd("git", ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"], main).catch(() => "origin/master"),
-      cmd("git", ["log", "--since=12.months", "--format=%s"], main).catch(() => ""),
-      readTextFile(`${appHome()}/mods/start-work/config.json`).then((t) => JSON.parse(t ?? "{}")).catch(() => ({})),
-    ]);
-    const defaultBranch = head.trim().replace(/^origin\//, "");
-    const all = lines(refs).filter((b) => b !== "origin" && b !== "origin/HEAD");
-    this.bases = baseChoices(defaultBranch, all.filter((b) => b.startsWith("origin/"))).slice(0, 5); // the 4 newest sprints
-    this.ctx.branches = [...new Set(all.map((b) => b.replace(/^origin\//, "")))];
-    this.ctx.projects = config.jira?.[this.repo.name] ? [].concat(config.jira[this.repo.name]) : jiraProjects(lines(subjects));
-    const [prs, mergedPrs] = await Promise.all([
+    ]).then(([refs, head]) => {
+      const defaultBranch = head.trim().replace(/^origin\//, "");
+      const all = lines(refs).filter((b) => b !== "origin" && b !== "origin/HEAD");
+      const chosen = this.bases[this.base];
+      this.bases = baseChoices(defaultBranch, all.filter((b) => b.startsWith("origin/"))).slice(0, 5); // the 4 newest sprints
+      this.base = Math.max(0, this.bases.indexOf(chosen));
+      this.ctx.branches = [...new Set(all.map((b) => b.replace(/^origin\//, "")))];
+    });
+    const prsLoaded = Promise.all([
       cmd("gh", ["pr", "list", "--state", "open", "--limit", "100", "--json", "number,title,headRefName"], main).then(JSON.parse).catch(() => []),
       cmd("gh", ["pr", "list", "--state", "merged", "--limit", "200", "--json", "headRefName"], main).then(JSON.parse).catch(() => []),
+    ]).then(([prs, mergedPrs]) => {
+      this.ctx.prs = prs;
+      // Delivered: a merged PR only. `git branch --merged` also lists a branch just created, with no
+      // commit of its own yet, and its ticket would never resume.
+      this.ctx.delivered = new Set(mergedPrs.map((p) => p.headRefName));
+    });
+    const [subjects, config] = await Promise.all([
+      cmd("git", ["log", "--since=12.months", "--format=%s"], main).catch(() => ""),
+      readTextFile(`${appHome()}/mods/start-work/config.json`).then((t) => JSON.parse(t ?? "{}")).catch(() => ({})),
+      refs(),
     ]);
-    this.ctx.prs = prs;
-    // Delivered: a merged PR only. `git branch --merged` also lists a branch just created, with no
-    // commit of its own yet, and its ticket would never resume.
-    this.ctx.delivered = new Set(mergedPrs.map((p) => p.headRefName));
-    this.ready = true;
+    this.ctx.projects = config.jira?.[this.repo.name] ? [].concat(config.jira[this.repo.name]) : jiraProjects(lines(subjects));
+    this.projectsKnown = true;
     this.search(cx, true);
+    // After the fetch, the remote branches may resume the shown row: refill the branch field,
+    // unless a name was typed by hand.
+    await fetched; await refs(); await prsLoaded; // after the first refs(): it cannot answer last
+    if (this.branch.value() === this.filled) this.branchOf = null;
+    this.ready = true;
+    this.sync();
+    cx.notify();
   }
 
   // Ask Jira and GitHub for what the field holds, after a short pause in typing.
@@ -100,7 +117,7 @@ export default class StartWork extends View {
       if (seq !== this.seq) return; // a newer query is on its way
       const notes = [], rows = [];
       if (jiraCall) { if (j.status === "fulfilled") rows.push(...parseJiraIssues(j.value || "[]")); else notes.push(`Jira : ${j.reason?.message ?? j.reason}`); }
-      else if (this.ready && q.kind !== "issue" && !projects.length) notes.push("Jira : aucun projet trouvé pour ce dépôt (mods/start-work/config.json)");
+      else if (this.projectsKnown && q.kind !== "issue" && !projects.length) notes.push("Jira : aucun projet trouvé pour ce dépôt (mods/start-work/config.json)");
       if (ghCall) { if (g.status === "fulfilled") rows.push(...parseGhIssues(g.value || "[]")); else notes.push(`GitHub : ${g.reason?.message ?? g.reason}`); }
       if (q.kind === "text") rows.push({ kind: "free", title: q.text });
       this.rows = rows; this.notes = notes; this.at = 0; this.shown = seq;
@@ -120,7 +137,8 @@ export default class StartWork extends View {
     const s = this.selected(), id = this.rowId(s);
     if (id === this.branchOf && s?.kind !== "free") return;
     this.branchOf = id;
-    this.branch.set_value(s ? this.resume()?.branch ?? branchFor(s) : "");
+    this.filled = s ? this.resume()?.branch ?? branchFor(s) : "";
+    this.branch.set_value(this.filled);
   }
 
   dismiss() { closeOverlay(props().overlay); }
