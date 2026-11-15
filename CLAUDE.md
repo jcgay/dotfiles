@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Personal macOS dotfiles managed with [yadm](https://yadm.io). yadm is `git` with extras; it tracks files **in place** — no symlinks. The working tree *is* `$HOME`, so `.config/fish/...`, `.gitconfig`, etc. are the real files in use. Nothing to build or lint; the only tests are the Herdr mods' (see Tests).
+Personal macOS dotfiles managed with [yadm](https://yadm.io). yadm is `git` with extras; it tracks files **in place** — no symlinks. The working tree *is* `$HOME`, so `.config/fish/...`, `.gitconfig`, etc. are the real files in use. Nothing to build or lint; the only tests are the Herdr mods' and the Claude scripts' self-checks (see Tests).
 
 ## yadm, not git
 
@@ -55,6 +55,14 @@ node --test ~/.config/herdr-app/mods/*/*.test.mjs
 ```
 
 GitHub Actions (`.github/workflows/test.yml`) runs the same command on every push and pull request, on the Node version of `.config/mise/config.toml`. A new mod's `*.test.mjs` is picked up by the glob; keep `herdr` imports out of the module it tests, or Node cannot load it.
+
+The Claude scripts (`~/.claude/scripts`, `hooks`, `skills/pr-review/scripts`) carry bash self-checks with a fake `gh`, named `*.test` or `*_test.sh`. CI runs them too; locally, from `~`:
+
+```sh
+for t in .claude/scripts/*.test .claude/hooks/*.test .claude/skills/pr-review/scripts/*_test.sh; do bash "$t" || echo "FAIL $t"; done
+```
+
+`skills/pr-demo/scripts/narrate_test.sh` needs ffmpeg and a speech engine, so it is run by hand only.
 
 ## Conventions
 

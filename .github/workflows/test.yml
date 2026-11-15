@@ -1,4 +1,4 @@
-# Self-checks of the Herdr desktop app mods: pure functions only, no Herdr needed.
+# Self-checks: the Herdr desktop app mods (pure functions, no Herdr needed) and the Claude scripts (fake gh).
 name: test
 on:
   push:
@@ -12,3 +12,8 @@ jobs:
         with:
           node-version: 26 # same as .config/mise/config.toml
       - run: node --test .config/herdr-app/mods/*/*.test.mjs
+  claude-scripts:
+    runs-on: ubuntu-latest # has bash and jq
+    steps:
+      - uses: actions/checkout@v7
+      - run: for t in .claude/scripts/*.test .claude/hooks/*.test .claude/skills/pr-review/scripts/*_test.sh; do bash "$t" || exit 1; done
