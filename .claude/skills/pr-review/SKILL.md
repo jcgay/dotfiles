@@ -57,10 +57,13 @@ GitHub (review body, inline comment, reply) ends with a blank line then
 - The PR body (no PR: the commit messages of `<base-sha>..<head>`).
 - A JIRA key (`[A-Z][A-Z0-9]+-[0-9]+`), searched in this order: PR title,
   branch name, commit messages. First match wins.
-- Read the ticket with the Atlassian MCP (load the tools with ToolSearch
-  `select:mcp__claude_ai_Atlassian_Rovo__getAccessibleAtlassianResources,mcp__claude_ai_Atlassian_Rovo__getJiraIssue`):
-  cloud id from `getAccessibleAtlassianResources`, then `getJiraIssue` with
-  the key. Keep summary, description and acceptance criteria.
+- Read the ticket with the Atlassian MCP. The tools' prefix depends on where
+  the session runs (`mcp__claude_ai_Atlassian_Rovo__…` in the CLI,
+  `mcp__Atlassian_Rovo__…` in a cloud session), so find them by keyword,
+  never by full name: ToolSearch
+  `+Atlassian getJiraIssue getAccessibleAtlassianResources`. Cloud id from
+  `getAccessibleAtlassianResources`, then `getJiraIssue` with the key. Keep
+  summary, description and acceptance criteria.
 - Ticket unreachable (tool missing, not authenticated, key unknown): go on
   without it and keep the reason; the report says "ticket non lu : <reason>".
 - Neither a PR body nor a ticket: skip the conformity review and say so in
