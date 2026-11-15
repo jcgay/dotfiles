@@ -10,6 +10,8 @@
 !rules/git-commit.md
 !rules/github.md
 !rules/context7.md
+!docs/
+!docs/pr-review-design.md
 !scripts/
 !scripts/gh-pr-upsert-comment
 !scripts/gh-pr-upsert-comment.test
