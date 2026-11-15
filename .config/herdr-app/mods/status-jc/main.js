@@ -1,7 +1,7 @@
 import { View, div, svg } from "gpui-kit";
 import { h_flex } from "gpui-base";
 import { spaces, agents, panes, terminals, theme, run, window, keys, exec, home, shared, setShared } from "herdr";
-import { parseListeners, parseParents, parseCwds, spaceOf, health } from "./ports.js";
+import { parseListeners, parseParents, parseCwds, spaceOf, health, stillMapped, healthPlan } from "./ports.js";
 import { round } from "./watcher.js";
 
 const WATCH = "pr-watch";
@@ -10,7 +10,8 @@ const FRESH = { on: false, prs: {}, error: null, at: 0 }; // the PR panel's swit
 // workspace-status, plus the ports the shown space's programs listen on.
 export default class WorkspaceStatus extends View {
   init(_props, cx) {
-    this.ports = []; // [{ port, space, state: "up" | "starting" }]
+    this.ports = []; // [{ pid, port, space, state: "up" | "starting", at }]
+    this.mapped = null; // the last ps and lsof-cwd answers: { at, pids, parents, cwds }
     cx.timer.every(5000, (cx) => this.refresh(cx));
     this.refresh(cx);
     // The PR watch lives here: this bar is always shown, the PR panel is not.
@@ -38,17 +39,23 @@ export default class WorkspaceStatus extends View {
 
   // lsof finds the listeners, their parents or folder name the space, curl says if they answer.
   refresh(cx) {
-    if (this.busy) return;
-    this.busy = true;
+    // Asked while a round runs (a space switch): run again after it, or the new space waits for the next tick.
+    if (this.busy) { this.again = true; return; }
+    this.busy = true; this.again = false;
     cx.spawn(async (cx) => {
       try {
         const listen = await exec("lsof", ["-nP", "-iTCP", "-sTCP:LISTEN", "-Fpn"], { timeout: 4000 });
         const byPid = parseListeners(listen.stdout);
-        if (byPid.size === 0) { this.ports = []; return; }
-        const [ps, cwd] = await Promise.all([
-          exec("ps", ["-axo", "pid=,ppid="], { timeout: 4000 }),
-          exec("lsof", ["-a", "-d", "cwd", "-Fn", "-p", [...byPid.keys()].join(",")], { timeout: 4000 }),
-        ]);
+        if (byPid.size === 0) { this.ports = []; this.mapped = null; return; }
+        // The same listeners as last round: their parents and folders have not moved.
+        const pids = new Set(byPid.keys());
+        if (!stillMapped(pids, this.mapped, Date.now())) {
+          const [ps, cwd] = await Promise.all([
+            exec("ps", ["-axo", "pid=,ppid="], { timeout: 4000 }),
+            exec("lsof", ["-a", "-d", "cwd", "-Fn", "-p", [...pids].join(",")], { timeout: 4000 }),
+          ]);
+          this.mapped = { at: Date.now(), pids, parents: parseParents(ps.stdout), cwds: parseCwds(cwd.stdout) };
+        }
         const shells = new Map();
         for (const t of terminals()) if (t.pid && t.labels?.["herdr.space"]) shells.set(t.pid, t.labels["herdr.space"]);
         const roots = [];
@@ -57,21 +64,26 @@ export default class WorkspaceStatus extends View {
           const tabs = new Set(s.tabs.map((t) => t.id));
           for (const p of panes()) if (tabs.has(p.tab) && p.cwd && p.cwd !== home()) roots.push({ folder: p.cwd, space: s.id });
         }
-        const ctx = { parents: parseParents(ps.stdout), shells, cwds: parseCwds(cwd.stdout), roots };
+        const ctx = { parents: this.mapped.parents, shells, cwds: this.mapped.cwds, roots };
         const found = [];
         for (const [pid, ports] of byPid) {
           const space = spaceOf(pid, ctx);
-          if (space) for (const port of ports) found.push({ port, space });
+          if (space) for (const port of ports) found.push({ pid, port, space });
         }
         found.sort((a, b) => a.port - b.port);
-        this.ports = await Promise.all(found.map(async (f) => {
+        // curl only what the bar shows; rebuilt from this round's listeners, so a gone one is dropped.
+        const previous = new Map(this.ports.map((p) => [`${p.pid}:${p.port}`, p]));
+        const shown = spaces().find((s) => s.active)?.id;
+        this.ports = await Promise.all(healthPlan(found, previous, shown, Date.now()).map(async ({ ask, ...f }) => {
+          if (!ask) return f;
           const r = await exec("curl", ["-s", "-o", "/dev/null", "-w", "%{http_code}", "-m", "2", `http://127.0.0.1:${f.port}/`], { timeout: 4000 }).catch(() => null);
-          return { ...f, state: r ? health(r.stdout.trim(), r.code) : "starting" };
+          return { ...f, state: r ? health(r.stdout.trim(), r.code) : "starting", at: Date.now() };
         }));
       } catch (e) {
         console.log("ports:", e?.message ?? e);
       } finally {
         this.busy = false;
+        if (this.again) this.refresh(cx);
         cx.notify();
       }
     });
@@ -88,9 +100,11 @@ export default class WorkspaceStatus extends View {
     return key ? `${key}  commands` : "commands";
   }
 
-  render() {
+  render(cx) {
     const t = theme();
     const space = spaces().find(s => s.active);
+    // Another space: its ports are curled now, not at the next tick.
+    if (cx && space?.id !== this.space) { this.space = space?.id; this.refresh(cx); }
     const list = agents();
     const needs = list.filter(a => a.status === "blocked").length;
     const shown = this.ports.filter((p) => p.space === space?.id);
