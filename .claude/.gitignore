@@ -10,6 +10,9 @@
 !rules/git-commit.md
 !rules/github.md
 !rules/context7.md
+!scripts/
+!scripts/gh-pr-upsert-comment
+!scripts/gh-pr-upsert-comment.test
 !hooks/
 !hooks/github-signature
 !hooks/github-signature.test

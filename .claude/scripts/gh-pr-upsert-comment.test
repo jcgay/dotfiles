@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+# Self-check for gh-pr-upsert-comment, with a fake gh: ./gh-pr-upsert-comment.test
+# (silent on success). Needs jq.
+cd "$(dirname "$0")" || exit 1
+T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
+export GH_LOG=$T/log GH_COMMENTS=$T/comments.json
+cat > "$T/gh" <<'GH'
+#!/usr/bin/env bash
+# Logs its arguments; answers "api" calls by running their --jq on canned JSON.
+printf '%s\n' "$*" >> "$GH_LOG"
+filter=; args=("$@")
+for i in "${!args[@]}"; do [ "${args[$i]}" = --jq ] && filter=${args[$((i + 1))]}; done
+case "$*" in
+  'api user '*) jq -r "$filter" <<<'{"login":"me"}' ;;
+  'api repos/o/r/issues/7/comments '*) jq -r "${filter:-.}" "$GH_COMMENTS" ;;
+  'api -X PATCH '*) jq -r "$filter" <<<'{"html_url":"https://x/edited"}' ;;
+  'pr comment '*) echo https://x/created ;;
+  *) echo "unexpected gh call: $*" >&2; exit 1 ;;
+esac
+GH
+chmod +x "$T/gh"
+PATH=$T:$PATH
+
+fail=0
+# t <name> <expected exit> <expected in stdout+stderr> <expected in the gh log, or "-" for no gh call> <args…>
+t() {
+  local name=$1 code=$2 out=$3 log=$4; shift 4
+  : > "$GH_LOG"
+  got=$(./gh-pr-upsert-comment "$@" 2>&1); rc=$?
+  [ "$rc" = "$code" ] || { echo "FAIL $name: exit $rc, want $code ($got)"; fail=1; }
+  grep -qF -- "$out" <<<"$got" || { echo "FAIL $name: output '$got', want '$out'"; fail=1; }
+  if [ "$log" = - ]; then [ ! -s "$GH_LOG" ] || { echo "FAIL $name: gh was called: $(cat "$GH_LOG")"; fail=1; }
+  else grep -qF -- "$log" "$GH_LOG" || { echo "FAIL $name: gh log lacks '$log': $(cat "$GH_LOG")"; fail=1; }; fi
+}
+
+ok="$T/b c.md";        printf '<!-- pr-risk -->\n## Risk\n\n🤖 Jean-Claude\n' > "$ok"
+unsigned=$T/unsigned;  printf '<!-- pr-risk -->\n## Risk\n' > "$unsigned"
+glued=$T/glued;        printf '<!-- pr-risk -->\n## Risk\n🤖 Jean-Claude\n' > "$glued"
+unmarked=$T/unmarked;  printf '## Risk\n\n🤖 Jean-Claude\n' > "$unmarked"
+
+echo '[]' > "$GH_COMMENTS"
+t 'no comment yet: create' 0 https://x/created "pr comment 7 -R o/r --body-file $ok" o/r 7 pr-risk "$ok"
+
+# Someone else's marked comment and my comment of another skill are not mine to edit.
+cat > "$GH_COMMENTS" <<'JSON'
+[{"id": 1, "user": {"login": "other"}, "body": "<!-- pr-risk -->\nx"},
+ {"id": 2, "user": {"login": "me"}, "body": "<!-- pr-demo -->\nx"},
+ {"id": 3, "user": {"login": "me"}, "body": "see <!-- pr-risk -->"}]
+JSON
+t 'only foreign comments: create' 0 https://x/created 'pr comment 7' o/r 7 pr-risk "$ok"
+
+# A quote in the marker stays data, not jq code.
+cat > "$GH_COMMENTS" <<'JSON'
+[{"id": 44, "user": {"login": "me"}, "body": "<!-- demo \"v2\" -->\nold"}]
+JSON
+quoted=$T/quoted;      printf '<!-- demo "v2" -->\n## Demo\n\n🤖 Jean-Claude\n' > "$quoted"
+t 'quote in the marker' 0 https://x/edited "comments/44 " o/r 7 'demo "v2"' "$quoted"
+
+cat > "$GH_COMMENTS" <<'JSON'
+[{"id": 1, "user": {"login": "other"}, "body": "<!-- pr-risk -->\nx"},
+ {"id": 42, "user": {"login": "me"}, "body": "<!-- pr-risk -->\nold"},
+ {"id": 43, "user": {"login": "me"}, "body": "<!-- pr-risk -->\nolder duplicate"}]
+JSON
+t 'mine exists: edit the first' 0 https://x/edited "api -X PATCH repos/o/r/issues/comments/42 -F body=@$ok" o/r 7 pr-risk "$ok"
+
+t 'no signature'          1 'must end with'   - o/r 7 pr-risk "$unsigned"
+t 'signature not after a blank line' 1 'must end with' - o/r 7 pr-risk "$glued"
+t 'no marker'             1 'must start with' - o/r 7 pr-risk "$unmarked"
+t 'marker of another skill' 1 'must start with' - o/r 7 pr-demo "$ok"
+t 'missing file'          1 'no body file'    - o/r 7 pr-risk "$T/nope"
+t 'empty repo'            1 'not an <owner>/<repo>' - '' 7 pr-risk "$ok"
+t 'PR is not a number'    1 'not a PR number' - o/r abc pr-risk "$ok"
+t 'too few arguments'     2 'usage:'          - o/r 7 pr-risk
+exit $fail
