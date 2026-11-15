@@ -59,3 +59,21 @@ export function health(httpCode, exitCode) {
   const code = Number(httpCode);
   return code > 0 && code < 500 ? "up" : "starting";
 }
+
+// Whether the ps and lsof-cwd answers of an earlier round still place every listener: none of
+// them is new, and they are younger than a minute (a parent that died, a cwd that moved).
+export const REMAP_MS = 60000;
+export function stillMapped(pids, mapped, now) {
+  return Boolean(mapped) && now - mapped.at < REMAP_MS && [...pids].every((p) => mapped.pids.has(p));
+}
+
+// Which listeners curl asks this round: those of the shown space whose state is unknown, not up
+// yet, or older than 30 s. The others keep their last state. previous: Map "pid:port" → { state, at }.
+export const RECHECK_MS = 30000;
+export function healthPlan(found, previous, space, now) {
+  return found.map((f) => {
+    const before = previous.get(`${f.pid}:${f.port}`);
+    const ask = f.space === space && (!before || before.state !== "up" || now - before.at >= RECHECK_MS);
+    return { ...f, ask, state: before?.state ?? "starting", at: before?.at ?? 0 };
+  });
+}
