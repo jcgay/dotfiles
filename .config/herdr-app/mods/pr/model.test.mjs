@@ -1,7 +1,7 @@
 // node --test ~/.config/herdr-app/mods/pr/model.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { jenkinsBuild, checks, minutes, parseContainers, deploymentsFor, deployKey, watchBranch } from "./model.js";
+import { jenkinsBuild, checks, minutes, parseContainers, deploymentsFor, deployKey, watchBranch, remember } from "./model.js";
 
 test("jenkins build url", () => {
   assert.deepEqual(jenkinsBuild("https://jenkins.vidal.net/job/team.software/job/github/job/arthur/job/PR-5459/1/display/redirect"),
@@ -61,4 +61,12 @@ test("branch of a PR watch worktree", () => {
   assert.equal(watchBranch("/Users/jc/dev/agents-worktree/ordostruct/feat/local-posology-families-watch"), "feat/local-posology-families");
   assert.equal(watchBranch("/Volumes/sourcecode/arthur-5355"), null);
   assert.equal(watchBranch(null), null);
+});
+
+test("remember keeps the newest keys only", () => {
+  const map = new Map();
+  remember(map, "a", 1, 2); remember(map, "b", 2, 2);
+  remember(map, "a", 3, 2); // rewritten: newest again
+  remember(map, "c", 4, 2);
+  assert.deepEqual([...map], [["a", 3], ["c", 4]]);
 });

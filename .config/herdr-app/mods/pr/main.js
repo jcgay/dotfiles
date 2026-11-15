@@ -1,7 +1,10 @@
 import { View, div } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
 import { spaces, panes, agents, focused, exec, theme, layout, run, shared, setShared } from "herdr";
-import { jenkinsBuild, checks, minutes, deploymentsFor, parseContainers, watchBranch } from "./model.js";
+import { jenkinsBuild, checks, minutes, deploymentsFor, parseContainers, watchBranch, remember } from "./model.js";
+
+// How many spaces, checkouts and Jenkins builds the caches keep.
+const KEEP = 30;
 
 // The pull request of the shown space's branch (gh), and its Jenkins build (jk).
 const FIELDS = "number,title,state,isDraft,reviewDecision,reviewRequests,url,headRefName,baseRefName,additions,deletions,statusCheckRollup";
@@ -50,9 +53,9 @@ export default class PullRequest extends View {
   // The repo name of origin, asked once per checkout (retried if git failed).
   repo(where) {
     const id = `${where.on ?? ""}|${where.cwd}`;
-    if (!this.remotes.has(id)) this.remotes.set(id, exec("git", ["remote", "get-url", "origin"], { cwd: where.cwd, on: where.on })
+    if (!this.remotes.has(id)) remember(this.remotes, id, exec("git", ["remote", "get-url", "origin"], { cwd: where.cwd, on: where.on })
       .then((o) => o.code === 0 ? o.stdout.trim().replace(/\.git$/, "").split(/[/:]/).pop() : null).catch(() => null)
-      .then((name) => { if (!name) this.remotes.delete(id); return name; }));
+      .then((name) => { if (!name) this.remotes.delete(id); return name; }), KEEP);
     return this.remotes.get(id);
   }
 
@@ -67,11 +70,11 @@ export default class PullRequest extends View {
     this.loading = true;
     // Only the latest refresh of a context writes: an older one may answer last.
     const turn = (this.turns.get(context) ?? 0) + 1;
-    this.turns.set(context, turn);
+    remember(this.turns, context, turn, KEEP);
     const live = () => this.turns.get(context) === turn;
     const show = (patch) => {
       if (!live()) return;
-      this.seen.set(context, { ...this.seen.get(context), ...patch });
+      remember(this.seen, context, { ...this.seen.get(context), ...patch }, KEEP);
       if (key() === context) Object.assign(this, patch);
       cx.notify();
     };
@@ -94,7 +97,7 @@ export default class PullRequest extends View {
             .then((j) => j.code === 0 ? { ...jenkins, ...JSON.parse(j.stdout) } : null).catch(() => null)
             .then((found) => {
               const build = found ?? { ...jenkins, unreachable: true };
-              if (build.status === "completed") this.builds.set(id, build);
+              if (build.status === "completed") remember(this.builds, id, build, KEEP);
               show({ build });
             }),
           repo.then(async (name) => show({ deployed: name
