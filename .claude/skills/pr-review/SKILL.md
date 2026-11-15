@@ -102,7 +102,7 @@ One list, written to a literal JSON file in the scratchpad (`findings.json`),
 one object per finding: `id` (1, 2, …), `severity`
 (`bloquant|important|mineur`), `sources`, `confirmed`, `path`, `line`, `side`
 (`RIGHT` for a new or unchanged line, `LEFT` for a removed one), `title`,
-`body`, then `anchored` and `comment_id` (section 5).
+`body`. Section 5 adds `anchored`, `posted`, `where` and `comment_id`.
 
 Severity:
 | Source | bloquant | important | mineur |
@@ -121,7 +121,8 @@ Severity:
   go inline: they are listed in the body under "À vérifier".
 - Drop vague findings with no concrete case (no "consider…").
 - Each body says what goes wrong and the smallest fix, in two to four short
-  sentences.
+  sentences. No severity heading and no signature in `title` or `body`:
+  section 5 adds them.
 
 ## 5. Publish
 
@@ -129,30 +130,32 @@ Severity:
 
 **PR mode**, one review per run:
 
-1. Anchorable lines:
-   `awk -f ~/.claude/skills/pr-review/scripts/anchorable-lines.awk <pr.diff>`
-   prints `path<TAB>side<TAB>line` for every line GitHub accepts a comment
-   on. A finding is `anchored` when its path, side and line are in that list.
-   One unanchorable inline comment makes GitHub reject the whole review (422).
-2. Already posted: `gh api repos/<owner>/<repo>/pulls/<N>/comments --paginate
-   --jq '.[] | select(.in_reply_to_id == null and (.body | rtrimstr("\n") | endswith("🤖 Jean-Claude"))) | "\(.path)\t\(.side)\t\(.line // .original_line)"'`.
-   Drop a finding whose path, side and line are already there (an outdated
-   comment keeps its line in `original_line`).
-3. Write the payload to a literal scratchpad file (`review.json`):
-   `{"commit_id": "<head-sha>", "event": "COMMENT", "body": …, "comments":
-   [{"path", "line", "side", "body"}]}` — one comment per anchored, confirmed
-   finding, headed by its severity (`**[bloquant]** <title>`). The body holds:
-   a two-line summary with counts per severity; conformity to the ticket;
-   findings not anchored; "À vérifier"; the `--ux` critique; reviews that
-   failed or were skipped.
-4. `gh api repos/<owner>/<repo>/pulls/<N>/reviews --method POST --input <literal path>
-   --jq '"\(.id) \(.html_url)"'`: the review id and its URL for the report.
-   Never `APPROVE` nor `REQUEST_CHANGES`.
-5. Get the comment ids from the PR comments, not the review's own comments
-   endpoint, which returns `line: null`:
-   `gh api repos/<owner>/<repo>/pulls/<N>/comments --paginate --jq '.[] |
-   select(.pull_request_review_id == <review-id>) | "\(.id)\t\(.path)\t\(.line)"'`;
-   store each as the finding's `comment_id`.
+1. Write the head of the review body to a literal scratchpad file
+   (`body.md`), next to `pr.diff` and `findings.json`: a two-line summary
+   with counts per severity; conformity to the ticket; the `--ux` critique;
+   reviews that failed or were skipped. Do not list the findings in it.
+2. Publish:
+
+   ```bash
+   ~/.claude/skills/pr-review/scripts/publish-review.sh <owner>/<repo> <N> <head-sha> <scratchpad> \
+     --off-diff "<'Hors diff' in the PR language>" --unconfirmed "<'À vérifier' in the PR language>"
+   ```
+
+   Double quotes: a translated heading may hold an apostrophe. `<head-sha>`
+   is the full `headRefOid`; a short one is refused.
+
+   It posts one inline comment per confirmed finding whose line is in the
+   diff, headed by its severity (`**[bloquant]** <title>`). The other
+   findings go to the body under the two headings: not anchored, then
+   unconfirmed. A finding already posted (a signed comment with its title on
+   its line, or listed in a signed review) is skipped, and nothing is posted
+   when every finding was, so a second run does not double the first. It
+   signs every text, always posts as `COMMENT` (never `APPROVE` nor `REQUEST_CHANGES`), and
+   writes `where` (`inline`, `body`, `skip`) and `comment_id` back into
+   `findings.json`.
+3. It prints the review URL, the counts (inline, body, already posted) and
+   one line per finding: keep them for the report. `--dry-run` builds
+   `review.json` without posting, to look at it first when in doubt.
 
 ## 6. Fix (`--fix` only)
 
