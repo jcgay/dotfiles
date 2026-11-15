@@ -65,3 +65,11 @@ export function deploymentsFor(containers, { repo, branch, pr, title }) {
 export function watchBranch(cwd) {
   return /\/agents-worktree\/[^/]+\/(.+)-watch\/?$/.exec(cwd ?? "")?.[1] ?? null;
 }
+
+// A Map used as a bounded cache: writing a key makes it the newest, and past `max` keys the
+// oldest go, so a Herdr left open for days does not keep every space or build it ever showed.
+export function remember(map, key, value, max) {
+  map.delete(key); map.set(key, value);
+  while (map.size > max) map.delete(map.keys().next().value);
+  return value;
+}
