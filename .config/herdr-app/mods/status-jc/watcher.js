@@ -54,8 +54,19 @@ async function findClone(repo) {
   return null;
 }
 
-async function cloneOf(repo) {
-  const clone = await findClone(repo);
+// A clone found in an earlier round is kept while its origin is still repo: one git call instead
+// of two per open folder. A move or a deleted clone looks again; no clone found is not kept.
+async function knownClone(repo, clones) {
+  const known = clones.get(repo);
+  if (known) {
+    const origin = await sh("git", ["remote", "get-url", "origin"], known).catch(() => null);
+    if (origin && repoOfRemote(origin) === repo) return known;
+  }
+  return findClone(repo);
+}
+
+async function cloneOf(repo, clones) {
+  const clone = await knownClone(repo, clones);
   // Without the marker in its report template, a QA would be relaunched on every head.
   const report = (dir) => readTextFile(`${clone}/${dir}/skills/testing-api-pull-requests/references/report.md`);
   const hasQa = clone !== null && /^<!-- testing-api-pull-requests -->$/m.test((await report(".agents")) ?? (await report(".claude")) ?? "");
@@ -121,7 +132,7 @@ const pruned = (e) => {
 };
 
 // One watch round: reads my open PRs, decides, launches; returns the new registry, or null when another round
-// holds the lease (two status-jc copies must not launch twice). `cache` keeps `me` and this copy's lease id.
+// holds the lease (two status-jc copies must not launch twice). `cache` keeps `me`, this copy's lease id and the clones found.
 export async function round(registry, cache = {}) {
   const at = Date.now();
   cache.lease ??= `${at}-${Math.random()}`;
@@ -146,8 +157,10 @@ async function roundUnderLease(registry, cache, at) {
   }
 
   const all = await Promise.all(found.map((pr) => signals(pr, cache.me, registry.prs[`${pr.repository.nameWithOwner}#${pr.number}`])));
-  const repos = new Map();
-  for (const repo of new Set(all.map((s) => s.repo))) repos.set(repo, await cloneOf(repo));
+  // Rebuilt each round from this round's repos: a repo with no open PR left drops out.
+  const names = [...new Set(all.map((s) => s.repo))];
+  const repos = new Map(await Promise.all(names.map(async (repo) => [repo, await cloneOf(repo, cache.clones ?? new Map())])));
+  cache.clones = new Map([...repos].filter(([, r]) => r.clone).map(([repo, r]) => [repo, r.clone]));
 
   const launched = []; // tab names started this round: running before agents() lists them
   const prs = {};
