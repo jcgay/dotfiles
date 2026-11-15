@@ -1,6 +1,6 @@
 ---
 name: pr-review
-description: Use when asked to review a pull request or a branch end to end — "review cette PR", "relis ma branche", "fais la review de #123", /pr-review — chaining code-review, ponytail-review, a conformity check against the PR description and JIRA ticket, impeccable audit on front files (critique with --ux), then posting one inline GitHub review and, with --fix, fixing, pushing and answering the threads. Not for risk triage (pr-risk).
+description: 'Use when asked to review a pull request or a branch end to end — "review cette PR", "relis ma branche", "fais la review de #123", /pr-review — chaining code-review, ponytail-review, a conformity check against the PR description and JIRA ticket, impeccable audit on front files (critique with --ux), then posting one inline GitHub review and, with --fix, fixing, pushing and answering the threads. Not for risk triage (pr-risk).'
 argument-hint: "[PR number|URL|branch] [--ux] [--fix] [--effort low|medium|high|xhigh]"
 ---
 
