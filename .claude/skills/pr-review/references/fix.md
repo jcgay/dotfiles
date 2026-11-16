@@ -9,7 +9,8 @@ no-PR mode. `<base-sha>`, `<head>`, `headRefName`, `headRefOid` and
   `git branch --show-current` = `headRefName` or HEAD is detached (the PR
   watch's worktree; the push below names the branch), and `git rev-parse HEAD` =
   `headRefOid` (no local commit that is not in the PR). In no-PR mode: the
-  current branch. Otherwise: the review is posted, then say why `--fix`
+  current branch; a PR whose diff GitHub refused (HTTP 406) keeps the PR-mode
+  checks and push, without thread replies. Otherwise: the review is posted, then say why `--fix`
   cannot run, and stop.
 - Never stage a file you did not change for a finding: `git add <path>…`
   by name, never `git add -A` or `.`; files already modified before the run
@@ -29,7 +30,7 @@ no-PR mode. `<base-sha>`, `<head>`, `headRefName`, `headRefOid` and
   `<base-sha>..HEAD`, else the latest commit of that range touching the file.
   A finding that a commit message claims something false: `git commit
   --fixup=amend:<sha>` carries both the code fix and the corrected message.
-- PR mode, push: `git fetch origin <headRefName>`, then
+- PR mode (and a PR whose diff GitHub refused), push: `git fetch origin <headRefName>`, then
   `git merge-base --is-ancestor origin/<headRefName> HEAD` must succeed, then
   `git push origin HEAD:refs/heads/<headRefName>`. Never force. Remote moved
   or push rejected: stop, post no reply, say the fixups are local.

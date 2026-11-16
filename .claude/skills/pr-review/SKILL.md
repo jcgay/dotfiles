@@ -33,7 +33,10 @@ GitHub (review body, inline comment, reply) ends with a blank line then
   than the current directory.
 - **PR mode**: diff from GitHub, `gh pr diff <N> -R <owner>/<repo>`; save it
   to a literal file in the session scratchpad (`pr.diff`). It fails with HTTP
-  406 on a very large PR: say so and stop. Base SHA:
+  406 on a very large PR (over 300 files): GitHub cannot anchor inline
+  comments on it, so go on in no-PR mode (below) with the PR's base and
+  head SHAs, keep `--fix` (it pushes to `headRefName`), post nothing, and
+  say in the report that GitHub refused the diff. Base SHA:
   `gh api repos/<owner>/<repo>/pulls/<N> --jq .base.sha`; head SHA:
   `headRefOid`.
 - **Local code for the reviewers** (`<repo-dir>`): the reviews read the
