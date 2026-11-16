@@ -137,7 +137,7 @@ Severity:
 2. Publish:
 
    ```bash
-   ~/.claude/skills/pr-review/scripts/publish-review.sh <owner>/<repo> <N> <head-sha> <scratchpad> \
+   "${CLAUDE_SKILL_DIR}/scripts/publish-review.sh" <owner>/<repo> <N> <head-sha> <scratchpad> \
      --off-diff "<'Hors diff' in the PR language>" --unconfirmed "<'À vérifier' in the PR language>"
    ```
 
