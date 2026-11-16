@@ -150,7 +150,7 @@ if command -v claude &>/dev/null; then
 
   # Skills hors plugins via `npx skills` (node vient de mise)
   mise exec -- npx -y skills add vercel-labs/agent-skills -s web-design-guidelines -g -a claude-code -y || true
-  mise exec -- npx -y skills add Leonxlnx/taste-skill -s design-taste-frontend -s redesign-existing-projects -g -a claude-code -y || true
+  mise exec -- npx -y skills add Leonxlnx/taste-skill -s design-taste-frontend -g -a claude-code -y || true
   mise exec -- npx -y skills add tt-a1i/archify -s archify -g -a claude-code -y || true
   mise exec -- npx -y skills add GoogleChrome/modern-web-guidance -s modern-web-guidance -g -a claude-code -y || true
 
