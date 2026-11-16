@@ -106,6 +106,8 @@ Les terminaux tournent dans **herdr-core** (`hc`), pas dans la fenêtre : fermer
 
 ## 4. Nos mods
 
+Chaque mod a son README avec le détail et les arbres de décision : [`start-work`](mods/start-work/README.md), [`pr`](mods/pr/README.md), [`status-jc`](mods/status-jc/README.md) (dont la surveillance des PR), [`spaces-jc`](mods/spaces-jc/README.md), [`tabs-jc`](mods/tabs-jc/README.md). La structure du layout `jc` est dans [`layouts/README.md`](layouts/README.md).
+
 ### start-work (`⌘⇧J`)
 
 Depuis un terminal dans un dépôt :
@@ -124,9 +126,9 @@ Bouton « Pull request » dans la barre d'onglets : la PR de la branche du space
 
 ### spaces-jc, status-jc et tabs-jc
 
-Clones des mods `spaces`, `workspace-status` et `tabs` de Herdr : l'icône JetBrains du dépôt comme avatar de space, les ports cliquables dans la barre d'état, le bouton PR et le panneau mémorisé par space dans la barre d'onglets.
+Clones des mods `spaces`, `workspace-status` et `tabs` de Herdr : l'icône JetBrains du dépôt comme avatar de space, les ports cliquables dans la barre d'état, le bouton PR dans la barre d'onglets (le panneau mémorisé par space vient du mod d'origine).
 
-L'avatar d'un space prend le `.idea/icon.svg` (sinon `icon.png`) du checkout principal, ou `icon_dark.svg` sur un thème sombre ; sans icône, la lettre colorée reste. Une icône ajoutée ou changée s'affiche dans la minute.
+L'avatar d'un space prend le `.idea/icon.svg` (sinon `icon.png`) du checkout principal, ou `icon_dark.svg` sur un thème sombre ; sans icône, la lettre colorée reste. Une icône ajoutée ou changée s'affiche en une à deux minutes.
 
 ---
 
