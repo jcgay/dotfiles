@@ -8,5 +8,8 @@
   "font_ligatures": false,
   "minimum_contrast": 1,
   "theme": "ghostty",
-  "telemetry": false
+  "telemetry": false,
+  "worktrees": {
+    "directory": "~/dev/agents-worktree"
+  }
 }
