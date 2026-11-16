@@ -72,13 +72,14 @@ export default class PullRequest extends View {
     const turn = (this.turns.get(context) ?? 0) + 1;
     remember(this.turns, context, turn, KEEP);
     const live = () => this.turns.get(context) === turn;
-    const show = (patch) => {
-      if (!live()) return;
-      remember(this.seen, context, { ...this.seen.get(context), ...patch }, KEEP);
-      if (key() === context) Object.assign(this, patch);
-      cx.notify();
-    };
     cx.spawn(async (cx) => {
+      // Uses the task's cx: the caller's (render, a click) is stale once an await has returned.
+      const show = (patch) => {
+        if (!live()) return;
+        remember(this.seen, context, { ...this.seen.get(context), ...patch }, KEEP);
+        if (key() === context) Object.assign(this, patch);
+        cx.notify();
+      };
       // The scan does not wait for gh, only for the repo name: no origin, nothing to look for.
       const repo = this.repo(where), scan = repo.then((name) => name && this.containers(force));
       try {
