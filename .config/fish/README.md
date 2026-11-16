@@ -180,7 +180,7 @@ Pour tout lister à tout moment : `abbr`, `alias`, `functions` (liste), `functio
 
 7. **Substitution de commande qui contient des nouvelles lignes** → fish split par ligne en liste, pas par espace. Pratique, mais surprenant si tu attendais une seule chaîne.
 
-8. **Templates yadm** : ne touche pas un fichier rendu, édite le `##template` puis `yadm alt`. (cf. `CLAUDE.md`)
+8. **Templates yadm** : ne touche pas un fichier rendu, édite le `##template` puis `yadm alt`. (cf. `~/.config/CLAUDE.md`)
 
 ---
 
