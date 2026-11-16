@@ -88,7 +88,7 @@ Points qui mordent le plus :
 
 ## 4. Customiser (où ça vit, comment ajouter)
 
-Architecture de cette config (rappel du `CLAUDE.md` du repo) :
+Architecture de cette config (rappel de `~/.config/CLAUDE.md`) :
 - `conf.d/*.fish` → chargés **en premier**, par ordre alphabétique. Mets-y env vars, alias, fonctions par thème (`git.fish`, `docker.fish`…).
 - `config.fish` → chargé **en dernier**. Réservé à l'init d'outils qui doivent passer après tout le reste : `starship`, `mise`.
 - `functions/<nom>.fish` → une fonction = un fichier, **autoloadé** quand tu appelles `<nom>` (lazy). Le nom du fichier doit matcher le nom de la fonction.

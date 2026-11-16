@@ -147,6 +147,6 @@ hc wait t3                   # attendre qu'un agent ait fini
 ## 6. Personnaliser sans casser
 
 - **Raccourcis** : `keys.json`. Une fois édité, Herdr ne le met plus à jour : `herdr-upstream` (lancé par `dot`) y fusionne ses nouveaux raccourcis par défaut, lus dans le binaire, avec `keys.default.json` comme base. Committer les deux ensemble. Éviter les `⌃lettre` que le shell utilise (`⌃C`, `⌃R`, `⌃W`…).
-- **Layout ou mod livré par Herdr** : ne jamais l'éditer (écrasé au démarrage). Le cloner (`layout.clone`, `mod.clone`) et committer l'original avec le clone ; `dot` reporte ensuite les mises à jour de Herdr dans nos clones (voir le `CLAUDE.md` à la racine du dépôt).
+- **Layout ou mod livré par Herdr** : ne jamais l'éditer (écrasé au démarrage). Le cloner (`layout.clone`, `mod.clone`) et committer l'original avec le clone ; `dot` reporte ensuite les mises à jour de Herdr dans nos clones (voir `~/.config/CLAUDE.md`).
 - **Vérifier un mod** : `herdr-app check ~/.config/herdr-app/mods/<nom>`, et les tests : `node --test ~/.config/herdr-app/mods/*/*.test.mjs`.
 - Ne pas committer `gpui-kit.d.ts` ni `jsconfig.json` que Herdr écrit dans chaque mod.
