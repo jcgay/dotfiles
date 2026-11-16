@@ -1,13 +1,25 @@
 // node --test ~/.config/herdr-app/mods/pr/model.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { jenkinsBuild, checks, summary, minutes, parseContainers, deploymentsFor, deployKey, watchBranch, remember } from "./model.js";
+import { jenkinsBuild, checks, otherChecks, summary, minutes, parseContainers, deploymentsFor, deployKey, watchBranch, remember } from "./model.js";
 
 test("jenkins build url", () => {
   assert.deepEqual(jenkinsBuild("https://jenkins.vidal.net/job/team.software/job/github/job/arthur/job/PR-5459/1/display/redirect"),
     { jobPath: "team.software/github/arthur/PR-5459", number: 1 });
   assert.deepEqual(jenkinsBuild("https://j/job/a%2Fb/7/"), { jobPath: "a/b", number: 7 });
   assert.equal(jenkinsBuild("https://github.com/x/y/actions/runs/1"), null);
+});
+
+test("checks other than the shown Jenkins build", () => {
+  const list = [
+    { name: "pr-merge", state: "ok", url: "https://j/job/a/job/PR-1/12/display/redirect" },
+    { name: "pr-head", state: "ok", url: "https://j/job/a/job/PR-1/12/" },
+    { name: "other job", state: "ko", url: "https://j/job/b/job/PR-1/3/" },
+    { name: "sonar", state: "ok", url: "https://sonarcloud.io/x" },
+    { name: "no url", state: "running", url: null },
+  ];
+  assert.deepEqual(otherChecks(list, { jobPath: "a/PR-1", number: 12 }).map((c) => c.name), ["other job", "sonar", "no url"]);
+  assert.equal(otherChecks(list, null).length, 5);
 });
 
 test("checks summary", () => {
