@@ -34,7 +34,7 @@ Templates branch on two axes: the class switches the git `user.email`; `yadm.arc
 - `.Brewfile` — Homebrew packages (`brew bundle --global`).
 - `.config/mise/config.toml` — JVM/JS toolchain versions (mise).
 - `.mackup.cfg` — manifest of GUI app prefs synced via Google Drive (Mackup). The prefs themselves are **not** in this repo.
-- `.local/bin/` — personal scripts. `dot` updates everything (yadm pull, brew, mise, `npx skills`, macOS, Herdr clones via `herdr-upstream`); `dotup` runs `brew upgrade && cleanup`.
+- `.local/bin/` — personal scripts. `dot` updates everything (yadm pull, brew, mise, `npx skills`, macOS, Herdr clones via `herdr-upstream`); `dotup` runs `brew upgrade && cleanup`. `wt-prune` (launchd `fr.jcgay.wt-prune`, every morning at 9:00, log in `~/Library/Logs/wt-prune.log`) runs `wt step prune` in every repo with a worktree under `~/dev/agents-worktree`: it also deletes that repo's merged local branches without a worktree.
 - `.config/yadm/bootstrap` — new-machine setup (installs Homebrew, mise tools, Android SDK packages via `sdkmanager`, Fisher; switches shell to fish; sets up Claude Code: marketplaces/plugins via the `claude` CLI, `npx skills` skills, and each tool's own installer for plannotator, codebase-memory-mcp, rtk, build-brief, worktrunk and herdr; merges the `github-signature` hook and base settings into `~/.claude/settings.json` and turns on auto-update for GitHub marketplaces; SonarQube CLI/plugin/integration and the Vidal `merlin` and `blaise` plugins (always on, the latter installs its CLI) only for the `Work` class; optional `mackup restore`). Comments are in French. Re-runnable via `yadm bootstrap`.
 - `~/.claude/` — Claude Code config. Only hand-written files are tracked (`statusline-command.sh`, `subagent-statusline.py`, `rules/*.md`, `hooks/github-signature`, `scripts/gh-pr-upsert-comment`, `docs/*.md`, `skills/pr-risk/`, `skills/pr-demo/`, `skills/pr-review/`: see its whitelist `.gitignore`). `settings.json` and `CLAUDE.md` are not tracked: plugins, MCP, hooks and the rtk/build-brief sections of `CLAUDE.md` are redone by bootstrap.
 
@@ -65,10 +65,10 @@ node --test ~/.config/herdr-app/mods/*/*.test.mjs
 
 GitHub Actions (`.github/workflows/test.yml`) runs the same command on every push and pull request, on the Node version of `.config/mise/config.toml`. A new mod's `*.test.mjs` is picked up by the glob; keep `herdr` imports out of the module it tests, or Node cannot load it.
 
-The Claude scripts (`~/.claude/scripts`, `hooks`, `skills/pr-review/scripts`, `.local/bin/claude`) carry bash self-checks with a fake `gh` or `claude`, named `*.test` or `*_test.sh`. CI runs them too; locally, from `~`:
+The Claude scripts (`~/.claude/scripts`, `hooks`, `skills/pr-review/scripts`, `.local/bin/claude`, `.local/bin/wt-prune`) carry bash self-checks with a fake `gh` or `claude`, named `*.test` or `*_test.sh`. CI runs them too; locally, from `~`:
 
 ```sh
-for t in .claude/scripts/*.test .claude/hooks/*.test .claude/skills/pr-review/scripts/*_test.sh .local/bin/claude.test; do bash "$t" || echo "FAIL $t"; done
+for t in .claude/scripts/*.test .claude/hooks/*.test .claude/skills/pr-review/scripts/*_test.sh .local/bin/claude.test .local/bin/wt-prune.test; do bash "$t" || echo "FAIL $t"; done
 ```
 
 `skills/pr-demo/scripts/narrate_test.sh` needs ffmpeg and a speech engine, so it is run by hand only.

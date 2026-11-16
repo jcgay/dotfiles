@@ -16,4 +16,4 @@ jobs:
     runs-on: ubuntu-latest # has bash and jq
     steps:
       - uses: actions/checkout@v7
-      - run: for t in .claude/scripts/*.test .claude/hooks/*.test .claude/skills/pr-review/scripts/*_test.sh .local/bin/claude.test; do bash "$t" || exit 1; done
+      - run: for t in .claude/scripts/*.test .claude/hooks/*.test .claude/skills/pr-review/scripts/*_test.sh .local/bin/claude.test .local/bin/wt-prune.test; do bash "$t" || exit 1; done
