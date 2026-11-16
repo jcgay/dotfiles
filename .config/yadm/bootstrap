@@ -119,10 +119,13 @@ if claude --version &>/dev/null; then
     claude plugin install "$plugin" || true
   done
 
-  # Machines de travail seulement : plugin Vidal (base Merlin) et SonarQube
+  # Machines de travail seulement : plugins Vidal (base Merlin, recherche de code blaise) et SonarQube.
+  # Le plugin blaise installe sa CLI dans ~/.local/bin à chaque démarrage de session (VPN).
   if [ "$(yadm config local.class)" = "Work" ]; then
     claude plugin marketplace add 'softwarevidal/merlin-search#marketplace' || true
     claude plugin install merlin@vidal || true
+    claude plugin marketplace add 'softwarevidal/blaise#marketplace' || true
+    claude plugin install blaise@blaise || true
     claude plugin install sonarqube@claude-plugins-official || true
     # hooks sonar-secrets et serveur MCP (après `sonar auth login`)
     "$HOME/.local/share/sonarqube-cli/bin/sonar" integrate claude --non-interactive || true
