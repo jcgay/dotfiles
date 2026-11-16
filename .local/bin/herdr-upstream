@@ -5,6 +5,7 @@
 # Herdr never updates a clone (a layout or mod carrying "cloned_from") and rewrites its shipped
 # originals on every start. The originals are committed in yadm as merge base: when Herdr changed
 # one, this merges that change into the clone (git merge-file), leaving our own edits in place.
+# keys.json is merged the same way, from the default keys found in the binary (keys.default.json).
 # A conflict leaves the clone untouched and writes <clone file>.conflict to resolve by hand.
 # Once the clones are right, commit the new originals: they become the next merge base.
 
@@ -47,6 +48,39 @@ merge() {
       conflicts=$((conflicts + 1))
    fi
 }
+
+# Herdr's default keys.json, read from the herdr-app binary: Herdr ships it there, not as a file.
+# The binary also holds earlier releases' defaults (to upgrade an untouched keys.json) once each;
+# the current one appears twice. Anything else is a layout we don't know: fail rather than guess.
+default_keys() {
+   python3 -I - "$(command -v herdr-app)" <<'PY'
+import collections, json, os, re, sys
+data = open(os.path.realpath(sys.argv[1]), "rb").read()
+found = collections.Counter()
+for m in re.finditer(rb'\{\n  "global": \{\n', data):
+    blob = data[m.start():data.find(b"\n}\n", m.start()) + 3]
+    try:
+        json.loads(blob)
+    except ValueError:
+        continue
+    found[blob] += 1
+current = [blob for blob, n in found.items() if n > 1]
+if len(current) != 1:
+    sys.exit(f"{len(current)} candidates among {len(found)} key files")
+sys.stdout.buffer.write(current[0])
+PY
+}
+
+# keys.json is ours as soon as it is edited, and Herdr then stops adding its new shortcuts: merge
+# them in like a clone, with keys.default.json (the default of the last commit) as merge base.
+if ! yadm ls-files --error-unmatch "$app/keys.default.json" >/dev/null 2>&1; then
+   echo "⚠️  keys.default.json is not tracked by yadm: commit Herdr's default keys as merge base"
+elif default_keys >"$tmp/keys" 2>"$tmp/keys.err"; then
+   cmp -s "$tmp/keys" "$app/keys.default.json" || cp "$tmp/keys" "$app/keys.default.json"
+   merge keys.default.json keys.json
+else
+   echo "⚠️  Herdr's default keys not found in herdr-app ($(tail -1 "$tmp/keys.err")): compare keys.json with the changelog by hand"
+fi
 
 for meta in "$app"/layouts/*.json "$app"/mods/*/mod.json; do
    [ -f "$meta" ] || continue
