@@ -53,7 +53,7 @@ None of these is negotiable.
 
 ## 2. Read how to start the app
 
-Read the `## Demo` section of `<root>/CLAUDE.md`, then of `<root>/AGENTS.md`.
+Read the `## Demo` section of `<root>/AGENTS.md`, then of `<root>/CLAUDE.md`.
 Follow the files it points to. The section gives:
 
 - the command that starts the app from a checkout, and from which directory;
@@ -63,8 +63,10 @@ Follow the files it points to. The section gives:
 - the command that stops it;
 - optional: a tool that compares base and PR responses, for `--compare`.
 
-No section: stop. Ask the user for these six items, and offer to write the
-section into the repo with them. Never start from a README guess.
+No section: stop. Offer to work it out with the user: what you found on how
+the app runs (local stack, a deployed or shared environment it can lean on),
+the options, and these six items. Then offer to write the section into
+`<root>/AGENTS.md`. Never start from a README guess.
 
 ## 3. Propose the scenario, then wait
 
