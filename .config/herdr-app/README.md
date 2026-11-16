@@ -35,7 +35,7 @@ Les terminaux tournent dans **herdr-core** (`hc`), pas dans la fenêtre : fermer
 - **Sidebar** (`⌘B` pour la replier) : les spaces, puis les agents de tous les spaces. Glisser un space le réordonne.
 - **Barre d'onglets** (`tabs-jc`) : double-clic sur un tab pour le renommer, glisser pour le déplacer, `+` ouvre le menu « nouveau » (terminal, agent, space).
 - **Panneau latéral** : les trois boutons à droite des tabs l'ouvrent sur Files, Changes ou Pull request ; recliquer le referme. Il est mémorisé **par space**.
-- **Barre d'état** (`status-jc`) : machine, branche, nombre d'agents et combien t'attendent, puis les **ports** ouverts par les programmes du space (point vert = répond, clignotant = démarre ; clic = ouvre `http://localhost:<port>/`). Le raccourci de droite ouvre la palette.
+- **Barre d'état** (`status-jc`) : machine, branche, nombre d'agents et combien t'attendent, puis les **ports** ouverts par les programmes du space (point vert = répond, clignotant = démarre ; clic = ouvre `http://localhost:<port>/`). Le raccourci de droite ouvre la palette. Le nombre d'agents qui t'attendent s'affiche aussi en pastille sur l'icône du Dock.
 
 ---
 

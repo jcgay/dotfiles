@@ -1,6 +1,6 @@
 import { View, div, svg } from "gpui-kit";
 import { h_flex } from "gpui-base";
-import { spaces, agents, panes, terminals, theme, run, window, keys, exec, home, shared, setShared } from "herdr";
+import { spaces, agents, panes, terminals, theme, run, window, keys, exec, home, shared, setShared, setBadge } from "herdr";
 import { parseListeners, parseParents, parseCwds, spaceOf, health, stillMapped, healthPlan } from "./ports.js";
 import { round } from "./watcher.js";
 
@@ -107,6 +107,9 @@ export default class WorkspaceStatus extends View {
     if (cx && space?.id !== this.space) { this.space = space?.id; this.refresh(cx); }
     const list = agents();
     const needs = list.filter(a => a.status === "blocked").length;
+    // The Dock icon shows the same count; setBadge only when it changes (it is not kept across restarts).
+    const badge = needs > 0 ? String(needs) : null;
+    if (badge !== this.badge) { this.badge = badge; setBadge(badge); }
     const shown = this.ports.filter((p) => p.space === space?.id);
     const label = (icon, text) => h_flex().gap(6).items_center().child(svg(`mods/workspace-chrome/${icon}.svg`).size(13)).child(text);
     const port = (p) => h_flex().id(`port-${p.port}`).gap(5).items_center().hover((s) => s.text_color(t.foreground))
