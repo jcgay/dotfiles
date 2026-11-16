@@ -25,7 +25,9 @@ no-PR mode. `<base-sha>`, `<head>`, `headRefName`, `headRefOid` and
   change (Docker image not pulled, network): name it in the report and go on,
   once the tests of the touched classes are green in their JUnit XML.
 - One `git commit --fixup=<sha>` per corrected commit, following the user's
-  commit rules; never autosquash. The corrected commit:
+  commit rules; never autosquash. git refuses `-F` with `--fixup`: pass the
+  body with `-m "$(cat <file>)"`, it goes under the `fixup!` subject. The
+  corrected commit:
   `git blame -L <line>,<line> <head> -- <path>` when it is in
   `<base-sha>..HEAD`, else the latest commit of that range touching the file.
   A finding that a commit message claims something false: `git commit

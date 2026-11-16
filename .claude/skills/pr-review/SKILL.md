@@ -36,7 +36,9 @@ GitHub (review body, inline comment, reply) ends with a blank line then
   406 on a very large PR (over 300 files): GitHub cannot anchor inline
   comments on it, so go on in no-PR mode (below) with the PR's base and
   head SHAs, keep `--fix` (it pushes to `headRefName`), post nothing, and
-  say in the report that GitHub refused the diff. Base SHA:
+  say in the report that GitHub refused the diff. There are no threads to
+  reply to; still write `findings.json` (section 4) and the report, but no
+  `body.md`. Base SHA:
   `gh api repos/<owner>/<repo>/pulls/<N> --jq .base.sha`; head SHA:
   `headRefOid`.
 - **Local code for the reviewers** (`<repo-dir>`): the reviews read the
