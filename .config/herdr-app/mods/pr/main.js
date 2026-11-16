@@ -1,7 +1,7 @@
 import { View, div } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
 import { spaces, panes, agents, focused, exec, theme, layout, run, shared, setShared } from "herdr";
-import { jenkinsBuild, checks, minutes, deploymentsFor, parseContainers, watchBranch, remember } from "./model.js";
+import { jenkinsBuild, checks, otherChecks, summary, minutes, deploymentsFor, parseContainers, watchBranch, remember } from "./model.js";
 
 // How many spaces, checkouts and Jenkins builds the caches keep.
 const KEEP = 30;
@@ -31,7 +31,7 @@ function visible() {
 
 export default class PullRequest extends View {
   init(_props, cx) {
-    this.context = null; this.pr = null; this.build = null; this.error = null; this.loading = false; this.note = null;
+    this.context = null; this.pr = null; this.build = null; this.error = null; this.loading = false; this.note = null; this.checksOpen = false;
     this.deployed = []; this.scan = { at: 0, list: null, pending: null };
     // Last state of each space or pane seen, shown at once when it comes back while a refresh runs;
     // finished Jenkins builds, which never change; the repo name of each checkout.
@@ -138,47 +138,63 @@ export default class PullRequest extends View {
 
     const state = pr && (pr.isDraft ? ["Brouillon", t.muted] : pr.state === "MERGED" ? ["Mergée", t.ansi5] : pr.state === "CLOSED" ? ["Fermée", t.ansi1] : ["Ouverte", t.done]);
     const review = pr && ({ APPROVED: ["Approuvée", t.done], CHANGES_REQUESTED: ["Changements demandés", t.blocked], REVIEW_REQUIRED: ["Revue attendue", t.muted] }[pr.reviewDecision]);
-    const list = pr ? checks(pr.statusCheckRollup) : [];
+    // An unreachable build shows no result: its check stays in the list.
+    const list = pr ? otherChecks(checks(pr.statusCheckRollup), b && !b.unreachable ? b : null) : [], sum = summary(list);
     const running = b && !b.unreachable && b.status !== "completed";
-    const deployed = (el) => el.when(this.deployed.length > 0, (e) => e.child(section("Déployée sur")).children(this.deployed.map((url, i) =>
-      h_flex().id(`deployed-${i}`).h(24).gap(8).items_center().rounded(6).px(4).text_size(12).cursor_pointer().text_color(t.accent)
-        .hover((s) => s.bg(t.hover)).on_click(() => exec("open", [url])).child(div().flex_1().min_w(0).truncate().child(url.replace(/^https?:\/\//, ""))))));
+    const link = (id, url) => h_flex().id(id).min_w(0).cursor_pointer().text_color(t.accent).hover((s) => s.opacity(0.8))
+      .on_click(() => exec("open", [url])).child(div().flex_1().min_w(0).truncate().child(url.replace(/^https?:\/\//, "")));
+    // A table row: its label on the left, its lines on the right; no rule above the first one.
+    const table = (rows) => v_flex().mt(12).rounded(8).border_1().border_color(t.border).overflow_hidden().text_size(12)
+      .children(rows.filter(Boolean).map(([label, value], i) => h_flex().gap(8).px(10).py(8).items_start()
+        .when(i > 0, (e) => e.border_t(1).border_color(t.border))
+        .child(div().w(64).flex_none().pt(1).text_size(11).text_color(t.dim).child(label))
+        .child(v_flex().flex_1().min_w(0).gap(3).child(value))));
+    const deployedRow = ["Déployée", this.deployed.length === 0 ? div().text_color(t.dim).child(this.loading ? "…" : "nulle part")
+      : v_flex().gap(3).children(this.deployed.map((url, i) => link(`deployed-${i}`, url)))];
+    // A small glyph button inside a clickable line: its own click must not reach the line.
+    const icon = (id, glyph, tip, onClick) => h_flex().id(id).w(20).h(20).flex_none().items_center().justify_center().rounded(4)
+      .text_size(11).cursor_pointer().hover((s) => s.bg(t.hover)).tooltip(tip)
+      .on_click((_e, cx) => { cx.stop_propagation(); onClick(cx); }).child(glyph);
+    const buildRow = b && ["Build", b.unreachable ? div().text_color(t.dim).child("Jenkins injoignable (VPN ?)")
+      : v_flex().gap(3)
+        .child(h_flex().id("build-link").gap(8).items_center()
+          .when(Boolean(b.url), (r) => r.cursor_pointer().hover((s) => s.opacity(0.8)).tooltip("Ouvrir le build Jenkins").on_click(() => exec("open", [b.url])))
+          .child(dot(running ? "running" : b.result === "SUCCESS" ? "ok" : "ko"))
+          .child(div().flex_1().min_w(0).truncate().child(`#${b.number} ${running ? "en cours" : ({ SUCCESS: "réussi", FAILURE: "échec", UNSTABLE: "instable", ABORTED: "annulé" }[b.result] ?? (b.result ?? "").toLowerCase())}`))
+          .child(div().flex_none().text_size(11).text_color(t.dim).child(running
+            ? `${minutes(Date.now() - Date.parse(b.startTime))} / ~${minutes(b.estimatedDurationMs)}`
+            : minutes(b.durationMs)))
+          .when(Boolean(b.url), (r) => r.child(icon("pr-jenkins", "📜", "Log Jenkins", () => exec("open", [`${b.url}console`]))))
+          .when(!running && b.result !== "SUCCESS", (r) => r.child(icon("pr-rerun", "🔁", "Relancer",
+            (cx) => this.act(cx, "Relance", ["jk", "run", "rerun", b.jobPath, String(b.number)], { timeout: 30000 })))))
+        .when(Boolean(b.tests?.total), (e) => e.child(div().text_size(11).text_color(b.tests.failed ? t.ansi1 : t.muted)
+          .child(`${b.tests.total} tests · ${b.tests.failed} en échec · ${b.tests.skipped} ignorés`)))];
+    const checksRow = sum && ["Checks", v_flex().gap(3)
+      .child(h_flex().id("checks-toggle").gap(8).items_center().cursor_pointer().hover((s) => s.opacity(0.8))
+        .on_click((_e, cx) => { this.checksOpen = !this.checksOpen; cx.notify(); })
+        .child(dot(sum.state)).child(div().flex_1().min_w(0).truncate().child(sum.text))
+        .child(div().flex_none().text_color(t.dim).child(this.checksOpen ? "⌄" : "›")))
+      .when(this.checksOpen, (e) => e.children(list.map((c, i) =>
+        h_flex().id(`check-${i}`).gap(8).items_center().rounded(4).text_size(11)
+          .when(Boolean(c.url), (r) => r.cursor_pointer().hover((s) => s.bg(t.hover)).on_click(() => exec("open", [c.url])))
+          .child(dot(c.state)).child(div().flex_1().min_w(0).truncate().child(c.name)))))];
 
+    const reviewers = (pr?.reviewRequests ?? []).map((r) => r.login ?? r.name ?? r.slug);
     const body = !where.branch ? div().text_color(t.dim).child("Pas de branche git ici.")
       : this.error ? div().text_color(t.ansi1).child(this.error)
-      : !pr ? v_flex().gap(10).child(div().text_color(t.dim).child(this.loading ? "Recherche de la PR…" : `Pas de PR pour ${where.branch}.`))
-        .when(!this.loading, (e) => e.child(h_flex().child(button("pr-create", "Créer la PR", (cx) => this.act(cx, "Création", ["gh", "pr", "create", "--web"], { cwd: where.cwd, on: where.on })))))
-        .when(true, deployed)
-      : v_flex().gap(4)
-        .child(div().text_size(14).font_semibold().child(pr.title))
-        .child(h_flex().gap(6).items_center().flex_wrap().pt(4)
+      : !pr ? v_flex().child(div().text_color(t.dim).child(this.loading ? "Recherche de la PR…" : `Pas de PR pour ${where.branch}.`))
+        .when(this.deployed.length > 0, (e) => e.child(table([deployedRow])))
+        .when(!this.loading, (e) => e.child(h_flex().pt(12).child(button("pr-create", "Créer la PR", (cx) => this.act(cx, "Création", ["gh", "pr", "create", "--web"], { cwd: where.cwd, on: where.on })))))
+      : v_flex()
+        .child(div().id("pr-open").text_size(14).font_semibold().cursor_pointer().hover((s) => s.opacity(0.8))
+          .tooltip("Ouvrir la PR sur GitHub").on_click(() => exec("open", [pr.url])).child(pr.title))
+        .child(h_flex().gap(6).items_center().flex_wrap().pt(6)
           .child(div().text_color(t.muted).child(`#${pr.number}`))
           .child(chip(...state)).when(Boolean(review), (e) => e.child(chip(...review)))
           .child(div().text_size(11).text_color(t.ansi2).child(`+${pr.additions}`)).child(div().text_size(11).text_color(t.ansi1).child(`−${pr.deletions}`)))
-        .child(div().text_size(11).text_color(t.dim).child(`${pr.headRefName} → ${pr.baseRefName}`))
-        .when((pr.reviewRequests ?? []).length > 0, (e) => e.child(div().text_size(11).text_color(t.muted)
-          .child(`Revue demandée à ${pr.reviewRequests.map((r) => r.login ?? r.name ?? r.slug).join(", ")}`)))
-        .when(true, deployed)
-        .when(Boolean(b), (e) => e.child(section("Jenkins")).child(b.unreachable
-          ? div().text_size(12).text_color(t.dim).child("Jenkins injoignable (VPN ?)")
-          : v_flex().gap(3).text_size(12)
-            .child(h_flex().gap(8).items_center()
-              .child(dot(running ? "running" : b.result === "SUCCESS" ? "ok" : "ko"))
-              .child(div().font_semibold().child(`#${b.number} ${running ? "en cours" : ({ SUCCESS: "réussi", FAILURE: "échec", UNSTABLE: "instable", ABORTED: "annulé" }[b.result] ?? (b.result ?? "").toLowerCase())}`))
-              .child(div().text_color(t.dim).child(running
-                ? `${minutes(Date.now() - Date.parse(b.startTime))} / ~${minutes(b.estimatedDurationMs)}`
-                : minutes(b.durationMs))))
-            .when(Boolean(b.tests?.total), (e) => e.child(div().text_color(b.tests.failed ? t.ansi1 : t.muted)
-              .child(`${b.tests.total} tests · ${b.tests.failed} en échec · ${b.tests.skipped} ignorés`)))))
-        .when(list.length > 0, (e) => e.child(section("Checks")).children(list.map((c, i) =>
-          h_flex().id(`check-${i}`).h(24).gap(8).items_center().rounded(6).px(4).text_size(12)
-            .when(Boolean(c.url), (r) => r.cursor_pointer().hover((s) => s.bg(t.hover)).on_click(() => exec("open", [c.url])))
-            .child(dot(c.state)).child(div().flex_1().min_w(0).truncate().child(c.name)))))
-        .child(h_flex().gap(8).pt(14).flex_wrap()
-          .child(button("pr-open", "Ouvrir la PR", () => exec("open", [pr.url]), true))
-          .when(Boolean(b && !b.unreachable), (e) => e.child(button("pr-jenkins", "Log Jenkins", () => exec("open", [`${b.url}console`]))))
-          .when(Boolean(b && !b.unreachable && !running && b.result !== "SUCCESS"), (e) => e.child(button("pr-rerun", "Relancer",
-            (cx) => this.act(cx, "Relance", ["jk", "run", "rerun", b.jobPath, String(b.number)], { timeout: 30000 })))));
+        .child(table([buildRow, deployedRow, checksRow]))
+        .child(div().pt(8).text_size(11).text_color(t.dim)
+          .child(`${pr.headRefName} → ${pr.baseRefName}${reviewers.length ? ` · revue demandée à ${reviewers.join(", ")}` : ""}`));
 
     // The PR watch (status-jc writes it): all PRs, so it shows even without one in this space.
     const reg = shared("pr-watch") ?? null, entries = Object.entries(reg?.prs ?? {});

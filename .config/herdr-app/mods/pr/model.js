@@ -18,6 +18,11 @@ export function checks(rollup) {
   });
 }
 
+// checks() without the ones pointing at `build` (the Build row shows it); another Jenkins job stays.
+export function otherChecks(list, build) {
+  return list.filter((c) => { const j = jenkinsBuild(c.url); return !(j && build && j.jobPath === build.jobPath && j.number === build.number); });
+}
+
 // checks() → { state: the worst one, text: "1 en échec · 1 en cours · 2 ✓" }, or null when none.
 export function summary(list) {
   if (!list.length) return null;
