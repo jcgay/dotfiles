@@ -1,7 +1,7 @@
 // node --test ~/.config/herdr-app/mods/status-jc/watch.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { searchSince, sonarFindings, markers, signalsOf, checks, jenkinsBuild, decide, emptyEntry, tabName, LABELS, promptFor, repoOfRemote, undoLaunch, holdingTabs, checkoutBases, checkoutsOf } from "./watch.js";
+import { searchSince, sonarFindings, markers, signalsOf, checks, jenkinsBuild, decide, emptyEntry, tabName, LABELS, promptFor, repoOfRemote, undoLaunch, holdingTabs, karadocHeld, checkoutBases, checkoutsOf } from "./watch.js";
 
 // Real summaries: arthur#5458 (passed) and arthur#5449 (failed gate).
 const PASSED = `Issues  
@@ -471,6 +471,13 @@ test("holdingTabs: working or blocked agents, and review tabs without their mark
     { name: "claude", status: "working" },
   ], markersOf);
   assert.deepEqual(got, ["⟳ #1 pr-demo", "⟳ #2 jenkins", "⟳ #1 pr-review"]);
+});
+
+test("karadocHeld: pr-demo/qa tabs of a karadoc repo's PR, or of a PR gone from the round", () => {
+  const karadoc = new Set([5449]), round = new Set([5449, 48]);
+  assert.equal(karadocHeld(["⟳ #5449 qa"], karadoc, round), true);
+  assert.equal(karadocHeld(["⟳ #48 pr-demo", "⟳ #5449 pr-risk"], karadoc, round), false, "ordostruct demo, arthur pr-risk");
+  assert.equal(karadocHeld(["⟳ #812 qa"], karadoc, round), true, "merged PR whose qa still runs");
 });
 
 test("pr-review holds its PR until its tab closes, and its push keeps the budget", () => {

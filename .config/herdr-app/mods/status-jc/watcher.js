@@ -1,9 +1,8 @@
 // One round of the PR watch: gh, git and Herdr side effects around the pure decisions of watch.js.
 import { exec, spaces, agents, panes, run, notify, readTextFile, home, shared, setShared } from "herdr";
-import { searchSince, signalsOf, decide, emptyEntry, promptFor, repoOfRemote, undoLaunch, holdingTabs, checkoutBases, checkoutsOf, LABELS } from "./watch.js";
+import { searchSince, signalsOf, decide, emptyEntry, promptFor, repoOfRemote, undoLaunch, holdingTabs, karadocHeld, checkoutBases, checkoutsOf, LABELS } from "./watch.js";
 
 const MAX_AGENTS = 3;
-const KARADOC = ["pr-demo", "qa"];
 const LEASE = "pr-watch-lease";
 const LEASE_MS = 240000; // a round older than this died without clearing its lease
 const VIEW_FIELDS = "number,title,url,isDraft,headRefName,headRefOid,statusCheckRollup,comments,reviews";
@@ -72,8 +71,10 @@ async function cloneOf(repo, clones) {
   const hasQa = clone !== null && /^<!-- testing-api-pull-requests -->$/m.test((await report(".agents")) ?? (await report(".claude")) ?? "");
   // Signals of a CI on the clone's checked-out branch: a PR adding the first one is seen without CI.
   const has = async (path) => clone !== null && (await exec("test", ["-e", `${clone}/${path}`])).code === 0;
+  const dir = async (path) => clone !== null && (await exec("test", ["-d", `${clone}/${path}`])).code === 0;
   const hasCi = (await has("Jenkinsfile")) || (await has(".github/workflows"));
-  return { clone, hasQa, hasCi };
+  // karadoc is arthur's module: only repos that hold it run it on its fixed ports
+  return { clone, hasQa, hasCi, hasKaradoc: await dir("karadoc") };
 }
 
 // The watch's own worktree for branch, detached on origin/<branch>; dirty when an agent left work in it, busy (the
@@ -170,14 +171,16 @@ async function roundUnderLease(registry, cache, at) {
   const repos = new Map(await Promise.all(names.map(async (repo) => [repo, await cloneOf(repo, cache.clones ?? new Map())])));
   cache.clones = new Map([...repos].filter(([, r]) => r.clone).map(([repo, r]) => [repo, r.clone]));
 
+  const roundPrs = new Set(all.map((s) => s.number));
+  const karadocPrs = new Set(all.filter((s) => repos.get(s.repo).hasKaradoc).map((s) => s.number));
   const launched = []; // tab names started this round: running before agents() lists them
   const prs = {};
   for (const s of all) {
     const before = registry.prs[s.key] ?? emptyEntry();
     try {
       const busy = [...new Set([...heldTabs(all), ...launched])];
-      const { clone, hasQa, hasCi } = repos.get(s.repo);
-      const ctx = { on: registry.on, paused: (registry.paused ?? []).includes(s.key), slots: MAX_AGENTS - busy.length, karadocFree: !busy.some((t) => KARADOC.some((k) => t.endsWith(` ${k}`))), hasQa, hasCi };
+      const { clone, hasQa, hasCi, hasKaradoc } = repos.get(s.repo);
+      const ctx = { on: registry.on, paused: (registry.paused ?? []).includes(s.key), slots: MAX_AGENTS - busy.length, karadocFree: !hasKaradoc || !karadocHeld(busy, karadocPrs, roundPrs), hasQa, hasCi };
       const tab = { ...tabOf(before), busy: busy.some((t) => t.startsWith(`⟳ #${s.number} `)) };
       const r = decide(s, before, tab, ctx);
       if (r.toast) notify({ title: r.toast, body: s.url, level: "warning" });
