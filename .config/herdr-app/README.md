@@ -120,7 +120,7 @@ Les projets Jira du dépôt sont devinés depuis les sujets de commit ; sinon le
 
 ### Panneau PR
 
-Bouton « Pull request » dans la barre d'onglets : la PR de la branche du space, ses checks et son build Jenkins. Son interrupteur **Surveillance** suit mes PR ouvertes toutes les 5 minutes (depuis `status-jc`, même panneau fermé) et lance un agent Claude visible quand le build Jenkins casse, quand Sonar remonte des problèmes, ou pour `pr-risk` / `pr-demo` quand tout est vert. Les PR surveillées sont triées par urgence (à toi, erreur, pas de clone local, agent en cours, en attente, brouillon, ok), avec leur titre et une ligne qui dit pourquoi elles ont leur état (CI en cours, agent lancé, karadoc pris…). Une PR sans aucun check 15 minutes après que la surveillance a vu son dernier commit (ou après sa sortie de brouillon) est traitée comme un repo sans CI et passe à la review. Détails : `docs/2026-11-14-pr-watch-design.md`.
+Bouton « Pull request » dans la barre d'onglets : la PR de la branche du space, ses checks et son build Jenkins. Son interrupteur **Surveillance** suit mes PR ouvertes toutes les 5 minutes (depuis `status-jc`, même panneau fermé) et lance un agent Claude visible quand le build Jenkins casse, quand Sonar remonte des problèmes, ou pour `pr-risk` / `pr-demo` quand tout est vert. Les PR surveillées sont triées par urgence (à toi, erreur, pas de clone local, agent en cours, en attente, brouillon, ok), avec leur titre et une ligne qui dit pourquoi elles ont leur état (CI en cours, agent lancé, karadoc pris…). Une PR sans aucun check attend sa CI si le clone local a un `Jenkinsfile` ou un `.github/workflows/`, sinon elle passe tout de suite à la review. Détails : `docs/2026-11-14-pr-watch-design.md`.
 
 ### status-jc et tabs-jc
 
