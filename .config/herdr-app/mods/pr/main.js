@@ -183,7 +183,7 @@ export default class PullRequest extends View {
     const reg = shared("pr-watch") ?? null, entries = Object.entries(reg?.prs ?? {});
     // Each label's color, dot and rank: what needs me first, finished PRs last.
     const looks = { "à toi": [t.blocked, "ko"], erreur: [t.ansi1, "ko"], "pas de clone local": [t.blocked, "ko"],
-      "agent en cours": [t.working, "running"], "en attente": [t.muted, "idle"], brouillon: [t.dim, "idle"], ok: [t.done, "ok"] };
+      "agent en cours": [t.working, "running"], "en attente": [t.muted, "idle"], brouillon: [t.dim, "idle"], "en pause": [t.dim, "idle"], ok: [t.done, "ok"] };
     const look = (l) => looks[l] ?? [t.dim, "idle"];
     // A label this table lacks (renamed in status-jc, which the panel cannot import) goes last.
     const rank = (l) => { const i = Object.keys(looks).indexOf(l); return i < 0 ? Infinity : i; };
@@ -192,6 +192,17 @@ export default class PullRequest extends View {
       const terminal = agent && panes().find((p) => p.pane === agent.pane)?.terminal;
       if (terminal) run("agent.focus", { terminal }); else exec("open", [entry.url]);
     };
+    // status-jc launches nothing on a paused PR; it only reads the list, the panel writes it.
+    const paused = reg?.paused ?? [];
+    const pause = (k) => h_flex().id(`pause-${k}`).w(18).h(18).flex_none().items_center().justify_center().rounded(4)
+      .text_size(11).text_color(t.dim).cursor_pointer().hover((s) => s.bg(t.hover).text_color(t.foreground))
+      .tooltip(paused.includes(k) ? "Reprendre" : "Mettre en pause")
+      .on_click((_e, cx) => {
+        cx.stop_propagation(); // the row's own click opens the PR or its agent
+        setShared("pr-watch", { on: false, prs: {}, error: null, at: 0, ...reg,
+          paused: paused.includes(k) ? paused.filter((p) => p !== k) : [...paused, k] });
+      })
+      .child(paused.includes(k) ? "▶" : "⏸");
     const row = ([k, entry]) => {
       const [color, state] = look(entry.label), [repo, number] = k.split("#");
       return h_flex().id(`watch-${k}`).gap(10).items_start().rounded(8).px(8).py(7).cursor_pointer().hover((s) => s.bg(t.hover))
@@ -201,7 +212,7 @@ export default class PullRequest extends View {
           .child(h_flex().gap(6).items_center()
             .child(div().text_size(12).font_semibold().child(repo.split("/").pop()))
             .child(div().text_size(12).text_color(t.dim).child(`#${number}`))
-            .child(div().flex_1()).child(chip(entry.label ?? "", color)))
+            .child(div().flex_1()).child(pause(k)).child(chip(entry.label ?? "", color)))
           .when(Boolean(entry.title), (e) => e.child(div().text_size(12).text_color(t.muted).truncate().child(entry.title)))
           .when(Boolean(entry.why), (e) => e.child(div().text_size(11).text_color(t.dim).child(entry.why)))
           .when(Boolean(entry.error), (e) => e.child(div().text_size(11).text_color(t.ansi1).child(entry.error))));
