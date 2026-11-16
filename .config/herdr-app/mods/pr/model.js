@@ -18,6 +18,14 @@ export function checks(rollup) {
   });
 }
 
+// checks() → { state: the worst one, text: "1 en échec · 1 en cours · 2 ✓" }, or null when none.
+export function summary(list) {
+  if (!list.length) return null;
+  const n = (s) => list.filter((c) => c.state === s).length, ko = n("ko"), running = n("running"), ok = n("ok");
+  const text = [ko && `${ko} en échec`, running && `${running} en cours`, ok && `${ok} ✓`].filter(Boolean).join(" · ");
+  return { state: ko ? "ko" : running ? "running" : "ok", text };
+}
+
 export function minutes(ms) {
   const m = Math.round((ms ?? 0) / 60000);
   return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, "0")}`;
