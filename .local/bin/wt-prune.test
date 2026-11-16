@@ -3,7 +3,10 @@
 cd "$(dirname "$0")" || exit 1
 tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
 git() { command git -c user.name=t -c user.email=t@t -c init.defaultBranch=main "$@"; }
-mkdir "$tmp/bin" && printf '#!/usr/bin/env bash\necho "$*" >> "$CALLS"\n' > "$tmp/bin/wt" && chmod +x "$tmp/bin/wt"
+mkdir "$tmp/bin"
+printf '#!/usr/bin/env bash\necho "$*" >> "$CALLS"\n[[ "$*" != *"$FAIL_IN"* ]]\n' > "$tmp/bin/wt"
+printf '#!/usr/bin/env bash\necho "osascript ${*: -2}" >> "$CALLS"\n' > "$tmp/bin/osascript"
+chmod +x "$tmp/bin/wt" "$tmp/bin/osascript"
 
 # repo a with a worktree at depth 2 and one at depth 3 (slash in the branch), repo "b c" at depth 2.
 for r in a "b c"; do git init -q "$tmp/src/$r" && git -C "$tmp/src/$r" commit -q --allow-empty -m init; done
@@ -11,9 +14,14 @@ w=$tmp/home/dev/agents-worktree
 git -C "$tmp/src/a" worktree add -q "$w/a/x" -b x
 git -C "$tmp/src/a" worktree add -q "$w/a/feat/y" -b feat/y
 git -C "$tmp/src/b c" worktree add -q "$w/b c/z" -b z
-mkdir -p "$w/empty/dir" # not a git dir: ignored
+mkdir -p "$w/zz/y/x" # not a git dir, listed last: ignored, and not the exit code
 
-HOME=$tmp/home PATH=$tmp/bin:$PATH CALLS=$tmp/calls bash ./wt-prune --dry-run > /dev/null
-want=$(printf -- '-C %s step prune --dry-run\n' "$(cd "$tmp/src/a" && pwd -P)" "$(cd "$tmp/src/b c" && pwd -P)")
-got=$(sort "$tmp/calls")
-[ "$got" = "$want" ] || { printf 'FAIL\nwant:\n%s\ngot:\n%s\n' "$want" "$got"; exit 1; }
+run() { rm -f "$tmp/calls"; HOME=$tmp/home PATH=$tmp/bin:$PATH CALLS=$tmp/calls FAIL_IN=$1 bash ./wt-prune --dry-run > /dev/null 2>&1; echo $? >> "$tmp/calls"; }
+check() { local got; got=$(sort "$tmp/calls"); [ "$got" = "$1" ] || { printf 'FAIL\nwant:\n%s\ngot:\n%s\n' "$1" "$got"; exit 1; }; }
+calls=$(printf -- '-C %s step prune --dry-run\n' "$(cd "$tmp/src/a" && pwd -P)" "$(cd "$tmp/src/b c" && pwd -P)")
+
+run "no such repo"
+check "$(printf '%s\n0' "$calls" | sort)"
+# one repo fails: the other still runs, one notification names it, exit 1
+run "b c"
+check "$(printf '%s\n1\nosascript wt-prune a échoué b c, voir ~/Library/Logs/wt-prune.log' "$calls" | sort)"
