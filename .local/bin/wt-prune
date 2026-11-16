@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+#
+# wt-prune
+#
+# Runs `wt step prune` in every repo that has a worktree under ~/dev/agents-worktree: agents and
+# start-work leave them behind. In each such repo it removes the worktrees, with their branches,
+# and the local branches without a worktree, that are already integrated into the default branch.
+# That includes a worktree whose branch has no commit of its own yet ("ancestor of master").
+# Run by launchd (~/Library/LaunchAgents/fr.jcgay.wt-prune.plist) every morning with --foreground.
+# Arguments go to `wt step prune`: `wt-prune --dry-run` shows what would go.
+#
+# wt skips a worktree younger than a day, one with changes (untracked files included), a detached
+# one (so the PR watch's *-watch worktrees stay), and, without --yes, one whose project hooks
+# were never approved.
+
+set -uo pipefail
+
+# One main worktree per repo, the first one `git worktree list` gives (the yadm repo's git dir works too).
+# Three levels: a branch name with a slash keeps it in the path (ordostruct/feat/x).
+for d in ~/dev/agents-worktree/*/*/ ~/dev/agents-worktree/*/*/*/; do
+  git -C "$d" worktree list --porcelain 2>/dev/null | sed -n '1s/^worktree //p'
+done | sort -u | while IFS= read -r main; do
+  echo "== $main ($(date '+%F %T'))"
+  wt -C "$main" step prune "$@" || echo "wt-prune: failed in $main" >&2
+done

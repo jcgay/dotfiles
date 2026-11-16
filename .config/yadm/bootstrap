@@ -67,6 +67,10 @@ if [ "$(yadm config local.class)" = "Work" ]; then
   launchctl bootstrap "gui/$(id -u)" ~/Library/LaunchAgents/fr.jcgay.jira-merged.plist
 fi
 
+# wt-prune : chaque matin, supprime les worktrees et branches déjà mergés. bootout d'abord, pour pouvoir rejouer.
+launchctl bootout "gui/$(id -u)/fr.jcgay.wt-prune" 2>/dev/null || true # pas encore chargé : code 3, et set -e
+launchctl bootstrap "gui/$(id -u)" ~/Library/LaunchAgents/fr.jcgay.wt-prune.plist
+
 # mise — installe tous les outils JVM (Java, Gradle, Kotlin, etc.)
 echo "Installation des outils JVM via mise..."
 mise install

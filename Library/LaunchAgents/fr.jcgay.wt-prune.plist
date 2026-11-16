@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>fr.jcgay.wt-prune</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/Users/jcgay/.local/bin/wt-prune</string>
+		<string>--foreground</string>
+	</array>
+	<!-- wt and git from Homebrew: /opt/homebrew on Apple Silicon, /usr/local on Intel -->
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>PATH</key>
+		<string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+	</dict>
+	<!-- every day at 09:00; a Mac asleep then runs it on wake -->
+	<key>StartCalendarInterval</key>
+	<dict>
+		<key>Hour</key><integer>9</integer>
+		<key>Minute</key><integer>0</integer>
+	</dict>
+	<key>StandardOutPath</key>
+	<string>/Users/jcgay/Library/Logs/wt-prune.log</string>
+	<key>StandardErrorPath</key>
+	<string>/Users/jcgay/Library/Logs/wt-prune.log</string>
+</dict>
+</plist>
