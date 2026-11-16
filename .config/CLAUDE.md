@@ -38,6 +38,12 @@ Templates branch on two axes: the class switches the git `user.email`; `yadm.arc
 - `.config/yadm/bootstrap` — new-machine setup (installs Homebrew, mise tools, Android SDK packages via `sdkmanager`, Fisher; switches shell to fish; sets up Claude Code: marketplaces/plugins via the `claude` CLI, `npx skills` skills, and each tool's own installer for plannotator, codebase-memory-mcp, rtk, build-brief, worktrunk and herdr; merges the `github-signature` hook and base settings into `~/.claude/settings.json` and turns on auto-update for GitHub marketplaces; SonarQube CLI/plugin/integration and the Vidal `merlin` plugin only for the `Work` class; optional `mackup restore`). Comments are in French. Re-runnable via `yadm bootstrap`.
 - `~/.claude/` — Claude Code config. Only hand-written files are tracked (`statusline-command.sh`, `subagent-statusline.py`, `rules/*.md`, `hooks/github-signature`, `scripts/gh-pr-upsert-comment`, `docs/*.md`, `skills/pr-risk/`, `skills/pr-demo/`, `skills/pr-review/`: see its whitelist `.gitignore`). `settings.json` and `CLAUDE.md` are not tracked: plugins, MCP, hooks and the rtk/build-brief sections of `CLAUDE.md` are redone by bootstrap.
 
+## Plugins and skills per project
+
+`.local/bin/claude` wraps Claude Code (it comes before Homebrew in `PATH`, and Herdr's `start-work` runs it too). When a session starts, it reads the git repo's tracked files and passes `--settings` to turn back on the plugins and skills that repo needs: Docker, Gradle, Jenkins, SonarQube, front-end. They are off by default: bootstrap writes the output of `claude --wrapper-defaults` into `~/.claude/settings.json`, as `enabledPlugins: false` and `skillOverrides: "user-invocable-only"` (hidden from the model, `/name` still works). The rule table at the top of the wrapper is the only list; `claude.test` checks it. Claude Code comes from Homebrew (`claude-code@latest` cask): never run its native installer (`claude install`, `install.sh`), which writes its symlink at `~/.local/bin/claude` and silently replaces the wrapper (a modified file in `yadm status`).
+
+**Every new plugin or skill (bootstrap, `npx skills`, `claude plugin install`) goes through this table**: give it a rule (a file signal) or decide it stays always on, and say which in the commit. A plugin left out of the table loads in every session.
+
 ## Herdr desktop app
 
 `.config/herdr-app/` is the Herdr app's whole interface as files; its own `AGENTS.md` (rewritten by Herdr on every start, not tracked) documents layouts, keys and mods. Herdr overwrites its shipped layouts and mods at start, so customizations live in clones: the `jc` layout and the `status-jc` and `tabs-jc` mods. `pr` and `start-work` are our own mods, not clones. `start-work` (`cmd-shift-j`) starts a Jira ticket or GitHub issue in a new worktree with Claude, or resumes a PR (`#N` or its URL) on its branch; it reads the repo's Jira projects from its commit subjects unless `mods/start-work/config.json` names them (`{"jira": {"<repo>": ["MERLIN"]}}`), and its design and plan are in `.config/herdr-app/docs/`. Never commit the `gpui-kit.d.ts` and `jsconfig.json` Herdr writes into each mod. Check a mod with `herdr-app check ~/.config/herdr-app/mods/<name>`.
@@ -59,10 +65,10 @@ node --test ~/.config/herdr-app/mods/*/*.test.mjs
 
 GitHub Actions (`.github/workflows/test.yml`) runs the same command on every push and pull request, on the Node version of `.config/mise/config.toml`. A new mod's `*.test.mjs` is picked up by the glob; keep `herdr` imports out of the module it tests, or Node cannot load it.
 
-The Claude scripts (`~/.claude/scripts`, `hooks`, `skills/pr-review/scripts`) carry bash self-checks with a fake `gh`, named `*.test` or `*_test.sh`. CI runs them too; locally, from `~`:
+The Claude scripts (`~/.claude/scripts`, `hooks`, `skills/pr-review/scripts`, `.local/bin/claude`) carry bash self-checks with a fake `gh` or `claude`, named `*.test` or `*_test.sh`. CI runs them too; locally, from `~`:
 
 ```sh
-for t in .claude/scripts/*.test .claude/hooks/*.test .claude/skills/pr-review/scripts/*_test.sh; do bash "$t" || echo "FAIL $t"; done
+for t in .claude/scripts/*.test .claude/hooks/*.test .claude/skills/pr-review/scripts/*_test.sh .local/bin/claude.test; do bash "$t" || echo "FAIL $t"; done
 ```
 
 `skills/pr-demo/scripts/narrate_test.sh` needs ffmpeg and a speech engine, so it is run by hand only.
