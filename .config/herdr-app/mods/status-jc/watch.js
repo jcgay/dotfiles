@@ -23,7 +23,7 @@ export function checks(rollup) {
   });
 }
 
-const MARKERS = { "<!-- pr-risk -->": "pr-risk", "<!-- pr-demo -->": "pr-demo", "<!-- testing-api-pull-requests -->": "qa" };
+const MARKERS = { "<!-- pr-risk -->": "pr-risk", "<!-- pr-demo -->": "pr-demo", "<!-- pr-review -->": "pr-review", "<!-- testing-api-pull-requests -->": "qa" };
 
 // Sonar's check-run → counts read from its markdown summary (0 when a line is absent), or null without check-run.
 export function sonarFindings(checkRun) {
@@ -37,7 +37,7 @@ export function sonarFindings(checkRun) {
   };
 }
 
-// Which agent steps already left their comment: only my comments count.
+// Which agent steps already left their comment or review: only my comments count.
 export function markers(comments, me) {
   const found = new Set();
   for (const c of comments ?? []) {
@@ -67,7 +67,7 @@ export function signalsOf(view, checkRuns, me) {
     pending: all.some((c) => c.state === "running"),
     failing: all.some((c) => c.state === "ko"),
     reported: all.length > 0 || (checkRuns ?? []).length > 0,
-    markers: markers(view.comments, me),
+    markers: markers([...(view.comments ?? []), ...(view.reviews ?? [])], me),
     error: null,
   };
 }
@@ -78,8 +78,9 @@ export const LABELS = Object.freeze({
 });
 
 const BUDGET = 2; // attempts per check (jenkins, sonar) and PR
-const REVIEW = ["pr-risk", "pr-demo", "qa"];
+const REVIEW = ["pr-risk", "pr-review", "pr-demo", "qa"]; // pr-review --fix pushes: the demo then shows the fixed code
 const KARADOC = ["pr-demo", "qa"]; // start karadoc on fixed ports: one at a time
+const PUSHES = ["pr-review"]; // review steps that push fixups after their marker: they last until their tab closes
 
 export const tabName = (number, step) => `⟳ #${number} ${step}`;
 
@@ -97,14 +98,14 @@ export function emptyEntry() {
 }
 
 // Watch tabs ([{ name, status }]) that hold their PR, and for pr-demo/qa karadoc: a working or blocked agent, or a review
-// step whose tab exists without its marker (a Claude waiting for a text reply reads idle). markersOf(number): Set, or null.
+// step whose tab exists without its marker (a Claude waiting for a text reply reads idle), or a pushing step's open tab. markersOf(number): Set, or null.
 export function holdingTabs(tabs, markersOf) {
   return tabs.filter(({ name, status }) => {
     const m = /^⟳ #(\d+) (\S+)$/.exec(name);
     if (!m) return false;
     if (["working", "blocked"].includes(status)) return true;
     const found = markersOf(Number(m[1]));
-    return REVIEW.includes(m[2]) && found !== null && !found.has(m[2]);
+    return REVIEW.includes(m[2]) && found !== null && (PUSHES.includes(m[2]) || !found.has(m[2]));
   }).map((t) => t.name);
 }
 
@@ -138,8 +139,9 @@ export function decide(s, entry, tab, ctx) {
 
   if (s.head !== e.head) {
     // A head that appears while a fix agent's tab exists (done included) is its push: keep its budget.
-    // Review agents never push, and their tab may stay open for long.
-    if (!(e.launched && tab.exists && !REVIEW.includes(e.launched.step))) {
+    // Other review agents never push, and their tab may stay open for long.
+    const pusher = e.launched && (!REVIEW.includes(e.launched.step) || PUSHES.includes(e.launched.step));
+    if (!(pusher && tab.exists)) {
       e.attempts = { jenkins: 0, sonar: 0 };
       e.told = { jenkins: false, sonar: false };
     }
@@ -148,8 +150,9 @@ export function decide(s, entry, tab, ctx) {
   const short = (sha) => (sha ?? "").slice(0, 8);
 
   // A review step lasts until its marker appears or its tab closes; a fix step until its agent stops working.
+  // pr-review posts its marker before fixing: it lasts until its tab closes, so pr-demo never runs on the unfixed head.
   const review = e.launched && REVIEW.includes(e.launched.step) && !s.markers.has(e.launched.step);
-  const holds = review ? tab.exists : tab.running;
+  const holds = review || PUSHES.includes(e.launched?.step) ? tab.exists : tab.running;
   if (e.launched && !holds) {
     if (review) e.silent[e.launched.head] = [...(e.silent[e.launched.head] ?? []), e.launched.step];
     e.launched = null;
@@ -244,6 +247,10 @@ export function promptFor(step, s) {
         + `Lis les nouvelles issues et les security hotspots de la pull request ${s.number} : sur sonarcloud.io avec le MCP SonarQube (paramètre \`pullRequest\`), `
         + `sur un SonarQube interne avec son API web. Si tu ne peux pas les lire, dis-le et arrête-toi. Sinon `
         + `corrige-les tous, bloquants ou non. Commite et pousse avec \`${push}\` (jamais de push forcé, jamais sur une autre branche).`;
+    case "pr-review":
+      return `/pr-review ${s.url} --fix\n\n${folder}`;
+    case "pr-demo":
+      return `/pr-demo ${s.url} --narrate\n\nNarration et légendes en français, quelle que soit la langue de la description.`;
     case "qa":
       return `/testing-api-pull-requests ${s.url}\n\nArrête-toi une fois le rapport posté (étape 7) : aucune correction, aucun push.`;
     default:

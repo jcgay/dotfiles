@@ -16,7 +16,7 @@ ces trois situations :
 
 1. le build Jenkins est en échec : l'agent enquête et corrige si besoin ;
 2. Sonar remonte des problèmes, même si le quality gate passe : l'agent les corrige ;
-3. tout est vert et la PR n'est plus en brouillon : l'agent lance `pr-risk`, puis `pr-demo`,
+3. tout est vert et la PR n'est plus en brouillon : l'agent lance `pr-risk`, puis `pr-review --fix`, puis `pr-demo`,
    puis `testing-api-pull-requests` si le dépôt contient ce skill, chacun seulement s'il n'a pas
    déjà commenté la PR.
 
@@ -47,14 +47,18 @@ ces trois situations :
     pas, on se rabat sur la seule `conclusion`.
   - **Revue** : la PR n'est pas en brouillon, au moins un check a rapporté sur le commit de tête
     et aucun check n'est `ko` ni en cours. Trois étapes,
-    une par tour et dans cet ordre, chacune sautée si la PR a déjà un commentaire à moi qui
-    commence par son marqueur :
+    une par tour et dans cet ordre, chacune sautée si la PR a déjà un commentaire ou une review
+    à moi qui commence par son marqueur :
     1. `/pr-risk` — marqueur `<!-- pr-risk -->` (déjà en place) ;
-    2. `/pr-demo` — marqueur `<!-- pr-demo -->` (déjà en place). Le skill attend que j'approuve
+    2. `/pr-review --fix` — marqueur `<!-- pr-review -->` en tête du corps de sa review. Le marqueur
+       part avant les corrections : l'étape garde la PR jusqu'à la fermeture de son onglet. Ses fixups
+       sont poussés sur la branche de la PR depuis le worktree détaché : la démo qui suit montre
+       le code corrigé, une fois la CI repassée ;
+    3. `/pr-demo --narrate`, narration et légendes en français — marqueur `<!-- pr-demo -->` (déjà en place). Le skill attend que j'approuve
        son scénario avant de démarrer quoi que ce soit (garde-fou non négociable du skill) :
        l'agent reste `blocked` et Herdr me prévient. S'il n'y a rien à montrer, il s'arrête sans
        commenter ;
-    3. `/testing-api-pull-requests`, seulement si le dépôt a ce skill et que son modèle de rapport
+    4. `/testing-api-pull-requests`, seulement si le dépôt a ce skill et que son modèle de rapport
        porte le marqueur (`.agents/skills/testing-api-pull-requests/references/report.md` ou
        `.claude/skills/…`) — marqueur `<!-- testing-api-pull-requests -->`. Sans marqueur, la QA
        serait relancée à chaque commit de tête. *(Choix validé)* Le prompt lui demande de

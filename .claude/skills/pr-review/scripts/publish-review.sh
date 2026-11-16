@@ -9,9 +9,12 @@
 #     line, or a signed review already lists it) and where (inline | body | skip);
 #   - writes <dir>/review.json: one inline comment per confirmed, anchored, not
 #     yet posted finding; the others not yet posted are listed in the body,
-#     under the two headings. It signs the body and every comment itself;
+#     under the two headings, after a <!-- pr-review --> line (the Herdr PR
+#     watch reads it to know the review is done). It signs the body and every
+#     comment itself;
 #   - posts it (not with --dry-run, nor when every finding is already posted
-#     and a signed review exists) and stores each comment_id in findings.json.
+#     and a signed review carries the marker: an older one without it gets a
+#     new review, or the watch never sees pr-review done) and stores each comment_id in findings.json.
 # One unanchorable inline comment makes GitHub reject the whole review (422),
 # hence the check against the diff. Needs gh, jq, awk.
 set -euo pipefail
@@ -71,7 +74,7 @@ jq --arg sig "$sig" --arg sha "$sha" --arg off "$off" --arg unconfirmed "$unconf
     + "\n  " + (.body | unsigned | gsub("\n"; "\n  "));
   def section($title; $list): if ($list | length) > 0 then "\n\n### \($title)\n\n" + ($list | map(item) | join("\n")) else "" end;
   {commit_id: $sha, event: "COMMENT",
-   body: (($head | unsigned)
+   body: ("<!-- pr-review -->\n" + ($head | unsigned)
      + section($off; map(select(.where == "body" and .confirmed != false)))
      + section($unconfirmed; map(select(.where == "body" and .confirmed == false)))
      + "\n\n" + $sig),
@@ -81,7 +84,7 @@ jq --arg sig "$sig" --arg sha "$sha" --arg off "$off" --arg unconfirmed "$unconf
 
 if [ "$dry" = 1 ]; then
   echo "dry run: $dir/review.json not posted"
-elif [ -s "$dir/reviews.txt" ] && jq -e 'all(.where == "skip")' "$dir/findings.json" >/dev/null; then
+elif grep -qx '<!-- pr-review -->' "$dir/reviews.txt" && jq -e 'all(.where == "skip")' "$dir/findings.json" >/dev/null; then
   echo "nothing new since the last signed review: not posted"
 else
   posted=$(gh api "repos/$repo/pulls/$pr/reviews" --method POST --input "$dir/review.json" --jq '"\(.id) \(.html_url)"')

@@ -72,7 +72,8 @@ check 'inline comments' "$(jq -c '.comments | map([.path, .line, .side])' "$T/re
   '[["src/a.ts",11,"RIGHT"],["src/a.ts",11,"LEFT"],["src/a.ts",10,"RIGHT"],["src/a.ts",11,"RIGHT"]]'
 check 'comment body, signed once' "$(jq -r '.comments[1].body' "$T/review.json")" $'**[mineur]** T6\n\nB6\n\n🤖 Jean-Claude'
 check 'event and commit' "$(jq -c '[.event, .commit_id]' "$T/review.json")" "[\"COMMENT\",\"$sha\"]"
-check 'review body' "$(jq -r .body "$T/review.json")" 'Summary.
+check 'review body' "$(jq -r .body "$T/review.json")" '<!-- pr-review -->
+Summary.
 
 ### Hors diff
 
@@ -102,11 +103,16 @@ findings; : > "$GH_LOG"
 out=$("$here/publish-review.sh" o/r 7 "$sha" "$T" 2>&1) || { echo "FAIL rerun: $out"; fail=1; }
 check 'rerun: all skipped' "$(jq -c 'map(.where) | unique' "$T/findings.json")" '["skip"]'
 check 'rerun: not posted' "$(grep -c 'method POST' "$GH_LOG")" 0
+# A signed review from before the marker: post again, so the PR watch sees it.
+jq 'map(.body |= sub("^<!-- pr-review -->\n"; ""))' "$GH_REVIEWS" > "$T/old.json" && mv "$T/old.json" "$GH_REVIEWS"
+findings; : > "$GH_LOG"
+out=$("$here/publish-review.sh" o/r 7 "$sha" "$T" 2>&1) || { echo "FAIL old review: $out"; fail=1; }
+check 'old review without marker: posted' "$(grep -c 'method POST' "$GH_LOG")" 1
 echo '[]' > "$GH_REVIEWS"; cp "$T/before.json" "$GH_COMMENTS"
 
 echo '[]' > "$T/findings.json"
 out=$("$here/publish-review.sh" o/r 7 "$sha" "$T" --dry-run 2>&1) || { echo "FAIL no finding: $out"; fail=1; }
-check 'no finding: body only' "$(jq -c '[.body, .comments]' "$T/review.json")" '["Summary.\n\n🤖 Jean-Claude",[]]'
+check 'no finding: body only' "$(jq -c '[.body, .comments]' "$T/review.json")" '["<!-- pr-review -->\nSummary.\n\n🤖 Jean-Claude",[]]'
 
 rm "$T/body.md"; : > "$GH_LOG"
 out=$("$here/publish-review.sh" o/r 7 "$sha" "$T" 2>&1) && { echo "FAIL: ran without body.md"; fail=1; }

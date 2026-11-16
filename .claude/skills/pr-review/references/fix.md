@@ -6,7 +6,8 @@ no-PR mode. `<base-sha>`, `<head>`, `headRefName`, `headRefOid` and
 
 - Allowed only when all hold: the current directory is the PR's repository,
   `isCrossRepository` is false (a fork's branch is not pushed to `origin`),
-  `git branch --show-current` = `headRefName`, and `git rev-parse HEAD` =
+  `git branch --show-current` = `headRefName` or HEAD is detached (the PR
+  watch's worktree; the push below names the branch), and `git rev-parse HEAD` =
   `headRefOid` (no local commit that is not in the PR). In no-PR mode: the
   current branch. Otherwise: the review is posted, then say why `--fix`
   cannot run, and stop.

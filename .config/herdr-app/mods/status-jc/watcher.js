@@ -6,7 +6,7 @@ const MAX_AGENTS = 3;
 const KARADOC = ["pr-demo", "qa"];
 const LEASE = "pr-watch-lease";
 const LEASE_MS = 240000; // a round older than this died without clearing its lease
-const VIEW_FIELDS = "number,title,url,isDraft,headRefName,headRefOid,statusCheckRollup,comments";
+const VIEW_FIELDS = "number,title,url,isDraft,headRefName,headRefOid,statusCheckRollup,comments,reviews";
 
 const firstLine = (text) => (text ?? "").trim().split("\n")[0] || null;
 

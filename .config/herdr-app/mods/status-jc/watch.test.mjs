@@ -38,10 +38,10 @@ test("sonarFindings reads counts and the conclusion", () => {
   assert.equal(sonarFindings(null), null);
 });
 
-test("markers keeps only my comments", () => {
+test("markers keeps only my comments and reviews", () => {
   const c = (login, body) => ({ author: { login }, body });
-  const got = markers([c("jcgay", "<!-- pr-risk -->\nx"), c("jcgay", "<!-- testing-api-pull-requests -->\ny"), c("someone", "<!-- pr-demo -->")], "jcgay");
-  assert.deepEqual(got, new Set(["pr-risk", "qa"]));
+  const got = markers([c("jcgay", "<!-- pr-risk -->\nx"), c("jcgay", "<!-- testing-api-pull-requests -->\ny"), c("someone", "<!-- pr-demo -->"), c("jcgay", "<!-- pr-review -->\nz")], "jcgay");
+  assert.deepEqual(got, new Set(["pr-risk", "qa", "pr-review"]));
 });
 
 test("signalsOf combines Jenkins, Sonar and markers", () => {
@@ -64,6 +64,7 @@ test("signalsOf combines Jenkins, Sonar and markers", () => {
   assert.equal(signalsOf({ ...view, statusCheckRollup: [{ name: "x", status: "IN_PROGRESS" }] }, [], "jcgay").pending, true);
   assert.equal(s.failing, true);
   assert.equal(s.reported, true);
+  assert.ok(signalsOf({ ...view, reviews: [{ author: { login: "jcgay" }, body: "<!-- pr-review -->\nx" }] }, [], "jcgay").markers.has("pr-review"), "a review carries its marker");
 });
 
 test("signalsOf reads a self-hosted SonarQube check like SonarCloud", () => {
@@ -100,7 +101,7 @@ const green = (over = {}) => ({
 });
 const jenkinsKo = { state: "ko", url: "https://jenkins/x/1/", jobPath: "x", number: 1 };
 const sonarKo = (failed) => ({ state: "ko", failed, issues: 2, hotspots: 0, url: "https://sonarcloud.io/x" });
-const ALL = new Set(["pr-risk", "pr-demo", "qa"]);
+const ALL = new Set(["pr-risk", "pr-review", "pr-demo", "qa"]);
 const NO_TAB = { exists: false, running: false };
 const RUNNING = { exists: true, running: true };
 const DONE = { exists: true, running: false };
@@ -133,10 +134,11 @@ test("sonar issues on green gate launch sonar", () => {
   assert.equal(r.entry.attempts.jenkins, 0);
 });
 
-test("review order risk demo qa", () => {
+test("review order risk review demo qa", () => {
   assert.equal(decide(green(), at(), NO_TAB, CTX).launch, "pr-risk");
-  assert.equal(decide(green({ markers: new Set(["pr-risk"]) }), at(), NO_TAB, CTX).launch, "pr-demo");
-  assert.equal(decide(green({ markers: new Set(["pr-risk", "pr-demo"]) }), at(), NO_TAB, CTX).launch, "qa");
+  assert.equal(decide(green({ markers: new Set(["pr-risk"]) }), at(), NO_TAB, CTX).launch, "pr-review");
+  assert.equal(decide(green({ markers: new Set(["pr-risk", "pr-review"]) }), at(), NO_TAB, CTX).launch, "pr-demo");
+  assert.equal(decide(green({ markers: new Set(["pr-risk", "pr-review", "pr-demo"]) }), at(), NO_TAB, CTX).launch, "qa");
   const r = decide(green({ markers: ALL }), at(), NO_TAB, CTX);
   assert.equal(r.launch, null);
   assert.equal(r.entry.label, "ok");
@@ -144,7 +146,7 @@ test("review order risk demo qa", () => {
 });
 
 test("qa skipped without the skill", () => {
-  const r = decide(green({ markers: new Set(["pr-risk", "pr-demo"]) }), at(), NO_TAB, { ...CTX, hasQa: false });
+  const r = decide(green({ markers: new Set(["pr-risk", "pr-review", "pr-demo"]) }), at(), NO_TAB, { ...CTX, hasQa: false });
   assert.equal(r.launch, null);
   assert.equal(r.entry.label, "ok");
 });
@@ -157,13 +159,13 @@ test("draft gets no review", () => {
 });
 
 test("marker skips a step", () => {
-  assert.equal(decide(green({ markers: new Set(["pr-demo"]) }), at({ silent: { h1: ["pr-risk"] } }), NO_TAB, CTX).launch, "qa");
+  assert.equal(decide(green({ markers: new Set(["pr-review", "pr-demo"]) }), at({ silent: { h1: ["pr-risk"] } }), NO_TAB, CTX).launch, "qa");
 });
 
 test("review tab closed without marker: silent on that head, relaunched on a new head", () => {
   const ended = decide(green(), at({ launched: { step: "pr-demo", head: "h1", tab: "⟳ #5462 pr-demo" } }), NO_TAB, CTX);
   assert.deepEqual(ended.entry.silent, { h1: ["pr-demo"] });
-  const markersRisk = new Set(["pr-risk"]);
+  const markersRisk = new Set(["pr-risk", "pr-review"]);
   assert.equal(decide(green({ markers: markersRisk }), ended.entry, NO_TAB, CTX).launch, "qa");
   assert.equal(decide(green({ markers: markersRisk, head: "h2" }), ended.entry, NO_TAB, CTX).launch, "pr-demo");
   const commented = decide(green({ markers: markersRisk }), at({ launched: { step: "pr-risk", head: "h1", tab: "t" } }), DONE, CTX);
@@ -240,7 +242,7 @@ test("vanished tab ends the step", () => {
   const r = decide(green({ jenkins: jenkinsKo }), at({ attempts: { jenkins: 1, sonar: 0 }, launched }), NO_TAB, CTX);
   assert.equal(r.launch, "jenkins");
   assert.equal(r.entry.attempts.jenkins, 2);
-  const review = decide(green({ markers: new Set(["pr-risk"]) }), at({ launched: { step: "pr-demo", head: "h1", tab: "t" } }), NO_TAB, CTX);
+  const review = decide(green({ markers: new Set(["pr-risk", "pr-review"]) }), at({ launched: { step: "pr-demo", head: "h1", tab: "t" } }), NO_TAB, CTX);
   assert.equal(review.launch, "qa", "a vanished review tab is never relaunched blindly");
 });
 
@@ -268,11 +270,12 @@ test("no slot waits", () => {
   assert.equal(r.entry.label, "en attente");
 });
 
-test("karadoc busy holds demo and qa but not pr-risk", () => {
+test("karadoc busy holds demo and qa but not pr-risk nor pr-review", () => {
   const busy = { ...CTX, karadocFree: false };
   assert.equal(decide(green(), at(), NO_TAB, busy).launch, "pr-risk");
-  assert.equal(decide(green({ markers: new Set(["pr-risk"]) }), at(), NO_TAB, busy).launch, null);
-  assert.equal(decide(green({ markers: new Set(["pr-risk", "pr-demo"]) }), at(), NO_TAB, busy).entry.label, "en attente");
+  assert.equal(decide(green({ markers: new Set(["pr-risk"]) }), at(), NO_TAB, busy).launch, "pr-review");
+  assert.equal(decide(green({ markers: new Set(["pr-risk", "pr-review"]) }), at(), NO_TAB, busy).launch, null);
+  assert.equal(decide(green({ markers: new Set(["pr-risk", "pr-review", "pr-demo"]) }), at(), NO_TAB, busy).entry.label, "en attente");
   assert.equal(decide(green({ jenkins: jenkinsKo }), at(), NO_TAB, busy).launch, "jenkins");
 });
 
@@ -345,7 +348,7 @@ const PR = {
 };
 
 test("promptFor names the PR in every step", () => {
-  for (const step of ["jenkins", "sonar", "pr-risk", "pr-demo", "qa"]) assert.match(promptFor(step, PR), /pull\/5459/, step);
+  for (const step of ["jenkins", "sonar", "pr-risk", "pr-review", "pr-demo", "qa"]) assert.match(promptFor(step, PR), /pull\/5459/, step);
 });
 
 test("promptFor jenkins reads the log and pushes to the PR branch only", () => {
@@ -366,7 +369,12 @@ test("promptFor sonar reads the pull request issues", () => {
 
 test("promptFor review steps run their skill", () => {
   assert.equal(promptFor("pr-risk", PR), `/pr-risk ${PR.url}`);
-  assert.equal(promptFor("pr-demo", PR), `/pr-demo ${PR.url}`);
+  const review = promptFor("pr-review", PR);
+  assert.ok(review.startsWith(`/pr-review ${PR.url} --fix`));
+  assert.doesNotMatch(review, /git push/, "fix.md owns the push and its checks");
+  const demo = promptFor("pr-demo", PR);
+  assert.ok(demo.startsWith(`/pr-demo ${PR.url} --narrate`));
+  assert.match(demo, /en français/);
   const qa = promptFor("qa", PR);
   assert.ok(qa.startsWith(`/testing-api-pull-requests ${PR.url}`));
   assert.match(qa, /étape 7/);
@@ -401,7 +409,7 @@ test("review tab that exists without its marker holds the PR, whatever its statu
 });
 
 test("review marker appears: step done, next step goes", () => {
-  const r = decide(green({ markers: new Set(["pr-risk", "pr-demo"]) }), at({ launched: demo }), DONE, CTX);
+  const r = decide(green({ markers: new Set(["pr-risk", "pr-review", "pr-demo"]) }), at({ launched: demo }), DONE, CTX);
   assert.equal(r.launch, "qa");
   assert.deepEqual(r.entry.silent, {});
 });
@@ -434,7 +442,7 @@ test("a repo without CI gets its review at once, one with CI waits for it", () =
   assert.equal(decide(none, at(), NO_TAB, { ...CTX, hasCi: false }).launch, "pr-risk");
   // A PR that had Jenkins waits for it even when the clone shows no CI file.
   assert.equal(decide(none, at({ seen: { jenkins: true, sonar: false } }), NO_TAB, { ...CTX, hasCi: false }).entry.label, "en attente");
-  assert.equal(decide(green({ ...none, markers: ALL }), at(), NO_TAB, { ...CTX, hasCi: false }).entry.why, "pas de CI ; faits : pr-risk, pr-demo, qa");
+  assert.equal(decide(green({ ...none, markers: ALL }), at(), NO_TAB, { ...CTX, hasCi: false }).entry.why, "pas de CI ; faits : pr-risk, pr-review, pr-demo, qa");
 });
 
 test("every label says why", () => {
@@ -442,16 +450,16 @@ test("every label says why", () => {
   assert.equal(why(green({ jenkins: { ...jenkinsKo, state: "running" } })), "CI en cours : Jenkins tourne");
   assert.equal(why(green({ sonar: null }), at({ seen: { jenkins: false, sonar: true } })), "CI en cours : Sonar n'a pas encore démarré sur ce commit");
   assert.equal(why(green({ jenkins: jenkinsKo }), at({ attempts: { jenkins: 2, sonar: 0 } })), "Jenkins encore en échec après 2 corrections");
-  assert.equal(why(green({ markers: new Set(["pr-risk"]) }), at(), NO_TAB, { ...CTX, karadocFree: false }), "pr-demo à lancer, mais karadoc occupé par un autre pr-demo ou qa");
+  assert.equal(why(green({ markers: new Set(["pr-risk", "pr-review"]) }), at(), NO_TAB, { ...CTX, karadocFree: false }), "pr-demo à lancer, mais karadoc occupé par un autre pr-demo ou qa");
   assert.equal(why(green(), at(), NO_TAB, { ...CTX, on: false }), "pr-risk à lancer, mais surveillance coupée");
-  assert.equal(why(green({ markers: ALL })), "CI verte ; faits : pr-risk, pr-demo, qa");
+  assert.equal(why(green({ markers: ALL })), "CI verte ; faits : pr-risk, pr-review, pr-demo, qa");
   assert.equal(why(green({ draft: true })), "CI verte, pas de review sur un brouillon");
   assert.equal(why(green(), at({ launched: { step: "jenkins", head: "h1", tab: "⟳ #5462 jenkins" } }), RUNNING), "agent jenkins lancé sur h1");
   assert.equal(undoLaunch(at(), "pr-risk", "erreur").why, "pr-risk n'a pas pu démarrer");
 });
 
 test("holdingTabs: working or blocked agents, and review tabs without their marker", () => {
-  const markersOf = (n) => ({ 1: new Set(["pr-risk"]), 2: new Set(["pr-risk", "pr-demo"]) })[n] ?? null;
+  const markersOf = (n) => ({ 1: new Set(["pr-risk", "pr-review"]), 2: new Set(["pr-risk", "pr-demo"]) })[n] ?? null;
   const got = holdingTabs([
     { name: "⟳ #1 pr-demo", status: "idle" }, // waits for my reply: holds karadoc
     { name: "⟳ #2 pr-demo", status: "done" }, // marker posted: free
@@ -459,9 +467,21 @@ test("holdingTabs: working or blocked agents, and review tabs without their mark
     { name: "⟳ #1 jenkins", status: "done" },
     { name: "⟳ #3 qa", status: null }, // PR not watched any more
     { name: "⟳ #1 pr-risk", status: null }, // marker posted, no agent
+    { name: "⟳ #1 pr-review", status: "idle" }, // marker posted, may still fix and push: holds
     { name: "claude", status: "working" },
   ], markersOf);
-  assert.deepEqual(got, ["⟳ #1 pr-demo", "⟳ #2 jenkins"]);
+  assert.deepEqual(got, ["⟳ #1 pr-demo", "⟳ #2 jenkins", "⟳ #1 pr-review"]);
+});
+
+test("pr-review holds its PR until its tab closes, and its push keeps the budget", () => {
+  const launched = { step: "pr-review", head: "h1", tab: "⟳ #5462 pr-review" };
+  const marked = new Set(["pr-risk", "pr-review"]);
+  const idle = decide(green({ markers: marked }), at({ launched }), DONE, CTX);
+  assert.deepEqual([idle.launch, idle.entry.label], [null, LABELS.running], "marker posted, fixes may follow: no pr-demo yet");
+  const pushed = decide(green({ markers: marked, head: "h2", jenkins: jenkinsKo }), at({ attempts: { jenkins: 1, sonar: 0 }, launched }), DONE, CTX);
+  assert.equal(pushed.entry.attempts.jenkins, 1, "its push is not mine");
+  const closed = decide(green({ markers: marked }), at({ launched }), NO_TAB, CTX);
+  assert.deepEqual([closed.launch, closed.entry.silent], ["pr-demo", {}]);
 });
 
 test("checkoutBases: the commits the watch checked out, not the agent's", () => {
