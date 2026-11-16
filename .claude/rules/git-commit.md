@@ -58,7 +58,10 @@ open a pull request, and when one has just been opened another way, read
   enumeration.
 - Keep it readable: a handful of lines most of the time. Go longer only when the
   change actually needs it — don't tell your life story by default.
-- Humanize your final message using /humanizer skill
+- Plain style: no "not X but Y" contrast, no one-line closer restating the
+  paragraph, no em or en dash (comma, colon, period or parentheses), no bold,
+  no triad when there are not three things. Prefer "is"/"has" to "serves as",
+  and none of: crucial, robust, key, seamless, leverage, ensure, enhance.
 - Link public sources outside the repo when they exist: vendor documentation,
   spec, standard, upstream issue.
 
