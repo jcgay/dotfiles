@@ -18,8 +18,17 @@ set -uo pipefail
 # One main worktree per repo, the first one `git worktree list` gives (the yadm repo's git dir works too).
 # Three levels: a branch name with a slash keeps it in the path (ordostruct/feat/x).
 for d in ~/dev/agents-worktree/*/*/ ~/dev/agents-worktree/*/*/*/; do
-  git -C "$d" worktree list --porcelain 2>/dev/null | sed -n '1s/^worktree //p'
-done | sort -u | while IFS= read -r main; do
-  echo "== $main ($(date '+%F %T'))"
-  wt -C "$main" step prune "$@" || echo "wt-prune: failed in $main" >&2
-done
+  git -C "$d" worktree list --porcelain 2>/dev/null | sed -n '1s/^worktree //p' || true # not a repo: pipefail would make it the exit code
+done | sort -u | {
+  failed=()
+  while IFS= read -r main; do
+    echo "== $main ($(date '+%F %T'))"
+    wt -C "$main" step prune "$@" || { echo "wt-prune: failed in $main" >&2; failed+=("${main##*/}"); }
+  done
+  # Nobody reads the log: say it now. Exit 1 also shows in `launchctl print` (checked by `dot`).
+  if [ ${#failed[@]} -gt 0 ]; then
+    osascript -e 'on run argv' -e 'display notification (item 2 of argv) with title (item 1 of argv)' -e 'end run' \
+      "wt-prune a échoué" "${failed[*]}, voir ~/Library/Logs/wt-prune.log"
+    exit 1
+  fi
+}
