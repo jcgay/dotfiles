@@ -1,7 +1,7 @@
 // node --test ~/.config/herdr-app/mods/start-work/lib.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { slug, branchFor, parseQuery, jiraProjects, jql, parseJiraIssues, parseGhIssues, promptFor } from "./lib.js";
+import { slug, branchFor, existingWork, parseQuery, jiraProjects, jql, parseJiraIssues, parseGhIssues, parseGhPr, promptFor } from "./lib.js";
 
 test("slug drops accents, emoji and punctuation", () => {
   assert.equal(slug("Données : 🐛 Fix l'accès"), "donnees-fix-l-acces");
@@ -25,6 +25,8 @@ test("query kinds", () => {
   assert.deepEqual(parseQuery("  "), { kind: "empty" });
   assert.deepEqual(parseQuery("merlin-2321"), { kind: "key", key: "MERLIN-2321" });
   assert.deepEqual(parseQuery("#5355"), { kind: "issue", number: 5355 });
+  assert.deepEqual(parseQuery("https://github.com/softwarevidal/arthur/pull/5471"), { kind: "issue", number: 5471 });
+  assert.deepEqual(parseQuery("https://github.com/o/r/issues/12#issuecomment-1"), { kind: "issue", number: 12 });
   assert.deepEqual(parseQuery("inflexions"), { kind: "text", text: "inflexions" });
 });
 
@@ -62,13 +64,20 @@ test("github issues", () => {
   assert.equal(parseGhIssues('{"number":1,"title":"t","url":"u","assignees":[]}').length, 1);
 });
 
+test("a github PR resumes on its own branch", () => {
+  const [pr] = parseGhPr('{"number":5471,"title":"Update error_prone","url":"u","headRefName":"renovate/error-prone"}');
+  assert.deepEqual(pr, { kind: "pr", number: 5471, title: "Update error_prone", url: "u", branch: "renovate/error-prone" });
+  assert.equal(branchFor(pr), "renovate/error-prone");
+  assert.deepEqual(existingWork(pr, [], [], new Set()), { branch: "renovate/error-prone", pr });
+});
+
 test("prompts", () => {
   assert.equal(promptFor({ kind: "jira", key: "MERLIN-2321", title: "T" }), "/superpowers:brainstorming MERLIN-2321 : T");
   assert.equal(promptFor({ kind: "issue", number: 1, url: "https://g/1", title: "T" }), "/superpowers:brainstorming https://g/1 : T");
   assert.equal(promptFor({ kind: "free", title: "idée" }), "/superpowers:brainstorming idée");
 });
 
-import { pickStartTransition, existingWork, baseChoices, spaceIn } from "./lib.js";
+import { pickStartTransition, baseChoices, spaceIn } from "./lib.js";
 
 const t = (name, to, cat) => ({ id: name, name, to: { name: to, statusCategory: { key: cat } } });
 const merlin = [

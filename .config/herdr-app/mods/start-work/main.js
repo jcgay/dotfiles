@@ -5,7 +5,7 @@
 import { View, div } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input, Scrollbar, ScrollHandle } from "gpui-base";
 import { props, closeOverlay, theme, focused, spaces, exec, appHome, readTextFile, notify } from "herdr";
-import { branchFor, parseQuery, jiraProjects, jql, parseJiraIssues, parseGhIssues, existingWork, baseChoices } from "./lib.js";
+import { branchFor, parseQuery, jiraProjects, jql, parseJiraIssues, parseGhIssues, parseGhPr, existingWork, baseChoices } from "./lib.js";
 import { start, cmd, jira, myName } from "./work.js";
 
 const lines = (s) => s.split("\n").map((l) => l.trim()).filter(Boolean);
@@ -34,7 +34,7 @@ export default class StartWork extends View {
     this.base = 0;
     this.branchOf = null; // the row the branch field was filled from
     this.ctx = { branches: [], prs: [], delivered: new Set(), projects: [] };
-    this.input = InputState.new({ placeholder: "Clé Jira, #issue, ou décris le travail" });
+    this.input = InputState.new({ placeholder: "Clé Jira, #issue ou #PR, ou décris le travail" });
     this.input.on("change", (_e, cx) => { this.error = ""; this.search(cx); cx.notify(); });
     this.input.on("submit", (_e, cx) => this.go(cx));
     this.branch = InputState.new({ placeholder: "branche" });
@@ -110,15 +110,18 @@ export default class StartWork extends View {
       const jiraCall = q.kind === "key" ? jira(["issue", "view", q.key, "--raw"], main)
         : q.kind === "issue" || !projects.length ? null
         : jiraList(jql({ projects, mine: q.kind === "empty", text: q.kind === "text" ? q.text : undefined }));
-      const ghCall = q.kind === "issue" ? cmd("gh", ["issue", "view", String(q.number), ...gh], main)
+      const issues = (out) => parseGhIssues(out || "[]");
+      // A PR first: `gh issue view` answers for a PR number too, as if it were an issue.
+      const ghCall = q.kind === "issue" ? cmd("gh", ["pr", "view", String(q.number), "--json", "number,title,url,headRefName"], main)
+          .then(parseGhPr, () => cmd("gh", ["issue", "view", String(q.number), ...gh], main).then(issues))
         : q.kind === "key" ? null
-        : cmd("gh", ["issue", "list", "--state", "open", "--limit", "20", ...gh, ...(q.kind === "empty" ? ["--assignee", "@me"] : ["--search", q.text])], main);
+        : cmd("gh", ["issue", "list", "--state", "open", "--limit", "20", ...gh, ...(q.kind === "empty" ? ["--assignee", "@me"] : ["--search", q.text])], main).then(issues);
       const [j, g] = await Promise.allSettled([jiraCall, ghCall]);
       if (seq !== this.seq) return; // a newer query is on its way
       const notes = [], rows = [];
       if (jiraCall) { if (j.status === "fulfilled") rows.push(...parseJiraIssues(j.value || "[]")); else notes.push(`Jira : ${j.reason?.message ?? j.reason}`); }
       else if (this.projectsKnown && q.kind !== "issue" && !projects.length) notes.push("Jira : aucun projet trouvé pour ce dépôt (mods/start-work/config.json)");
-      if (ghCall) { if (g.status === "fulfilled") rows.push(...parseGhIssues(g.value || "[]")); else notes.push(`GitHub : ${g.reason?.message ?? g.reason}`); }
+      if (ghCall) { if (g.status === "fulfilled") rows.push(...g.value); else notes.push(`GitHub : ${g.reason?.message ?? g.reason}`); }
       if (q.kind === "text") rows.push({ kind: "free", title: q.text });
       this.rows = rows; this.notes = notes; this.at = 0; this.shown = seq;
       this.sync();
@@ -129,7 +132,7 @@ export default class StartWork extends View {
   }
 
   selected() { return this.rows[Math.min(this.at, this.rows.length - 1)]; }
-  rowId(r) { return r ? (r.kind === "jira" ? r.key : r.kind === "issue" ? `#${r.number}` : `free:${r.title}`) : null; }
+  rowId(r) { return r ? (r.kind === "jira" ? r.key : r.kind === "issue" || r.kind === "pr" ? `#${r.number}` : `free:${r.title}`) : null; }
   resume() { const s = this.selected(); return s ? existingWork(s, this.ctx.branches, this.ctx.prs, this.ctx.delivered) : null; }
 
   // Fill the branch field from the chosen row; a name typed by hand stays until the row changes.
@@ -182,7 +185,7 @@ export default class StartWork extends View {
 
   row(item, i, t) {
     const on = i === this.at;
-    const [source, id] = item.kind === "jira" ? ["JIRA", item.key] : item.kind === "issue" ? ["GH", `#${item.number}`] : ["", "Sans ticket :"];
+    const [source, id] = item.kind === "jira" ? ["JIRA", item.key] : item.kind === "issue" ? ["GH", `#${item.number}`] : item.kind === "pr" ? ["PR", `#${item.number}`] : ["", "Sans ticket :"];
     const who = item.kind === "jira" && item.assigneeName && item.assigneeName !== this.me ? item.assigneeName : "";
     return h_flex().id(`row-${i}`).flex_none().h(30).px(10).gap(10).items_center().rounded(6).cursor_pointer()
       .when(on, (el) => el.bg(t.selected)).when(!on, (el) => el.hover((s) => s.bg(t.hover)))
