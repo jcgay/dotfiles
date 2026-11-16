@@ -22,6 +22,10 @@ brew outdated --cask
 echo -e "\033[0;34mUpgrading mise tools...\033[0m"
 mise upgrade
 
+# Update the Claude skills installed with `npx skills` (bootstrap); untracked ones are left alone
+echo -e "\033[0;34mUpdating npx skills...\033[0m"
+mise exec -- npx -y skills update -g -y </dev/null
+
 # show apple update
 softwareupdate -l
 
