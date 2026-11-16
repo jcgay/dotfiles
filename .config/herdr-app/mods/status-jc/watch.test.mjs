@@ -1,7 +1,7 @@
 // node --test ~/.config/herdr-app/mods/status-jc/watch.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { searchSince, sonarFindings, markers, signalsOf, checks, jenkinsBuild, decide, emptyEntry, tabName, LABELS, promptFor, repoOfRemote, undoLaunch, holdingTabs, checkoutBases } from "./watch.js";
+import { searchSince, sonarFindings, markers, signalsOf, checks, jenkinsBuild, decide, emptyEntry, tabName, LABELS, promptFor, repoOfRemote, undoLaunch, holdingTabs, checkoutBases, checkoutsOf } from "./watch.js";
 
 // Real summaries: arthur#5458 (passed) and arthur#5449 (failed gate).
 const PASSED = `Issues  
@@ -512,4 +512,16 @@ test("paused PR: running agent finishes, nothing counted, no toast", () => {
   const spent = decide(green({ jenkins: jenkinsKo }), at({ attempts: { jenkins: 2, sonar: 0 } }), NO_TAB, P);
   assert.deepEqual([spent.toast, spent.entry.told.jenkins, spent.entry.attempts.jenkins], [null, false, 2]);
   assert.match(decide(green({ jenkins: jenkinsKo }), spent.entry, NO_TAB, CTX).toast, /jenkins à toi/);
+});
+
+test("checkoutsOf: folders with the branch checked out, not detached nor prunable", () => {
+  const out = [
+    "worktree /Volumes/sourcecode/vidal-data-aggregator-intl", "HEAD f01ed62", "branch refs/heads/all-monograph", "",
+    "worktree /Volumes/sourcecode/agents-worktree/vidal-data-aggregator-intl/all-monograph-watch", "HEAD 5a67e1d", "detached", "",
+    "worktree /Volumes/sourcecode/vidal-data-aggregator-intl-hebdo", "HEAD 40fd2d8", "branch refs/heads/unified-index-fr", "",
+    "worktree /tmp/gone", "HEAD 1111111", "branch refs/heads/all-monograph", "prunable gitdir file points to non-existent location", "",
+  ].join("\n");
+  assert.deepEqual(checkoutsOf(out, "all-monograph"), ["/Volumes/sourcecode/vidal-data-aggregator-intl"]);
+  assert.deepEqual(checkoutsOf(out, "all-monograph-2"), [], "a prefix is not the branch");
+  assert.deepEqual(checkoutsOf("", "x"), []);
 });

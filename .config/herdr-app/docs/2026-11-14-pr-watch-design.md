@@ -3,6 +3,7 @@
 Conception du 14 novembre 2026. Elle fait évoluer le mod `mods/pr/`, le panneau PR du layout
 `jc` (voir `e5514bd`, `923e142`).
 Mettre une seule PR en pause : `2026-11-16-pr-watch-pause-design.md`.
+Ne pas lancer d'agent sur une branche où je travaille : `2026-11-16-pr-watch-busy-branch-design.md`.
 
 ## Pourquoi
 

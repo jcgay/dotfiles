@@ -109,6 +109,15 @@ export function holdingTabs(tabs, markersOf) {
   }).map((t) => t.name);
 }
 
+// `git worktree list --porcelain` → the folders with branch checked out. The watch's own worktree is detached, a prunable
+// one no longer exists: neither is listed.
+export function checkoutsOf(porcelain, branch) {
+  return porcelain.split(/\n\s*\n/).map((block) => block.split("\n"))
+    .filter((lines) => lines.includes(`branch refs/heads/${branch}`) && !lines.some((l) => l.startsWith("prunable")))
+    .map((lines) => lines.find((l) => l.startsWith("worktree "))?.slice("worktree ".length))
+    .filter(Boolean);
+}
+
 // `git reflog show --format=%H|%gs HEAD` of a watch worktree → the commits the watch itself checked out
 // (worktree add, checkout of origin/<branch>): what the agent found, not what it committed.
 export function checkoutBases(reflog, branch) {

@@ -1,6 +1,6 @@
 // One round of the PR watch: gh, git and Herdr side effects around the pure decisions of watch.js.
 import { exec, spaces, agents, panes, run, notify, readTextFile, home, shared, setShared } from "herdr";
-import { searchSince, signalsOf, decide, emptyEntry, promptFor, repoOfRemote, undoLaunch, holdingTabs, checkoutBases, LABELS } from "./watch.js";
+import { searchSince, signalsOf, decide, emptyEntry, promptFor, repoOfRemote, undoLaunch, holdingTabs, checkoutBases, checkoutsOf, LABELS } from "./watch.js";
 
 const MAX_AGENTS = 3;
 const KARADOC = ["pr-demo", "qa"];
@@ -76,10 +76,20 @@ async function cloneOf(repo, clones) {
   return { clone, hasQa, hasCi };
 }
 
-// The watch's own worktree for branch, detached on origin/<branch>; dirty when an agent left work in it.
+// The watch's own worktree for branch, detached on origin/<branch>; dirty when an agent left work in it, busy (the
+// folder) when I have branch checked out with work origin lacks: an agent would redo it.
 export async function prepareWorktree(clone, repo, branch) {
   const path = `${home()}/dev/agents-worktree/${repo.split("/")[1]}/${branch}-watch`;
   await sh("git", ["-C", clone, "fetch", "origin", branch]);
+  for (const folder of checkoutsOf(await sh("git", ["-C", clone, "worktree", "list", "--porcelain"]), branch)) {
+    // My live checkout: git status must not take its index lock under a commit of mine.
+    try {
+      if ((await sh("git", ["--no-optional-locks", "status", "--porcelain"], folder)).trim()
+        || (await sh("git", ["rev-list", "HEAD", "--not", "--remotes=origin"], folder)).trim()) return { busy: folder };
+    } catch {
+      // git fails there (unmounted volume): it does not hold the PR
+    }
+  }
   if ((await exec("test", ["-e", path])).code !== 0) {
     await sh("git", ["-C", clone, "worktree", "add", "--detach", path, `origin/${branch}`]);
     return { path };
@@ -177,7 +187,8 @@ async function roundUnderLease(registry, cache, at) {
         else {
           try {
             const wt = await prepareWorktree(clone, s.repo, s.branch);
-            if (wt.dirty) entry = undoLaunch(entry, r.launch, LABELS.yours, null, `le worktree de surveillance a du travail non poussé : ${r.launch} pas lancé`);
+            if (wt.busy) entry = undoLaunch(entry, r.launch, LABELS.yours, null, `tu travailles sur ${s.branch} dans ${wt.busy.split("/").pop()} (non poussé)`);
+            else if (wt.dirty) entry = undoLaunch(entry, r.launch, LABELS.yours, null, `le worktree de surveillance a du travail non poussé : ${r.launch} pas lancé`);
             else {
               start(wt.path, entry.launched.tab, promptFor(r.launch, s));
               launched.push(entry.launched.tab);
