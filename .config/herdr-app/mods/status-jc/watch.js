@@ -78,6 +78,7 @@ export const LABELS = Object.freeze({
 });
 
 const BUDGET = 2; // attempts per check (jenkins, sonar) and PR
+const NO_CI_MS = 15 * 60000; // after a push, no check this long means the repo has no CI
 const REVIEW = ["pr-risk", "pr-demo", "qa"];
 const KARADOC = ["pr-demo", "qa"]; // start karadoc on fixed ports: one at a time
 
@@ -92,7 +93,7 @@ export const tabName = (number, step) => `⟳ #${number} ${step}`;
 export function emptyEntry() {
   return {
     url: "", title: "", head: null, attempts: { jenkins: 0, sonar: 0 }, told: { jenkins: false, sonar: false },
-    seen: { jenkins: false, sonar: false }, launched: null, silent: {}, label: LABELS.waiting, error: null,
+    seen: { jenkins: false, sonar: false }, launched: null, silent: {}, label: LABELS.waiting, why: "pas encore de tour de surveillance", error: null,
   };
 }
 
@@ -117,16 +118,18 @@ export function checkoutBases(reflog, branch) {
 
 // What to do with one PR this round: a new entry, the step to launch (or null), a toast (or null). Pure.
 // tab: { exists, running } of entry.launched's tab, busy: another watch tab holds this PR (holdingTabs).
+// ctx.now dates a new head: a head with no check at all NO_CI_MS later is taken as a repo without CI.
+// entry.why says in French why the PR has its label, for the panel.
 export function decide(s, entry, tab, ctx) {
   const e = JSON.parse(JSON.stringify(entry)); // Herdr's runtime has no structuredClone
   e.told = { jenkins: false, sonar: false, ...e.told };
   e.url = s.url;
   e.title = s.title;
-  const out = (label, launch = null, toast = null) => ({ entry: { ...e, label }, launch, toast });
+  const out = (label, why, launch = null, toast = null) => ({ entry: { ...e, label, why }, launch, toast });
 
   if (s.error) {
     e.error = s.error;
-    return out(LABELS.error);
+    return out(LABELS.error, "lecture de la PR sur GitHub impossible");
   }
   e.error = null;
   e.seen = { jenkins: false, sonar: false, ...e.seen };
@@ -142,7 +145,12 @@ export function decide(s, entry, tab, ctx) {
       e.told = { jenkins: false, sonar: false };
     }
     e.head = s.head;
+    e.headAt = ctx.now;
   }
+  e.headAt ??= ctx.now; // entries written before headAt existed
+  if (s.draft) e.headAt = ctx.now; // a CI may skip drafts: the wait starts when the PR is ready
+  const noCi = !s.reported && ctx.now - e.headAt >= NO_CI_MS;
+  const short = (sha) => (sha ?? "").slice(0, 8);
 
   // A review step lasts until its marker appears or its tab closes; a fix step until its agent stops working.
   const review = e.launched && REVIEW.includes(e.launched.step) && !s.markers.has(e.launched.step);
@@ -151,7 +159,8 @@ export function decide(s, entry, tab, ctx) {
     if (review) e.silent[e.launched.head] = [...(e.silent[e.launched.head] ?? []), e.launched.step];
     e.launched = null;
   }
-  if ((e.launched && holds) || tab.busy) return out(LABELS.running);
+  if (e.launched && holds) return out(LABELS.running, `agent ${e.launched.step} lancé sur ${short(e.launched.head)}`);
+  if (tab.busy) return out(LABELS.running, "un autre onglet ⟳ de cette PR travaille encore");
 
   for (const c of ["jenkins", "sonar"]) {
     if (s[c]?.state === "ok") {
@@ -161,9 +170,9 @@ export function decide(s, entry, tab, ctx) {
   }
 
   let toast = null;
-  let yours = false;
-  const refuse = (c) => {
-    yours = true;
+  let yours = null; // why the PR is mine, when the watch gives up on a check
+  const refuse = (c, why) => {
+    yours = why;
     if (!e.told[c]) toast = `PR #${s.number} : ${c} à toi`;
     e.told[c] = true;
   };
@@ -171,41 +180,58 @@ export function decide(s, entry, tab, ctx) {
   let step;
   if (state("jenkins") === "ko") {
     if (e.attempts.jenkins >= BUDGET) {
-      refuse("jenkins");
-      return out(LABELS.yours, null, toast);
+      refuse("jenkins", `Jenkins encore en échec après ${BUDGET} corrections`);
+      return out(LABELS.yours, yours, null, toast);
     }
     step = "jenkins";
   } else if (state("jenkins") === "running" || s.pending || state("sonar") === "running") {
-    return out(LABELS.waiting);
+    const busy = [
+      state("jenkins") === "running" && (s.jenkins ? "Jenkins tourne" : "Jenkins n'a pas encore démarré sur ce commit"),
+      state("sonar") === "running" && (s.sonar ? "Sonar analyse" : "Sonar n'a pas encore démarré sur ce commit"),
+    ].filter(Boolean);
+    return out(LABELS.waiting, `CI en cours : ${busy.length ? busy.join(", ") : "un check tourne"}`);
   } else if (state("sonar") === "ko" && e.attempts.sonar < BUDGET) {
     step = "sonar";
   } else {
     if (state("sonar") === "ko") {
-      refuse("sonar");
-      if (s.sonar.failed) return out(LABELS.yours, null, toast);
+      refuse("sonar", s.sonar.failed ? `quality gate Sonar encore en échec après ${BUDGET} corrections`
+        : `Sonar remonte encore des problèmes après ${BUDGET} corrections`);
+      if (s.sonar.failed) return out(LABELS.yours, yours, null, toast);
     }
+    const silent = e.silent[s.head] ?? [];
     if (!s.draft) {
-      if (s.failing) return out(LABELS.yours, null, toast); // a ko check nobody here fixes
-      if (!s.reported) return out(LABELS.waiting);
-      const silent = e.silent[s.head] ?? [];
+      if (s.failing) return out(LABELS.yours, "un check en échec que la surveillance ne corrige pas (ni Jenkins ni Sonar)", null, toast);
+      if (!s.reported && !noCi) {
+        return out(LABELS.waiting, `aucun check n'a répondu sur ce commit : sans réponse ${NO_CI_MS / 60000} min après le push, la review part sans CI`);
+      }
       step = REVIEW.find((r) => (r !== "qa" || ctx.hasQa) && !s.markers.has(r) && !silent.includes(r));
     }
-    if (!step) return out(yours ? LABELS.yours : s.draft ? LABELS.draft : LABELS.ok, null, toast);
+    if (!step) {
+      if (yours) return out(LABELS.yours, yours, null, toast);
+      const ci = s.reported ? "CI verte" : "aucun check";
+      if (s.draft) return out(LABELS.draft, `${ci}, pas de review sur un brouillon`);
+      const done = REVIEW.filter((r) => s.markers.has(r));
+      return out(LABELS.ok, [ci, done.length && `faits : ${done.join(", ")}`, silent.length && `fermés sans commentaire : ${silent.join(", ")}`,
+        !ctx.hasQa && "pas de qa (skill absent du clone)"].filter(Boolean).join(" ; "));
+    }
   }
 
-  if (!ctx.on || ctx.slots <= 0 || (KARADOC.includes(step) && !ctx.karadocFree)) {
-    return out(yours ? LABELS.yours : LABELS.waiting, null, toast);
+  const blocked = !ctx.on ? "surveillance coupée" : ctx.slots <= 0 ? "tous les agents de surveillance sont pris"
+    : KARADOC.includes(step) && !ctx.karadocFree ? "karadoc est pris par un autre pr-demo ou qa" : null;
+  if (blocked) {
+    const why = `${step} à lancer, mais ${blocked}`;
+    return out(yours ? LABELS.yours : LABELS.waiting, yours ? `${yours} ; ${why}` : why, null, toast);
   }
   if (!REVIEW.includes(step)) e.attempts[step]++;
   e.launched = { step, head: s.head, tab: tabName(s.number, step) };
-  return out(LABELS.running, step, toast);
+  return out(LABELS.running, `agent ${step} lancé sur ${short(s.head)}`, step, toast);
 }
 
 // A launch that could not start: the attempt is not counted and nothing runs.
-export function undoLaunch(entry, step, label, error = null) {
+export function undoLaunch(entry, step, label, error = null, why = null) {
   const attempts = { ...entry.attempts };
   if (!REVIEW.includes(step)) attempts[step]--;
-  return { ...entry, attempts, launched: null, label, error };
+  return { ...entry, attempts, launched: null, label, error, why: why ?? `${step} n'a pas pu démarrer` };
 }
 
 // The first message of a watch agent. Fixes push to the PR branch through an explicit refspec.

@@ -164,30 +164,30 @@ async function roundUnderLease(registry, cache, at) {
     try {
       const busy = [...new Set([...heldTabs(all), ...launched])];
       const { clone, hasQa } = repos.get(s.repo);
-      const ctx = { on: registry.on, slots: MAX_AGENTS - busy.length, karadocFree: !busy.some((t) => KARADOC.some((k) => t.endsWith(` ${k}`))), hasQa };
+      const ctx = { on: registry.on, slots: MAX_AGENTS - busy.length, karadocFree: !busy.some((t) => KARADOC.some((k) => t.endsWith(` ${k}`))), hasQa, now: at };
       const tab = { ...tabOf(before), busy: busy.some((t) => t.startsWith(`⟳ #${s.number} `)) };
       const r = decide(s, before, tab, ctx);
       if (r.toast) notify({ title: r.toast, body: s.url, level: "warning" });
       let entry = r.entry;
       if (r.launch) {
-        if (clone === null) entry = undoLaunch(entry, r.launch, LABELS.noClone);
+        if (clone === null) entry = undoLaunch(entry, r.launch, LABELS.noClone, null, `aucun clone local de ${s.repo} pour lancer ${r.launch}`);
         else {
           try {
             const wt = await prepareWorktree(clone, s.repo, s.branch);
-            if (wt.dirty) entry = undoLaunch(entry, r.launch, LABELS.yours);
+            if (wt.dirty) entry = undoLaunch(entry, r.launch, LABELS.yours, null, `le worktree de surveillance a du travail non poussé : ${r.launch} pas lancé`);
             else {
               start(wt.path, entry.launched.tab, promptFor(r.launch, s));
               launched.push(entry.launched.tab);
             }
           } catch (e) {
-            entry = undoLaunch(entry, r.launch, LABELS.error, e.message);
+            entry = undoLaunch(entry, r.launch, LABELS.error, e.message, `préparation du worktree pour ${r.launch} impossible`);
           }
         }
       }
       prs[s.key] = pruned(entry);
     } catch (e) {
       // One broken PR keeps the others' launch records.
-      prs[s.key] = pruned({ ...before, label: LABELS.error, error: e?.message ?? String(e) });
+      prs[s.key] = pruned({ ...before, label: LABELS.error, why: "la surveillance a planté sur cette PR", error: e?.message ?? String(e) });
     }
   }
   return { ...registry, prs, error: null, at };

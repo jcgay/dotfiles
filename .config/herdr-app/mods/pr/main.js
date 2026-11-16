@@ -199,6 +199,7 @@ export default class PullRequest extends View {
         .child(h_flex().h(20).gap(8).items_center()
           .child(div().flex_1().min_w(0).truncate().child(`#${k.split("#")[1]} ${k.split("#")[0].split("/").pop()}`))
           .child(div().flex_none().text_color(labelColor(entry.label)).child(entry.label ?? "")))
+        .when(Boolean(entry.why), (e) => e.child(div().text_size(11).text_color(t.dim).child(entry.why)))
         .when(Boolean(entry.error), (e) => e.child(div().text_size(11).text_color(t.ansi1).child(entry.error)))));
 
     return v_flex().id("pr").size_full().min_h(0).rounded(10).overflow_hidden().bg(t.background).border_1().border_color(t.border).text_color(t.foreground).text_size(13)
