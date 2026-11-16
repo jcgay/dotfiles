@@ -1,0 +1,84 @@
+#!/usr/bin/env bash
+# Self-check for the claude wrapper, with a fake real claude: ./claude.test
+# (silent on success). Needs git and jq.
+cd "$(dirname "$0")" || exit 1
+W=$PWD/claude
+T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
+mkdir "$T/real"
+printf '#!/usr/bin/env bash\nprintf "%%s\\n" "$@"\n' > "$T/real/claude"
+chmod +x "$T/real/claude"
+export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
+
+fail=0
+# repo <name> <file[=content]>…: a git repo with those files tracked
+repo() {
+  local d=$T/$1; shift
+  mkdir -p "$d"; git -C "$d" init -q
+  for f in "$@"; do
+    mkdir -p "$d/$(dirname "${f%%=*}")"
+    printf '%s\n' "${f#*=}" > "$d/${f%%=*}"
+  done
+  [ $# -gt 0 ] && git -C "$d" add -A
+}
+# t <name> <dir> <expected output, one arg per line> <args…>
+t() {
+  local name=$1 dir=$2 want=$3; shift 3
+  got=$(cd "$dir" && PATH=$(dirname "$W"):$T/real:/usr/bin:/bin "$W" "$@" 2>&1)
+  [ "$got" = "$want" ] || { printf 'FAIL %s\n--- want\n%s\n--- got\n%s\n' "$name" "$want" "$got"; fail=1; }
+}
+D='{"enabledPlugins":{"docker-skills@docker":true}}'
+FRONT='{"enabledPlugins":{"frontend-design@claude-plugins-official":true,"impeccable@impeccable":true},"skillOverrides":{"design-taste-frontend":"on","modern-web-guidance":"on","web-design-guidelines":"on"}}'
+
+mkdir "$T/plain"
+t no-repo "$T/plain" $'-p\na b' -p "a b"
+repo none README.md;                                        t no-match "$T/none" $'-c' -c
+repo docker svc/Dockerfile;                                 t docker "$T/docker" "--settings"$'\n'"$D"$'\n-c' -c
+repo gj build.gradle.kts Jenkinsfile
+t gradle+jenkins "$T/gj" "--settings"$'\n''{"enabledPlugins":{"gradle-skills@gradle-skills":true,"jk@avivsinai-marketplace":true}}'
+repo sg 'build.gradle=plugins { id("org.sonarqube") }'
+t sonar-in-gradle "$T/sg" "--settings"$'\n''{"enabledPlugins":{"gradle-skills@gradle-skills":true,"sonarqube@claude-plugins-official":true}}'
+repo utf8 'café/build.gradle=plugins { id("org.sonarqube") }'
+repo mvn pom.xml 'Jenkinsfile=sh "mvn sonar:sonar"'
+t sonar-in-jenkinsfile "$T/mvn" "--settings"$'\n''{"enabledPlugins":{"jk@avivsinai-marketplace":true,"sonarqube@claude-plugins-official":true}}'
+t non-ascii-path "$T/utf8" "--settings"$'\n''{"enabledPlugins":{"gradle-skills@gradle-skills":true,"sonarqube@claude-plugins-official":true}}'
+repo front 'web/package.json={"dependencies": {"react": "^19"}}'; t front-pkg "$T/front" "--settings"$'\n'"$FRONT"
+repo tsx src/App.tsx;                                       t front-tsx "$T/tsx" "--settings"$'\n'"$FRONT"
+repo html a.html b.css 'package.json={"dependencies": {"lodash": "1"}}'; t html-only "$T/html" ''
+repo untracked; touch "$T/untracked/Dockerfile";            t untracked "$T/untracked" ''
+t subcommand "$T/docker" $'plugin\nlist' plugin list
+t one-word "$T/docker" 'hello' hello
+t slash "$T/docker" "--settings"$'\n'"$D"$'\n/docker-skills:x' /docker-skills:x
+t prompt "$T/docker" "--settings"$'\n'"$D"$'\nfix the bug' "fix the bug"
+t own-settings "$T/docker" $'--settings\nx' --settings x
+t own-settings-eq "$T/docker" $'--settings=x\n-c' --settings=x -c
+
+# A directory named claude before the real one is not a binary.
+mkdir -p "$T/dir/claude"
+got=$(cd "$T/docker" && PATH="$(dirname "$W"):$T/dir:$T/real:/usr/bin:/bin" "$W" -c 2>&1)
+[ "$got" = "--settings"$'\n'"$D"$'\n-c' ] || { echo "FAIL claude-dir: $got"; fail=1; }
+
+# A second copy of the wrapper further in PATH must be skipped, not exec'd forever.
+mkdir "$T/copy"; cp "$W" "$T/copy/claude"
+# exec keeps the PID, so killing it after 5 s stops a loop.
+(cd "$T/docker" && exec env PATH="$(dirname "$W"):$T/copy:$T/real:/usr/bin:/bin" "$W" -c > "$T/out" 2>&1) &
+pid=$!
+for _ in $(seq 50); do kill -0 "$pid" 2>/dev/null || break; sleep 0.1; done
+if kill -0 "$pid" 2>/dev/null; then
+  kill -9 "$pid"; echo "FAIL two-copies: still running after 5 s"; fail=1
+elif [ "$(cat "$T/out")" != "--settings"$'\n'"$D"$'\n-c' ]; then
+  echo "FAIL two-copies: $(cat "$T/out")"; fail=1
+fi
+mkdir "$T/docker/sub"; t subdir "$T/docker/sub" "--settings"$'\n'"$D"
+
+PATH=$(dirname "$W"):/usr/bin:/bin "$W" --wrapper-defaults | jq -e '
+  .enabledPlugins["docker-skills@docker"] == false
+  and .skillOverrides.archify == "user-invocable-only"
+  and .skillOverrides["design-taste-frontend"] == "user-invocable-only"
+  and (.enabledPlugins | has("merlin@vidal") | not)
+  and (.skillOverrides | has("playwright-cli") | not)' >/dev/null \
+  || { echo "FAIL defaults"; fail=1; }
+
+(cd "$T/plain" && PATH=$(dirname "$W"):/usr/bin:/bin "$W" -c >/dev/null 2>&1); rc=$?
+[ "$rc" = 127 ] || { echo "FAIL no-real: exit $rc, want 127"; fail=1; }
+
+exit $fail

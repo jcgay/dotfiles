@@ -1,0 +1,111 @@
+#!/usr/bin/env bash
+# Wraps Claude Code: turns some plugins and skills on only in the git repos
+# that need them, to keep the startup context small. They are off by default
+# (bootstrap writes `claude --wrapper-defaults` into ~/.claude/settings.json);
+# this wrapper re-enables the matching ones with --settings, which merges per
+# key over user settings. Every new plugin or skill gets a rule here, or stays
+# always on. A new file signal goes in matching_rules twice: the ls-files
+# pathspec (or `has` never sees the file), then a `has` test or a `grep_in`
+# name. Self-check: claude.test.
+
+# Rules: name, then the plugins and skills it turns on (read through ${!var}).
+# shellcheck disable=SC2034
+PLUGINS_docker="docker-skills@docker"
+PLUGINS_gradle="gradle-skills@gradle-skills"
+PLUGINS_jenkins="jk@avivsinai-marketplace"
+PLUGINS_sonar="sonarqube@claude-plugins-official"
+PLUGINS_front="frontend-design@claude-plugins-official impeccable@impeccable"
+SKILLS_front="design-taste-frontend modern-web-guidance web-design-guidelines"
+SKILLS_never="archify"
+RULES="docker gradle jenkins sonar front never"
+
+# Prints {"enabledPlugins":{...},"skillOverrides":{...}} for the given rules,
+# with plugins set to $1 and skills to $2, in rule order; empty objects dropped.
+settings_json() {
+  local plugin_value=$1 skill_value=$2 rule p s x IFS=,; shift 2
+  local plugins=() skills=() out=()
+  for rule in "$@"; do
+    p=PLUGINS_$rule; s=SKILLS_$rule
+    for x in ${!p// /,}; do plugins+=("\"$x\":$plugin_value"); done
+    for x in ${!s// /,}; do skills+=("\"$x\":\"$skill_value\""); done
+  done
+  [ ${#plugins[@]} -gt 0 ] && out+=("\"enabledPlugins\":{${plugins[*]}}")
+  [ ${#skills[@]} -gt 0 ] && out+=("\"skillOverrides\":{${skills[*]}}")
+  [ ${#out[@]} -gt 0 ] && printf '{%s}\n' "${out[*]}"
+}
+
+# Helpers of matching_rules, reading its $files, $start and $end (bash scoping
+# is dynamic): one tracked path per line.
+# has <name regex>: a tracked path ends with that file name.
+has() { [[ $files =~ $start$1$end ]]; }
+# named <name regex>: the tracked paths (relative to here) with that file name.
+named() { grep -E "(^|/)$1\$" <<<"$files"; }
+# grep_in <regex> <name regex>: one grep over those tracked files only.
+grep_in() { named "$2" | tr '\n' '\0' | xargs -0 grep -qiE "$1" 2>/dev/null; }
+
+# Rules matching the git repo of the current directory, from tracked files only.
+matching_rules() {
+  local files
+  files=$(git -c core.quotePath=false ls-files -- ':(top,glob)**/Dockerfile*' ':(top,glob)**/compose*.y*ml' \
+    ':(top,glob)**/docker-compose*.y*ml' ':(top,glob)**/build.gradle*' ':(top,glob)**/settings.gradle*' \
+    ':(top,glob)**/Jenkinsfile*' ':(top,glob)**/sonar-project.properties' ':(top,glob)**/pom.xml' \
+    ':(top,glob)**/package.json' ':(top,glob)**/*.vue' ':(top,glob)**/*.tsx' ':(top,glob)**/*.svelte' \
+    2>/dev/null) || return
+  [ -n "$files" ] || return
+  # Bash regexes on the whole list instead of grep keep startup fast.
+  local nl=$'\n'
+  local start="(^|/|$nl)" end="($nl|$)"
+  has "(Dockerfile[^/$nl]*|(docker-)?compose[^/$nl]*\.ya?ml)" && echo docker
+  has "(build|settings)\.gradle[^/$nl]*" && echo gradle
+  has "Jenkinsfile[^/$nl]*" && echo jenkins
+  # Maven runs `sonar:sonar` with no pom entry, often from the Jenkinsfile only.
+  if has 'sonar-project\.properties' || { has "(build\.gradle[^/$nl]*|pom\.xml|Jenkinsfile[^/$nl]*)" \
+    && grep_in sonar '(build\.gradle.*|pom\.xml|Jenkinsfile.*)'; }; then
+    echo sonar
+  fi
+  if has "[^/$nl]*\.(vue|tsx|svelte)" || { has package\.json \
+    && grep_in '"(react|vue|@angular/core|svelte|next|vite)"[[:space:]]*:' 'package\.json'; }; then
+    echo front
+  fi
+}
+
+# Is $1 this script or another copy of it? Another copy would exec us back
+# forever. Reads at most two short lines, so the real binary costs nothing.
+is_wrapper() {
+  local line2=
+  [ "$1" -ef "$0" ] && return
+  { read -r -n 100 _; read -r -n 30 line2; } < "$1" 2>/dev/null
+  [[ $line2 == "# Wraps Claude Code:"* ]]
+}
+
+# The real claude: the first one in PATH that is not a copy of this script.
+real=
+IFS=: read -ra dirs <<<"$PATH"
+for d in "${dirs[@]}"; do
+  c=$d/claude
+  [ -f "$c" ] && [ -x "$c" ] && ! is_wrapper "$c" && { real=$c; break; }
+done
+
+if [ "$1" = --wrapper-defaults ]; then
+  # shellcheck disable=SC2086
+  settings_json false user-invocable-only $RULES
+  exit
+fi
+[ -n "$real" ] || { echo "claude wrapper: no real claude in PATH" >&2; exit 127; }
+
+# Only a session start gets --settings: before a subcommand it turns
+# `plugin list` into a prompt. A slash command starts a session (no subcommand
+# starts with /); a one-word prompt passes through untouched.
+inject=
+case "$1" in "" | -* | /* | *[[:space:]]*) inject=1 ;; esac
+for a in "$@"; do case "$a" in --settings | --settings=*) inject= ;; esac; done
+
+if [ -n "$inject" ]; then
+  rules=$(matching_rules)
+  if [ -n "$rules" ]; then
+    # shellcheck disable=SC2086
+    json=$(settings_json true on $rules)
+    exec "$real" --settings "$json" "$@"
+  fi
+fi
+exec "$real" "$@"
