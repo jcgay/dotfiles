@@ -97,6 +97,16 @@ export function emptyEntry() {
   };
 }
 
+// Whether one of the busy tab names runs karadoc: a pr-demo/qa tab of a PR whose repo holds karadoc, or of a PR
+// missing from the round (merged, closed) whose agent may still use it. karadocPrs, roundPrs: Sets of PR numbers.
+// shortcut: tab names carry no repo, so a demo of another repo's PR with the same number holds karadoc too
+export function karadocHeld(busy, karadocPrs, roundPrs) {
+  return busy.some((name) => {
+    const m = /^⟳ #(\d+) (\S+)$/.exec(name);
+    return m !== null && KARADOC.includes(m[2]) && (karadocPrs.has(Number(m[1])) || !roundPrs.has(Number(m[1])));
+  });
+}
+
 // Watch tabs ([{ name, status }]) that hold their PR, and for pr-demo/qa karadoc: a working or blocked agent, or a review
 // step whose tab exists without its marker (a Claude waiting for a text reply reads idle), or a pushing step's open tab. markersOf(number): Set, or null.
 export function holdingTabs(tabs, markersOf) {
