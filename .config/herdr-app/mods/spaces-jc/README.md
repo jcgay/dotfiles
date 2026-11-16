@@ -47,7 +47,7 @@ flowchart TD
 
 Quelques détails :
 
-- `<id>` est le chemin du checkout avec chaque suite de caractères non alphanumériques remplacée par `_` (`/Volumes/sourcecode/arthur` donne `_Volumes_sourcecode_arthur`).
+- `<id>` est le chemin du checkout où chaque caractère non alphanumérique devient `_<code hexa>_` (`/Volumes/sourcecode/arthur` donne `_2f_Volumes_2f_sourcecode_2f_arthur`) : deux chemins différents n'ont jamais le même `<id>`.
 - Le script `sh` supprime l'ancienne extension quand une icône passe de png à svg (ou l'inverse), et le `.dark.svg` quand `icon_dark.svg` disparaît.
 - `isDark()` calcule la luminance de `t.chrome`, la couleur sous l'avatar. Il ne lit que `#rgb` ou `#rrggbb` : une autre forme de couleur serait vue comme claire.
 
@@ -71,6 +71,5 @@ En cas de `main.js.conflict` : reporter à la main les changements dans `main.js
 - `image()` ne lit que sous `~/.config/herdr-app` (`appHome()`) : d'où la copie dans `icons/` au lieu de pointer vers le `.idea` du dépôt.
 - Écrire un fichier dans le dossier du mod recharge le mod et relance `init()`, qui vide le cache. Le script ne copie donc que si le contenu diffère (`cmp -s`) : sinon chaque copie déclencherait un rechargement, puis une nouvelle copie, en boucle.
 - Pour la même raison, ne rien créer d'autre dans ce dossier pendant que Herdr tourne sans s'attendre à un rechargement.
-- `icons/` n'est ignoré par yadm que par accident : le motif `Icon?` de `~/.gitignore_global` (pensé pour les fichiers `Icon\r` de macOS) l'attrape parce que git ignore la casse sur macOS.
-- Deux checkouts dont les chemins ne diffèrent que par la ponctuation (`a-b` et `a_b`) partagent le même `<id>`, donc la même icône.
+- `icons/` est ignoré par yadm dans `~/.gitignore`.
 - Un dépôt avec seulement `icon_dark.svg` n'a pas d'icône sur un thème clair : la lettre s'affiche.
