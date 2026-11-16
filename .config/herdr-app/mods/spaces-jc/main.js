@@ -291,7 +291,8 @@ export default class Spaces extends View {
   }
 
   async copyIcon(main) {
-    const id = main.replace(/\W+/g, "_");
+    // One name per path: "a-b" and "a_b" (or accented names) must not share an icon.
+    const id = main.replace(/[^A-Za-z0-9]/g, (c) => `_${c.codePointAt(0).toString(16)}_`);
     // Writes only what changed: a new file in this folder reloads the mod, which would copy again.
     const r = await exec("sh", ["-c", 'cd "$2/.idea" 2>/dev/null || exit 0; mkdir -p "$1" || exit; light=; for e in svg png; do [ -f "icon.$e" ] && light=$e && break; done; for e in svg png; do [ "$e" = "$light" ] || rm -f "$1/$3.$e"; done; [ -z "$light" ] || { cmp -s "icon.$light" "$1/$3.$light" || cp "icon.$light" "$1/$3.$light"; } && [ -n "$light" ] && echo "$3.$light"; if [ -f icon_dark.svg ]; then { cmp -s icon_dark.svg "$1/$3.dark.svg" || cp icon_dark.svg "$1/$3.dark.svg"; } && echo "$3.dark.svg"; else rm -f "$1/$3.dark.svg"; fi; true', "_", `${appHome()}/mods/spaces-jc/icons`, main, id]);
     if (r.code !== 0) throw new Error(r.stderr);
