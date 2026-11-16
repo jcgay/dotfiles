@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 # Publish the merged findings of pr-review as one GitHub review.
 #   publish-review.sh <owner>/<repo> <PR number> <head sha> <dir>
-#                     [--off-diff <heading>] [--unconfirmed <heading>] [--dry-run]
+#                     [--off-diff <heading>] [--unconfirmed <heading>] [--body-only] [--dry-run]
 # <dir> holds pr.diff (gh pr diff), findings.json (SKILL.md section 4) and
-# body.md (the head of the review body). The script:
+# body.md (the head of the review body). --body-only, for a PR whose diff
+# GitHub refuses (HTTP 406): no pr.diff needed, every finding goes to the body
+# (under the --off-diff heading when confirmed). The script:
 #   - marks each finding in findings.json: anchored (its line takes an inline
 #     comment), posted (a signed comment with its title is already on that
 #     line, or a signed review already lists it) and where (inline | body | skip);
@@ -22,14 +24,15 @@ sig='🤖 Jean-Claude'
 here=$(cd "$(dirname "$0")" && pwd)
 die() { echo "publish-review: $*" >&2; exit 1; }
 usage() {
-  echo "usage: publish-review.sh <owner>/<repo> <PR number> <head sha> <dir> [--off-diff <heading>] [--unconfirmed <heading>] [--dry-run]" >&2
+  echo "usage: publish-review.sh <owner>/<repo> <PR number> <head sha> <dir> [--off-diff <heading>] [--unconfirmed <heading>] [--body-only] [--dry-run]" >&2
   exit 2
 }
 
-dry=0 off='Hors diff' unconfirmed='À vérifier' pos=()
+dry=0 body_only=0 off='Hors diff' unconfirmed='À vérifier' pos=()
 while [ $# -gt 0 ]; do
   case $1 in
     --dry-run) dry=1 ;;
+    --body-only) body_only=1 ;;
     --off-diff) [ $# -ge 2 ] || usage; off=$2; shift ;;
     --unconfirmed) [ $# -ge 2 ] || usage; unconfirmed=$2; shift ;;
     -*) usage ;;
@@ -42,10 +45,15 @@ repo=${pos[0]} pr=${pos[1]} sha=${pos[2]} dir=${pos[3]}
 [[ $repo == ?*/?* ]] || die "not an <owner>/<repo>: '$repo'"
 [[ $pr =~ ^[0-9]+$ ]] || die "not a PR number: '$pr'"
 [[ $sha =~ ^[0-9a-f]{40}$ ]] || die "not a full commit sha: '$sha'"
-for f in pr.diff findings.json body.md; do [ -f "$dir/$f" ] || die "missing $dir/$f"; done
+for f in findings.json body.md; do [ -f "$dir/$f" ] || die "missing $dir/$f"; done
+[ "$body_only" = 1 ] || [ -f "$dir/pr.diff" ] || die "missing $dir/pr.diff"
 jq -e 'type == "array"' "$dir/findings.json" >/dev/null || die "findings.json must be a JSON array"
 
-awk -f "$here/anchorable-lines.awk" "$dir/pr.diff" > "$dir/anchorable.tsv"
+if [ "$body_only" = 1 ]; then
+  : > "$dir/anchorable.tsv" # nothing anchors: every finding goes to the body
+else
+  awk -f "$here/anchorable-lines.awk" "$dir/pr.diff" > "$dir/anchorable.tsv"
+fi
 # A comment's first line is "**[severity]** title"; the title tells two
 # findings on one line apart.
 title='def title: split("\n")[0] | sub("^\\*\\*\\[[^\\]]*\\]\\*\\* "; "");'

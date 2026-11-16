@@ -35,10 +35,12 @@ GitHub (review body, inline comment, reply) ends with a blank line then
   to a literal file in the session scratchpad (`pr.diff`). It fails with HTTP
   406 on a very large PR (over 300 files): GitHub cannot anchor inline
   comments on it, so go on in no-PR mode (below) with the PR's base and
-  head SHAs, keep `--fix` (it pushes to `headRefName`), post nothing, and
-  say in the report that GitHub refused the diff. There are no threads to
-  reply to; still write `findings.json` (section 4) and the report, but no
-  `body.md`. Base SHA:
+  head SHAs, keep `--fix` (it pushes to `headRefName`), and say in the
+  report that GitHub refused the diff. Still publish one review, body only
+  (section 5, `--body-only`): it carries the `<!-- pr-review -->` marker the
+  PR watch reads, or the watch runs pr-review again. There are no threads
+  to reply to; write `findings.json` (section 4), `body.md` and the report.
+  Base SHA:
   `gh api repos/<owner>/<repo>/pulls/<N> --jq .base.sha`; head SHA:
   `headRefOid`.
 - **Local code for the reviewers** (`<repo-dir>`): the reviews read the
@@ -132,6 +134,12 @@ Severity:
 ## 5. Publish
 
 **No-PR mode**: print the report (section 7) and stop; `--fix` still runs.
+A PR whose diff GitHub refused (HTTP 406) is not in no-PR mode here: it
+publishes like a PR, with `--body-only` (below).
+
+Never post a review with `gh api` or `gh pr review` directly: only
+`publish-review.sh` adds the `<!-- pr-review -->` marker, and a review
+without it makes the PR watch run pr-review again.
 
 **PR mode**, one review per run:
 
@@ -147,7 +155,10 @@ Severity:
    ```
 
    Double quotes: a translated heading may hold an apostrophe. `<head-sha>`
-   is the full `headRefOid`; a short one is refused.
+   is the full `headRefOid`; a short one is refused. Diff refused by GitHub
+   (HTTP 406): add `--body-only`, with no `pr.diff`; every finding goes to the
+   body, and `--off-diff` names the heading of the confirmed ones ("Constats"
+   in French).
 
    It posts one inline comment per confirmed finding whose line is in the
    diff, headed by its severity (`**[bloquant]** <title>`). The other
