@@ -84,7 +84,9 @@ fish -c 'curl -sL https://raw.githubusercontent.com/jorgebucaran/fisher/main/fun
 wt config shell install --yes || true
 
 # Claude Code — marketplaces, plugins, serveurs MCP (claude vient du Brewfile)
-if command -v claude &>/dev/null; then
+# `claude --version` plutôt que `command -v` : ~/.local/bin/claude est le wrapper,
+# trouvé même sans Claude Code (il sort alors en 127).
+if claude --version &>/dev/null; then
   echo "Configuration de Claude Code (plugins + MCP)..."
 
   # Marketplaces tierces (claude-plugins-official est déjà connue par défaut)
@@ -192,6 +194,18 @@ if command -v claude &>/dev/null; then
     subagentStatusLine: {type: "command", command: "python3 ~/.claude/subagent-statusline.py"}
   } + .' "$settings" > "$settings.tmp" && mv "$settings.tmp" "$settings" \
     || { rm -f "$settings.tmp"; echo "⚠️  $settings illisible — réglages Claude non appliqués."; }
+
+  # Plugins et skills utiles seulement dans certains dépôts : coupés ici, le wrapper
+  # ~/.local/bin/claude les rallume selon les fichiers du dépôt. Ces valeurs gagnent :
+  # `claude plugin install` vient de les activer.
+  if defaults=$("$HOME/.local/bin/claude" --wrapper-defaults) && [ -n "$defaults" ]; then
+    jq --argjson d "$defaults" \
+      '.enabledPlugins += $d.enabledPlugins | .skillOverrides = ((.skillOverrides // {}) + $d.skillOverrides)' \
+      "$settings" > "$settings.tmp" && mv "$settings.tmp" "$settings" \
+      || { rm -f "$settings.tmp"; echo "⚠️  $settings illisible — plugins par projet non coupés."; }
+  else
+    echo "⚠️  ~/.local/bin/claude --wrapper-defaults n'a rien donné — plugins par projet non coupés."
+  fi
 
   # Auto-update des marketplaces GitHub : désactivé par défaut hors marketplaces officielles
   # https://code.claude.com/docs/en/plugins/loading#when-auto-update-runs
