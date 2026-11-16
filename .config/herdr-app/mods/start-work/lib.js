@@ -13,6 +13,7 @@ export function slug(text) {
 export function branchFor(item) {
   if (item.kind === "jira") return `${item.key}-${slug(item.title)}`;
   if (item.kind === "issue") return `${item.number}-${slug(item.title)}`;
+  if (item.kind === "pr") return item.branch;
   return slug(item.title);
 }
 
@@ -22,7 +23,8 @@ export function parseQuery(text) {
   const t = text.trim();
   if (!t) return { kind: "empty" };
   if (KEY.test(t.toUpperCase())) return { kind: "key", key: t.toUpperCase() };
-  const issue = /^#(\d+)$/.exec(t);
+  // shortcut: a pasted URL is read in the current repo, whatever repo it names.
+  const issue = /^#(\d+)$/.exec(t) ?? /^https:\/\/github\.com\/[^/]+\/[^/]+\/(?:pull|issues)\/(\d+)\b/.exec(t);
   if (issue) return { kind: "issue", number: Number(issue[1]) };
   return { kind: "text", text: t };
 }
@@ -73,6 +75,12 @@ export function parseGhIssues(json) {
   }));
 }
 
+// `gh pr view --json number,title,url,headRefName`: a PR is resumed on its own branch.
+export function parseGhPr(json) {
+  const p = JSON.parse(json);
+  return [{ kind: "pr", number: p.number, title: p.title, url: p.url, branch: p.headRefName }];
+}
+
 export function promptFor(item) {
   const brainstorm = "/superpowers:brainstorming";
   if (item.kind === "jira") return `${brainstorm} ${item.key} : ${item.title}`;
@@ -94,6 +102,7 @@ export function pickStartTransition(transitions) {
 // not delivered (merged into the base, or carrying a merged PR). prs: open ones only; branches:
 // newest first, without "origin/".
 export function existingWork(item, branches, prs, delivered) {
+  if (item.kind === "pr") return { branch: item.branch, pr: item };
   const id = item.kind === "jira" ? item.key : item.kind === "issue" ? String(item.number) : null;
   if (!id) return null;
   const head = item.kind === "jira" ? new RegExp(`(^|/)${id}(?![0-9])`, "i") : new RegExp(`(^|/)${id}-`);
