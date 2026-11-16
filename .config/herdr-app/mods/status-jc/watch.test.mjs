@@ -431,8 +431,9 @@ test("a repo without CI gets its review 15 min after the push", () => {
   const none = green({ jenkins: null, sonar: null, reported: false });
   const first = decide(none, emptyEntry(), NO_TAB, { ...CTX, now: 0 });
   assert.deepEqual([first.launch, first.entry.label, first.entry.headAt], [null, "en attente", 0]);
-  assert.match(first.entry.why, /aucun check/);
-  assert.equal(decide(none, first.entry, NO_TAB, { ...CTX, now: 14 * 60000 }).launch, null);
+  assert.equal(first.entry.why, "aucun check sur ce commit : review sans CI dans 15 min");
+  const later = decide(none, first.entry, NO_TAB, { ...CTX, now: 14 * 60000 });
+  assert.deepEqual([later.launch, later.entry.why], [null, "aucun check sur ce commit : review sans CI dans 1 min"]);
   const late = decide(none, first.entry, NO_TAB, { ...CTX, now: 15 * 60000 });
   assert.equal(late.launch, "pr-risk");
   // A new push starts the wait again.
@@ -452,7 +453,7 @@ test("every label says why", () => {
   assert.equal(why(green({ jenkins: { ...jenkinsKo, state: "running" } })), "CI en cours : Jenkins tourne");
   assert.equal(why(green({ sonar: null }), at({ seen: { jenkins: false, sonar: true } })), "CI en cours : Sonar n'a pas encore démarré sur ce commit");
   assert.equal(why(green({ jenkins: jenkinsKo }), at({ attempts: { jenkins: 2, sonar: 0 } })), "Jenkins encore en échec après 2 corrections");
-  assert.equal(why(green({ markers: new Set(["pr-risk"]) }), at(), NO_TAB, { ...CTX, karadocFree: false }), "pr-demo à lancer, mais karadoc est pris par un autre pr-demo ou qa");
+  assert.equal(why(green({ markers: new Set(["pr-risk"]) }), at(), NO_TAB, { ...CTX, karadocFree: false }), "pr-demo à lancer, mais karadoc occupé par un autre pr-demo ou qa");
   assert.equal(why(green(), at(), NO_TAB, { ...CTX, on: false }), "pr-risk à lancer, mais surveillance coupée");
   assert.equal(why(green({ markers: ALL })), "CI verte ; faits : pr-risk, pr-demo, qa");
   assert.equal(why(green({ draft: true })), "CI verte, pas de review sur un brouillon");

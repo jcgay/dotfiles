@@ -125,8 +125,9 @@ export default class PullRequest extends View {
     if (shown && (!this.shown || key() !== this.context)) this.refresh(cx);
     this.shown = shown;
     const t = theme(), pr = this.pr, b = this.build, where = location();
-    const dot = (state) => state === "ok" ? div().size(7).rounded(4).flex_none().bg(t.done)
-      : state === "ko" ? div().size(7).rounded(4).flex_none().bg(t.ansi1)
+    const dot = (state, color) => state === "ok" ? div().size(7).rounded(4).flex_none().bg(color ?? t.done)
+      : state === "ko" ? div().size(7).rounded(4).flex_none().bg(color ?? t.ansi1)
+      : state === "idle" ? div().size(7).rounded(4).flex_none().border_1().border_color(color ?? t.dim)
       : div().size(7).rounded(4).flex_none().border_1().border_color(t.working).loop("opacity", { from: 0.3, to: 1, period: 1200 });
     const chip = (text, color) => div().px(6).py(1).rounded(4).border_1().border_color(color).text_size(10.5).text_color(color).child(text);
     const button = (id, text, onClick, primary) => div().id(id).h(28).px(12).flex().items_center().rounded(7).cursor_pointer().text_size(12)
@@ -180,27 +181,41 @@ export default class PullRequest extends View {
 
     // The PR watch (status-jc writes it): all PRs, so it shows even without one in this space.
     const reg = shared("pr-watch") ?? null, entries = Object.entries(reg?.prs ?? {});
-    const labelColor = (l) => l === "à toi" || l === "erreur" ? t.blocked : l === "agent en cours" ? t.working : l === "ok" ? t.done : t.dim;
+    // Each label's color, dot and rank: what needs me first, finished PRs last.
+    const looks = { "à toi": [t.blocked, "ko"], erreur: [t.ansi1, "ko"], "pas de clone local": [t.blocked, "ko"],
+      "agent en cours": [t.working, "running"], "en attente": [t.muted, "idle"], brouillon: [t.dim, "idle"], ok: [t.done, "ok"] };
+    const look = (l) => looks[l] ?? [t.dim, "idle"];
+    // A label this table lacks (renamed in status-jc, which the panel cannot import) goes last.
+    const rank = (l) => { const i = Object.keys(looks).indexOf(l); return i < 0 ? Infinity : i; };
     const open = (entry) => {
       const agent = entry.launched && agents().find((a) => a.tab_name === entry.launched.tab);
       const terminal = agent && panes().find((p) => p.pane === agent.pane)?.terminal;
       if (terminal) run("agent.focus", { terminal }); else exec("open", [entry.url]);
     };
+    const row = ([k, entry]) => {
+      const [color, state] = look(entry.label), [repo, number] = k.split("#");
+      return h_flex().id(`watch-${k}`).gap(10).items_start().rounded(8).px(8).py(7).cursor_pointer().hover((s) => s.bg(t.hover))
+        .tooltip(entry.launched ? "Aller à l'agent" : "Ouvrir la PR").on_click(() => open(entry))
+        .child(div().pt(5).flex_none().child(dot(state, color)))
+        .child(v_flex().flex_1().min_w(0).gap(2)
+          .child(h_flex().gap(6).items_center()
+            .child(div().text_size(12).font_semibold().child(repo.split("/").pop()))
+            .child(div().text_size(12).text_color(t.dim).child(`#${number}`))
+            .child(div().flex_1()).child(chip(entry.label ?? "", color)))
+          .when(Boolean(entry.title), (e) => e.child(div().text_size(12).text_color(t.muted).truncate().child(entry.title)))
+          .when(Boolean(entry.why), (e) => e.child(div().text_size(11).text_color(t.dim).child(entry.why)))
+          .when(Boolean(entry.error), (e) => e.child(div().text_size(11).text_color(t.ansi1).child(entry.error))));
+    };
+    const sorted = [...entries].sort(([, a], [, b]) => rank(a.label) - rank(b.label)); // stable: registry order within a label
     const watch = v_flex().gap(2)
       .child(section("Surveillance"))
       .child(h_flex().id("watch-switch").h(24).gap(8).items_center().rounded(6).px(4).text_size(12).cursor_pointer().hover((s) => s.bg(t.hover))
         .on_click(() => setShared("pr-watch", { on: false, prs: {}, error: null, at: 0, ...reg, on: !reg?.on }))
-        .child(dot(reg?.on ? "ok" : "ko")).child(div().child(reg?.on ? "Surveillance active" : "Surveillance coupée")))
-      .when(!reg?.at, (e) => e.child(div().text_size(11).text_color(t.dim).child("Surveillance : pas encore de tour")))
-      .when(Boolean(reg?.at), (e) => e.child(div().text_size(11).text_color(t.dim).child(`dernier tour il y a ${minutes(Date.now() - reg.at)}`)))
+        .child(dot(reg?.on ? "ok" : "ko")).child(div().child(reg?.on ? "Surveillance active" : "Surveillance coupée"))
+        .child(div().flex_1()).child(div().text_size(11).text_color(t.dim)
+          .child(reg?.at ? `dernier tour il y a ${minutes(Date.now() - reg.at)}` : "pas encore de tour")))
       .when(Boolean(reg?.error), (e) => e.child(div().text_size(11).text_color(t.ansi1).child(reg.error)))
-      .children(entries.map(([k, entry], i) => v_flex().id(`watch-${i}`).rounded(6).px(4).py(2).text_size(12).cursor_pointer().hover((s) => s.bg(t.hover))
-        .on_click(() => open(entry))
-        .child(h_flex().h(20).gap(8).items_center()
-          .child(div().flex_1().min_w(0).truncate().child(`#${k.split("#")[1]} ${k.split("#")[0].split("/").pop()}`))
-          .child(div().flex_none().text_color(labelColor(entry.label)).child(entry.label ?? "")))
-        .when(Boolean(entry.why), (e) => e.child(div().text_size(11).text_color(t.dim).child(entry.why)))
-        .when(Boolean(entry.error), (e) => e.child(div().text_size(11).text_color(t.ansi1).child(entry.error)))));
+      .child(v_flex().gap(1).pt(4).children(sorted.map(row)));
 
     return v_flex().id("pr").size_full().min_h(0).rounded(10).overflow_hidden().bg(t.background).border_1().border_color(t.border).text_color(t.foreground).text_size(13)
       .child(h_flex().h(42).flex_none().px(14).gap(8).items_center().border_b(1).border_color(t.border)
