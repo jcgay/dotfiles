@@ -58,8 +58,11 @@ export async function start(state, cx, phase = () => {}) {
   catch { throw new Error(`« ${branch} » n'est pas un nom de branche valide.`); }
   // Créer never lands on an existing branch: worktrunk would refuse it after Jira was taken, or an
   // old checkout of it would get the new work. A delivered branch keeps its name: rename the new one.
-  if (!state.resume && (await exec("git", ["show-ref", "--verify", "--quiet", `refs/heads/${branch}`], { cwd: repo.main })).code === 0)
-    throw new Error(`La branche ${branch} existe déjà : donne un autre nom à la nouvelle.`);
+  // origin counts too: a delivered branch may be gone locally, and pushing the new one would collide.
+  if (!state.resume)
+    for (const ref of [`refs/heads/${branch}`, `refs/remotes/origin/${branch}`])
+      if ((await exec("git", ["show-ref", "--verify", "--quiet", ref], { cwd: repo.main })).code === 0)
+        throw new Error(`La branche ${branch} existe déjà${ref.startsWith("refs/remotes/") ? " sur origin" : ""} : donne un autre nom à la nouvelle.`);
   const taking = state.take && !state.resume && item.kind === "jira";
   if (taking) { phase("Jira…"); await take(item.key, repo.main, notes); }
   const done = taking ? `${item.key} est déjà à toi. ` : "";

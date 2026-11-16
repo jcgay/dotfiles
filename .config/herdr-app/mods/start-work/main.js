@@ -5,7 +5,7 @@
 import { View, div } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input, Scrollbar, ScrollHandle } from "gpui-base";
 import { props, closeOverlay, theme, focused, spaces, exec, appHome, readTextFile, notify } from "herdr";
-import { branchFor, parseQuery, jiraProjects, jql, parseJiraIssues, parseGhIssues, parseGhPr, existingWork, baseChoices } from "./lib.js";
+import { branchFor, chosenBranch, parseQuery, jiraProjects, jql, parseJiraIssues, parseGhIssues, parseGhPr, existingWork, baseChoices } from "./lib.js";
 import { start, cmd, jira, myName } from "./work.js";
 
 const lines = (s) => s.split("\n").map((l) => l.trim()).filter(Boolean);
@@ -146,10 +146,13 @@ export default class StartWork extends View {
 
   dismiss() { closeOverlay(props().overlay); }
 
+  // The guard of go() and of the button, so a button that looks active always does something.
+  // Rows of an older query (Enter typed before the answer) would start the wrong ticket.
+  canGo(item, branch) { return Boolean(this.ready && item && !this.busy && branch && this.shown === this.seq); }
+
   go(cx) {
-    const item = this.selected(), branch = this.branch.value().trim();
-    // Rows of an older query (Enter typed before the answer) would start the wrong ticket.
-    if (this.busy || !this.ready || !item || !branch || this.shown !== this.seq) return;
+    const item = this.selected(), branch = chosenBranch(item, this.branch.value());
+    if (!this.canGo(item, branch)) return;
     const work = this.resume();
     const state = { repo: this.repo, item, base: this.bases[this.base], branch, take: this.take && item.kind === "jira", resume: work?.branch === branch ? work : null };
     this.busy = true; this.error = ""; this.phase = "";
@@ -198,10 +201,10 @@ export default class StartWork extends View {
   }
 
   render() {
-    const t = theme(), item = this.selected(), work = this.resume();
-    const resuming = Boolean(work && work.branch === this.branch.value().trim());
+    const t = theme(), item = this.selected(), work = this.resume(), branch = chosenBranch(item, this.branch.value());
+    const resuming = Boolean(work && work.branch === branch);
     const field = (state) => Input.new(state).h(32).px(10).items_center().rounded(6).border(1).border_color(t.input).bg(t.background).text_color(t.foreground);
-    const enabled = this.ready && item && !this.busy;
+    const enabled = this.canGo(item, branch);
     return v_flex().id("start-work").track_focus(this.handle).on_key_down((e, cx) => this.key(e, cx))
       .size_full().p(16).gap(10).bg(t.popover).text_size(13).text_color(t.foreground)
       .child(h_flex().child(div().flex_1().font_semibold().child(`Commencer un travail${this.repo ? ` · ${this.repo.name}` : ""}`))
