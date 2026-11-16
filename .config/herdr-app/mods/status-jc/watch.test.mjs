@@ -104,7 +104,7 @@ const ALL = new Set(["pr-risk", "pr-demo", "qa"]);
 const NO_TAB = { exists: false, running: false };
 const RUNNING = { exists: true, running: true };
 const DONE = { exists: true, running: false };
-const CTX = { on: true, slots: 3, karadocFree: true, hasQa: true };
+const CTX = { on: true, slots: 3, karadocFree: true, hasQa: true, hasCi: true };
 const at = (over = {}) => ({ ...emptyEntry(), head: "h1", ...over });
 
 test("jenkins ko launches jenkins", () => {
@@ -427,25 +427,14 @@ test("no check reported on the head: no review", () => {
   assert.deepEqual([r.launch, r.entry.label], [null, "en attente"]);
 });
 
-test("a repo without CI gets its review 15 min after the push", () => {
+test("a repo without CI gets its review at once, one with CI waits for it", () => {
   const none = green({ jenkins: null, sonar: null, reported: false });
-  const first = decide(none, emptyEntry(), NO_TAB, { ...CTX, now: 0 });
-  assert.deepEqual([first.launch, first.entry.label, first.entry.headAt], [null, "en attente", 0]);
-  assert.equal(first.entry.why, "aucun check sur ce commit : review sans CI dans 15 min");
-  const later = decide(none, first.entry, NO_TAB, { ...CTX, now: 14 * 60000 });
-  assert.deepEqual([later.launch, later.entry.why], [null, "aucun check sur ce commit : review sans CI dans 1 min"]);
-  const late = decide(none, first.entry, NO_TAB, { ...CTX, now: 15 * 60000 });
-  assert.equal(late.launch, "pr-risk");
-  // A new push starts the wait again.
-  assert.equal(decide({ ...none, head: "h2" }, late.entry, NO_TAB, { ...CTX, now: 20 * 60000 }).launch, null);
-  // A PR that had Jenkins waits for it however long it takes.
-  const jenkinsSeen = at({ headAt: 0, seen: { jenkins: true, sonar: false } });
-  assert.equal(decide(none, jenkinsSeen, NO_TAB, { ...CTX, now: 60 * 60000 }).entry.label, "en attente");
-  // A draft left an hour without check waits again once it is ready: its CI may skip drafts.
-  const draft = decide({ ...none, draft: true }, at({ headAt: 0 }), NO_TAB, { ...CTX, now: 60 * 60000 });
-  assert.equal(decide(none, draft.entry, NO_TAB, { ...CTX, now: 61 * 60000 }).launch, null);
-  // An entry from before headAt is dated by the round that first reads it.
-  assert.equal(decide(none, at(), NO_TAB, { ...CTX, now: 5 }).entry.headAt, 5);
+  const withCi = decide(none, at(), NO_TAB, CTX);
+  assert.deepEqual([withCi.launch, withCi.entry.label, withCi.entry.why], [null, "en attente", "aucun check sur ce commit : attente de la CI du repo"]);
+  assert.equal(decide(none, at(), NO_TAB, { ...CTX, hasCi: false }).launch, "pr-risk");
+  // A PR that had Jenkins waits for it even when the clone shows no CI file.
+  assert.equal(decide(none, at({ seen: { jenkins: true, sonar: false } }), NO_TAB, { ...CTX, hasCi: false }).entry.label, "en attente");
+  assert.equal(decide(green({ ...none, markers: ALL }), at(), NO_TAB, { ...CTX, hasCi: false }).entry.why, "pas de CI ; faits : pr-risk, pr-demo, qa");
 });
 
 test("every label says why", () => {

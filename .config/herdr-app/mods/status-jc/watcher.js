@@ -70,7 +70,10 @@ async function cloneOf(repo, clones) {
   // Without the marker in its report template, a QA would be relaunched on every head.
   const report = (dir) => readTextFile(`${clone}/${dir}/skills/testing-api-pull-requests/references/report.md`);
   const hasQa = clone !== null && /^<!-- testing-api-pull-requests -->$/m.test((await report(".agents")) ?? (await report(".claude")) ?? "");
-  return { clone, hasQa };
+  // Signals of a CI on the clone's checked-out branch: a PR adding the first one is seen without CI.
+  const has = async (path) => clone !== null && (await exec("test", ["-e", `${clone}/${path}`])).code === 0;
+  const hasCi = (await has("Jenkinsfile")) || (await has(".github/workflows"));
+  return { clone, hasQa, hasCi };
 }
 
 // The watch's own worktree for branch, detached on origin/<branch>; dirty when an agent left work in it.
@@ -163,8 +166,8 @@ async function roundUnderLease(registry, cache, at) {
     const before = registry.prs[s.key] ?? emptyEntry();
     try {
       const busy = [...new Set([...heldTabs(all), ...launched])];
-      const { clone, hasQa } = repos.get(s.repo);
-      const ctx = { on: registry.on, slots: MAX_AGENTS - busy.length, karadocFree: !busy.some((t) => KARADOC.some((k) => t.endsWith(` ${k}`))), hasQa, now: at };
+      const { clone, hasQa, hasCi } = repos.get(s.repo);
+      const ctx = { on: registry.on, slots: MAX_AGENTS - busy.length, karadocFree: !busy.some((t) => KARADOC.some((k) => t.endsWith(` ${k}`))), hasQa, hasCi };
       const tab = { ...tabOf(before), busy: busy.some((t) => t.startsWith(`⟳ #${s.number} `)) };
       const r = decide(s, before, tab, ctx);
       if (r.toast) notify({ title: r.toast, body: s.url, level: "warning" });

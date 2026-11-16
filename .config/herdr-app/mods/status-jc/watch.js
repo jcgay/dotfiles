@@ -78,7 +78,6 @@ export const LABELS = Object.freeze({
 });
 
 const BUDGET = 2; // attempts per check (jenkins, sonar) and PR
-const NO_CI_MS = 15 * 60000; // after a push, no check this long means the repo has no CI
 const REVIEW = ["pr-risk", "pr-demo", "qa"];
 const KARADOC = ["pr-demo", "qa"]; // start karadoc on fixed ports: one at a time
 
@@ -118,7 +117,7 @@ export function checkoutBases(reflog, branch) {
 
 // What to do with one PR this round: a new entry, the step to launch (or null), a toast (or null). Pure.
 // tab: { exists, running } of entry.launched's tab, busy: another watch tab holds this PR (holdingTabs).
-// ctx.now dates a new head: a head with no check at all NO_CI_MS later is taken as a repo without CI.
+// ctx.hasCi: the local clone has a CI (Jenkinsfile, GitHub workflow); without it, no check is not worth waiting for.
 // entry.why says in French why the PR has its label, for the panel.
 export function decide(s, entry, tab, ctx) {
   const e = JSON.parse(JSON.stringify(entry)); // Herdr's runtime has no structuredClone
@@ -145,11 +144,7 @@ export function decide(s, entry, tab, ctx) {
       e.told = { jenkins: false, sonar: false };
     }
     e.head = s.head;
-    e.headAt = ctx.now;
   }
-  e.headAt ??= ctx.now; // entries written before headAt existed
-  if (s.draft) e.headAt = ctx.now; // a CI may skip drafts: the wait starts when the PR is ready
-  const noCi = !s.reported && ctx.now - e.headAt >= NO_CI_MS;
   const short = (sha) => (sha ?? "").slice(0, 8);
 
   // A review step lasts until its marker appears or its tab closes; a fix step until its agent stops working.
@@ -201,15 +196,12 @@ export function decide(s, entry, tab, ctx) {
     const silent = e.silent[s.head] ?? [];
     if (!s.draft) {
       if (s.failing) return out(LABELS.yours, "un check en échec que la surveillance ne corrige pas (ni Jenkins ni Sonar)", null, toast);
-      if (!s.reported && !noCi) {
-        const left = Math.ceil((NO_CI_MS - (ctx.now - e.headAt)) / 60000);
-        return out(LABELS.waiting, `aucun check sur ce commit : review sans CI dans ${Number.isNaN(left) ? NO_CI_MS / 60000 : left} min`);
-      }
+      if (!s.reported && ctx.hasCi) return out(LABELS.waiting, "aucun check sur ce commit : attente de la CI du repo");
       step = REVIEW.find((r) => (r !== "qa" || ctx.hasQa) && !s.markers.has(r) && !silent.includes(r));
     }
     if (!step) {
       if (yours) return out(LABELS.yours, yours, null, toast);
-      const ci = s.reported ? "CI verte" : "aucun check";
+      const ci = s.reported ? "CI verte" : ctx.hasCi ? "aucun check" : "pas de CI";
       if (s.draft) return out(LABELS.draft, `${ci}, pas de review sur un brouillon`);
       const done = REVIEW.filter((r) => s.markers.has(r));
       return out(LABELS.ok, [ci, done.length && `faits : ${done.join(", ")}`, silent.length && `fermés sans commentaire : ${silent.join(", ")}`,
