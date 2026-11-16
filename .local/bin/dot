@@ -9,6 +9,27 @@
 echo -e "\033[0;34mUpdating dotfiles...\033[0m"
 yadm pull
 
+# Our launchd jobs: name those whose last run failed, then load the ones the pull added or changed
+# (bootout first, or bootstrap refuses). A running job is left for the next dot: bootout would kill it.
+# Their log is ~/Library/Logs/<job>.log.
+echo -e "\033[0;34mChecking launchd jobs...\033[0m"
+stamp=~/.cache/dot-launchd all_loaded=1
+for plist in ~/Library/LaunchAgents/fr.jcgay.*.plist; do
+  [ -f "$plist" ] || continue
+  job=gui/$(id -u)/$(basename "$plist" .plist)
+  state=$(launchctl print "$job" 2>/dev/null)
+  code=$(sed -n 's/^[[:space:]]*last exit code = //p' <<<"$state") # before a reload resets it
+  case $code in 0 | "" | "(never exited)") ;; *) echo -e "\033[0;31m${job##*/}: last run failed ($code), see ~/Library/Logs/${job##*.}.log\033[0m" ;; esac
+  [ -n "$state" ] && ! [ "$plist" -nt "$stamp" ] && continue
+  if grep -q '^[[:space:]]*state = running' <<<"$state"; then
+    echo "${job##*/} is running: the next dot reloads it"; all_loaded=
+  else
+    launchctl bootout "$job" 2>/dev/null
+    if launchctl bootstrap "gui/$(id -u)" "$plist"; then echo "loaded ${job##*/}"; else all_loaded=; fi
+  fi
+done
+[ -n "$all_loaded" ] && mkdir -p ~/.cache && touch "$stamp"
+
 # Upgrade homebrew
 brew update
 
