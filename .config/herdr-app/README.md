@@ -81,6 +81,7 @@ Les terminaux tournent dans **herdr-core** (`hc`), pas dans la fenêtre : fermer
 | `⌘F` | Chercher dans l'écran et l'historique (Entrée / ⇧Entrée pour naviguer, Échap pour fermer) |
 | `⌘C` / `⌘V` | Copier / coller (des fichiers copiés depuis le Finder sont collés comme un glisser-déposer) |
 | `⌃V` | Coller une **image** (capture d'écran pour Claude) |
+| `⌘A` | Tout sélectionner, historique compris |
 | `⌥←` / `⌥→` | Mot précédent / suivant |
 | `⌘←` / `⌘→` | Début / fin de ligne |
 | `⌥⌫` / `⌘⌫` | Effacer le mot / la ligne avant le curseur |
@@ -92,6 +93,7 @@ Les terminaux tournent dans **herdr-core** (`hc`), pas dans la fenêtre : fermer
 | `⌘B` | Replier / déplier la sidebar |
 | `⌘⇧L` | Changer de layout |
 | `⌘=` / `⌘-` / `⌘0` | Zoom + / − / normal |
+| `⌘M` | Réduire la fenêtre |
 | `⌘H` / `⌘⌥H` / `⌘Q` | Masquer / masquer les autres / quitter |
 
 ### À la souris
@@ -144,7 +146,7 @@ hc wait t3                   # attendre qu'un agent ait fini
 
 ## 6. Personnaliser sans casser
 
-- **Raccourcis** : `keys.json`. Le fichier est édité, donc entièrement à nous : les nouveaux raccourcis d'une mise à jour de Herdr ne s'y ajoutent plus, il faut les recopier à la main. Éviter les `⌃lettre` que le shell utilise (`⌃C`, `⌃R`, `⌃W`…).
+- **Raccourcis** : `keys.json`. Une fois édité, Herdr ne le met plus à jour : `herdr-upstream` (lancé par `dot`) y fusionne ses nouveaux raccourcis par défaut, lus dans le binaire, avec `keys.default.json` comme base. Committer les deux ensemble. Éviter les `⌃lettre` que le shell utilise (`⌃C`, `⌃R`, `⌃W`…).
 - **Layout ou mod livré par Herdr** : ne jamais l'éditer (écrasé au démarrage). Le cloner (`layout.clone`, `mod.clone`) et committer l'original avec le clone ; `dot` reporte ensuite les mises à jour de Herdr dans nos clones (voir le `CLAUDE.md` à la racine du dépôt).
 - **Vérifier un mod** : `herdr-app check ~/.config/herdr-app/mods/<nom>`, et les tests : `node --test ~/.config/herdr-app/mods/*/*.test.mjs`.
 - Ne pas committer `gpui-kit.d.ts` ni `jsconfig.json` que Herdr écrit dans chaque mod.
