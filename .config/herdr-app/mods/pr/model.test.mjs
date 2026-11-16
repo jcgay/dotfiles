@@ -1,13 +1,21 @@
 // node --test ~/.config/herdr-app/mods/pr/model.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { jenkinsBuild, checks, minutes, parseContainers, deploymentsFor, deployKey, watchBranch, remember } from "./model.js";
+import { jenkinsBuild, checks, summary, minutes, parseContainers, deploymentsFor, deployKey, watchBranch, remember } from "./model.js";
 
 test("jenkins build url", () => {
   assert.deepEqual(jenkinsBuild("https://jenkins.vidal.net/job/team.software/job/github/job/arthur/job/PR-5459/1/display/redirect"),
     { jobPath: "team.software/github/arthur/PR-5459", number: 1 });
   assert.deepEqual(jenkinsBuild("https://j/job/a%2Fb/7/"), { jobPath: "a/b", number: 7 });
   assert.equal(jenkinsBuild("https://github.com/x/y/actions/runs/1"), null);
+});
+
+test("checks summary", () => {
+  assert.equal(summary([]), null);
+  assert.deepEqual(summary([{ state: "ok" }, { state: "ok" }, { state: "ok" }]), { state: "ok", text: "3 ✓" });
+  assert.deepEqual(summary([{ state: "ok" }, { state: "ko" }, { state: "running" }, { state: "ok" }]),
+    { state: "ko", text: "1 en échec · 1 en cours · 2 ✓" });
+  assert.deepEqual(summary([{ state: "running" }, { state: "ok" }]), { state: "running", text: "1 en cours · 1 ✓" });
 });
 
 test("checks of both kinds", () => {
