@@ -495,3 +495,21 @@ test("checkoutBases: the commits the watch checked out, not the agent's", () => 
   assert.deepEqual(checkoutBases(reflog, "MERLIN-1"), ["c1", "c0"]);
   assert.deepEqual(checkoutBases("", "b"), []);
 });
+
+test("paused PR launches nothing and says why", () => {
+  const P = { ...CTX, paused: true };
+  const r = decide(green(), at(), NO_TAB, P);
+  assert.deepEqual([r.launch, r.entry.label, r.entry.why, r.toast], [null, "en pause", "en pause ; CI verte", null]);
+  assert.equal(decide(green({ jenkins: jenkinsKo }), at(), NO_TAB, P).entry.why, "en pause ; un check en échec");
+  assert.equal(decide(green({ pending: true }), at(), NO_TAB, P).entry.why, "en pause ; CI en cours");
+  assert.equal(decide(green({ jenkins: null, sonar: null, reported: false }), at(), NO_TAB, P).entry.why, "en pause ; aucun check");
+});
+
+test("paused PR: running agent finishes, nothing counted, no toast", () => {
+  const P = { ...CTX, paused: true };
+  const launched = { step: "pr-review", head: "h1", tab: "t" };
+  assert.equal(decide(green(), at({ launched }), RUNNING, P).entry.label, LABELS.running);
+  const spent = decide(green({ jenkins: jenkinsKo }), at({ attempts: { jenkins: 2, sonar: 0 } }), NO_TAB, P);
+  assert.deepEqual([spent.toast, spent.entry.told.jenkins, spent.entry.attempts.jenkins], [null, false, 2]);
+  assert.match(decide(green({ jenkins: jenkinsKo }), spent.entry, NO_TAB, CTX).toast, /jenkins à toi/);
+});

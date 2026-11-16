@@ -167,7 +167,7 @@ async function roundUnderLease(registry, cache, at) {
     try {
       const busy = [...new Set([...heldTabs(all), ...launched])];
       const { clone, hasQa, hasCi } = repos.get(s.repo);
-      const ctx = { on: registry.on, slots: MAX_AGENTS - busy.length, karadocFree: !busy.some((t) => KARADOC.some((k) => t.endsWith(` ${k}`))), hasQa, hasCi };
+      const ctx = { on: registry.on, paused: (registry.paused ?? []).includes(s.key), slots: MAX_AGENTS - busy.length, karadocFree: !busy.some((t) => KARADOC.some((k) => t.endsWith(` ${k}`))), hasQa, hasCi };
       const tab = { ...tabOf(before), busy: busy.some((t) => t.startsWith(`⟳ #${s.number} `)) };
       const r = decide(s, before, tab, ctx);
       if (r.toast) notify({ title: r.toast, body: s.url, level: "warning" });

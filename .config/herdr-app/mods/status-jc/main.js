@@ -5,7 +5,7 @@ import { parseListeners, parseParents, parseCwds, spaceOf, health, stillMapped, 
 import { round } from "./watcher.js";
 
 const WATCH = "pr-watch";
-const FRESH = { on: false, prs: {}, error: null, at: 0 }; // the PR panel's switch turns it on
+const FRESH = { on: false, prs: {}, error: null, at: 0, paused: [] }; // the PR panel's switch turns it on
 
 // workspace-status, plus the ports the shown space's programs listen on.
 export default class WorkspaceStatus extends View {
@@ -32,8 +32,12 @@ export default class WorkspaceStatus extends View {
       } finally {
         this.watching = false;
       }
-      // null: another copy's round holds the lease. The panel's switch may have flipped during the round: keep it.
-      if (next) setShared(WATCH, { ...next, on: shared(WATCH)?.on ?? next.on });
+      // null: another copy's round holds the lease. The panel's switch and pauses may have changed during the round: keep them.
+      if (next) {
+        // paused is never pruned: the search only sees PRs updated within 7 days, a quiet paused PR would lose its pause.
+        const cur = shared(WATCH);
+        setShared(WATCH, { ...next, on: cur?.on ?? next.on, paused: cur?.paused ?? next.paused ?? [] });
+      }
     });
   }
 

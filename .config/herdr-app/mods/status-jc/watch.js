@@ -74,7 +74,7 @@ export function signalsOf(view, checkRuns, me) {
 
 export const LABELS = Object.freeze({
   ok: "ok", draft: "brouillon", waiting: "en attente", running: "agent en cours",
-  yours: "à toi", noClone: "pas de clone local", error: "erreur",
+  yours: "à toi", noClone: "pas de clone local", error: "erreur", paused: "en pause",
 });
 
 const BUDGET = 2; // attempts per check (jenkins, sonar) and PR
@@ -159,6 +159,13 @@ export function decide(s, entry, tab, ctx) {
   }
   if (e.launched && holds) return out(LABELS.running, `agent ${e.launched.step} lancé sur ${short(e.launched.head)}`);
   if (tab.busy) return out(LABELS.running, "un autre onglet ⟳ de cette PR travaille encore");
+  if (ctx.paused) {
+    // After the launched agent (it finishes), before any count or toast: resuming finds the PR as it was.
+    const ci = state("jenkins") === "ko" || state("sonar") === "ko" || s.failing ? "un check en échec"
+      : state("jenkins") === "running" || state("sonar") === "running" || s.pending ? "CI en cours"
+      : s.reported ? "CI verte" : "aucun check";
+    return out(LABELS.paused, `en pause ; ${ci}`);
+  }
 
   for (const c of ["jenkins", "sonar"]) {
     if (s[c]?.state === "ok") {
