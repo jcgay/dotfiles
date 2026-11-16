@@ -427,6 +427,39 @@ test("no check reported on the head: no review", () => {
   assert.deepEqual([r.launch, r.entry.label], [null, "en attente"]);
 });
 
+test("a repo without CI gets its review 15 min after the push", () => {
+  const none = green({ jenkins: null, sonar: null, reported: false });
+  const first = decide(none, emptyEntry(), NO_TAB, { ...CTX, now: 0 });
+  assert.deepEqual([first.launch, first.entry.label, first.entry.headAt], [null, "en attente", 0]);
+  assert.match(first.entry.why, /aucun check/);
+  assert.equal(decide(none, first.entry, NO_TAB, { ...CTX, now: 14 * 60000 }).launch, null);
+  const late = decide(none, first.entry, NO_TAB, { ...CTX, now: 15 * 60000 });
+  assert.equal(late.launch, "pr-risk");
+  // A new push starts the wait again.
+  assert.equal(decide({ ...none, head: "h2" }, late.entry, NO_TAB, { ...CTX, now: 20 * 60000 }).launch, null);
+  // A PR that had Jenkins waits for it however long it takes.
+  const jenkinsSeen = at({ headAt: 0, seen: { jenkins: true, sonar: false } });
+  assert.equal(decide(none, jenkinsSeen, NO_TAB, { ...CTX, now: 60 * 60000 }).entry.label, "en attente");
+  // A draft left an hour without check waits again once it is ready: its CI may skip drafts.
+  const draft = decide({ ...none, draft: true }, at({ headAt: 0 }), NO_TAB, { ...CTX, now: 60 * 60000 });
+  assert.equal(decide(none, draft.entry, NO_TAB, { ...CTX, now: 61 * 60000 }).launch, null);
+  // An entry from before headAt is dated by the round that first reads it.
+  assert.equal(decide(none, at(), NO_TAB, { ...CTX, now: 5 }).entry.headAt, 5);
+});
+
+test("every label says why", () => {
+  const why = (s, e = at(), tab = NO_TAB, ctx = CTX) => decide(s, e, tab, ctx).entry.why;
+  assert.equal(why(green({ jenkins: { ...jenkinsKo, state: "running" } })), "CI en cours : Jenkins tourne");
+  assert.equal(why(green({ sonar: null }), at({ seen: { jenkins: false, sonar: true } })), "CI en cours : Sonar n'a pas encore démarré sur ce commit");
+  assert.equal(why(green({ jenkins: jenkinsKo }), at({ attempts: { jenkins: 2, sonar: 0 } })), "Jenkins encore en échec après 2 corrections");
+  assert.equal(why(green({ markers: new Set(["pr-risk"]) }), at(), NO_TAB, { ...CTX, karadocFree: false }), "pr-demo à lancer, mais karadoc est pris par un autre pr-demo ou qa");
+  assert.equal(why(green(), at(), NO_TAB, { ...CTX, on: false }), "pr-risk à lancer, mais surveillance coupée");
+  assert.equal(why(green({ markers: ALL })), "CI verte ; faits : pr-risk, pr-demo, qa");
+  assert.equal(why(green({ draft: true })), "CI verte, pas de review sur un brouillon");
+  assert.equal(why(green(), at({ launched: { step: "jenkins", head: "h1", tab: "⟳ #5462 jenkins" } }), RUNNING), "agent jenkins lancé sur h1");
+  assert.equal(undoLaunch(at(), "pr-risk", "erreur").why, "pr-risk n'a pas pu démarrer");
+});
+
 test("holdingTabs: working or blocked agents, and review tabs without their marker", () => {
   const markersOf = (n) => ({ 1: new Set(["pr-risk"]), 2: new Set(["pr-risk", "pr-demo"]) })[n] ?? null;
   const got = holdingTabs([
