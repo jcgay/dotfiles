@@ -1,7 +1,14 @@
 // node --test ~/.config/herdr-app/mods/start-work/lib.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { slug, branchFor, existingWork, parseQuery, jiraProjects, jql, parseJiraIssues, parseGhIssues, parseGhPr, promptFor } from "./lib.js";
+import { slug, branchFor, chosenBranch, existingWork, parseQuery, jiraProjects, jql, parseJiraIssues, parseGhIssues, parseGhPr, promptFor } from "./lib.js";
+
+test("a PR resumes on its own branch, whatever was typed", () => {
+  const pr = { kind: "pr", number: 5471, title: "t", branch: "feat/x" };
+  assert.equal(chosenBranch(pr, "feat/autre"), "feat/x");
+  assert.equal(chosenBranch({ kind: "jira", key: "MM-1", title: "t" }, "  MM-1-mon-nom "), "MM-1-mon-nom");
+  assert.equal(chosenBranch(null, " x "), "x");
+});
 
 test("slug drops accents, emoji and punctuation", () => {
   assert.equal(slug("Données : 🐛 Fix l'accès"), "donnees-fix-l-acces");

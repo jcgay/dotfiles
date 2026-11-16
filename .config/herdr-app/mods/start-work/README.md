@@ -26,7 +26,7 @@ Ce que tu peux taper :
 | `#5471`, ou l'URL `https://github.com/…/pull/5471` ou `…/issues/5471` | la PR n°5471 si elle existe, sinon l'issue |
 | autre texte | recherche Jira (`text ~`) et GitHub (`--search`), 20 de chaque au plus, puis une ligne « Sans ticket : <texte> » |
 
-Sous la liste : la **base** (la branche par défaut d'`origin/HEAD`, puis jusqu'à 4 `sprint-*` d'origin, les plus récentes d'abord ; clic pour choisir) et la **branche**, pré-remplie et modifiable. Un nom tapé à la main reste tant que tu ne changes pas de ligne.
+Sous la liste : la **base** (la branche par défaut d'`origin/HEAD`, puis jusqu'à 4 `sprint-*` d'origin, les plus récentes d'abord ; clic pour choisir) et la **branche**, pré-remplie et modifiable. Un nom tapé à la main reste tant que tu ne changes pas de ligne. Sur une ligne PR, le champ est ignoré : une PR se reprend toujours sur sa propre branche.
 
 Touches : `↑` `↓` choisissent (la liste boucle), `↵` dans l'un ou l'autre champ crée ou reprend, `esc` ferme. Un clic sur une ligne la choisit.
 
@@ -92,7 +92,7 @@ flowchart TD
   G0 -->|non| N0["rien ne se passe"]
   G0 -->|oui| V{"git check-ref-format --branch accepte le nom ?"}
   V -->|non| E1["« n'est pas un nom de branche valide »"]
-  V -->|oui| X{"Créer et refs/heads/branche existe déjà ?"}
+  V -->|oui| X{"Créer et la branche existe déjà, en local ou sur origin ?"}
   X -->|oui| E2["« La branche existe déjà : donne un autre nom »"]
   X -->|non| T{"Créer, ligne Jira, case cochée ?"}
   T -->|oui| TA{"ticket déjà à moi ?"}
@@ -158,9 +158,9 @@ Seul `lib.js` est testé ; `main.js` et `work.js` se vérifient à la main dans 
 - Un texte qui a la forme d'une clé (`covid-19`) est lu comme une clé Jira : pas de ligne « Sans ticket », et une erreur Jira si le ticket n'existe pas. Ajoute un mot.
 - Une URL GitHub collée est lue dans le dépôt courant, quel que soit le dépôt qu'elle nomme.
 - Une PR venant d'un fork ne se reprend pas : sa branche n'est pas sur `origin`, worktrunk échoue.
-- « Livré » veut dire : une PR mergée sur cette branche (parmi les 200 dernières). Pas `git branch --merged`, qui compte aussi une branche toute neuve sans commit. Une branche livrée est ignorée et le ticket repart sur une branche neuve ; si son nom existe encore en local, Créer refuse : renomme.
+- « Livré » veut dire : une PR mergée sur cette branche (parmi les 200 dernières). Pas `git branch --merged`, qui compte aussi une branche toute neuve sans commit. Une branche livrée est ignorée et le ticket repart sur une branche neuve ; si son nom existe encore, en local ou sur origin, Créer refuse : renomme.
 - Pour ouvrir un second chantier sur un ticket déjà en cours, change le nom de branche : le bouton repasse à Créer, avec Jira et le prompt.
-- Le bouton ne peut rien tant que le `git fetch origin` n'est pas fini (« Chargement… »), pour ne jamais partir d'un vieux `origin/<base>`. Il a l'air actif mais ne fait rien si la branche est vide ou si la recherche en cours n'a pas répondu.
+- Le bouton ne peut rien tant que le `git fetch origin` n'est pas fini (« Chargement… »), pour ne jamais partir d'un vieux `origin/<base>`. Il est aussi grisé si la branche est vide ou si la recherche en cours n'a pas répondu.
 - Fermer la fenêtre pendant la création (Herdr ferme même sur `esc`) coupe le travail : un toast dit l'étape, ce qui est fait reste fait (ticket assigné, worktree).
 - Jira passe par `fish -c` pour avoir `JIRA_API_TOKEN` (`conf.d/secrets.fish`) ; mon adresse Jira est en dur dans `work.js` (`ME`).
 - Le collage exporte `LANG=en_US.UTF-8` : Herdr lance les programmes sans locale, et `pbcopy` lirait les accents en MacRoman.

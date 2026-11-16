@@ -9,6 +9,11 @@ export function slug(text) {
   return s;
 }
 
+// The branch Créer or Reprendre uses: what the field says, except a PR, which only resumes its own.
+export function chosenBranch(item, typed) {
+  return item?.kind === "pr" ? item.branch : typed.trim();
+}
+
 // Jira and GitHub link a branch to its ticket by the key or number at its start.
 export function branchFor(item) {
   if (item.kind === "jira") return `${item.key}-${slug(item.title)}`;
