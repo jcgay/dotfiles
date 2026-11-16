@@ -157,6 +157,12 @@ if command -v claude &>/dev/null; then
   # codebase-memory-mcp : binaire ~/.local/bin, serveur MCP, skill et hooks cbm-*
   curl -fsSL https://raw.githubusercontent.com/DeusData/codebase-memory-mcp/main/install.sh \
     | bash -s -- --clients=claude || true
+  # Retire son hook SessionStart : il répète les instructions que le serveur MCP envoie déjà
+  if [ -f "$HOME/.claude/settings.json" ]; then
+    jq 'del(.hooks.SessionStart[]? | select(any(.hooks[]; .command | test("cbm-session-reminder"))))' \
+      "$HOME/.claude/settings.json" > "$HOME/.claude/settings.json.tmp" \
+      && mv "$HOME/.claude/settings.json.tmp" "$HOME/.claude/settings.json"
+  fi
 
   # Hook signature "🤖 Jean-Claude" sur gh (settings.json n'est pas suivi par yadm)
   settings="$HOME/.claude/settings.json"
