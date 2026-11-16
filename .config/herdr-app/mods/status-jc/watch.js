@@ -202,7 +202,8 @@ export function decide(s, entry, tab, ctx) {
     if (!s.draft) {
       if (s.failing) return out(LABELS.yours, "un check en échec que la surveillance ne corrige pas (ni Jenkins ni Sonar)", null, toast);
       if (!s.reported && !noCi) {
-        return out(LABELS.waiting, `aucun check n'a répondu sur ce commit : sans réponse ${NO_CI_MS / 60000} min après le push, la review part sans CI`);
+        const left = Math.ceil((NO_CI_MS - (ctx.now - e.headAt)) / 60000);
+        return out(LABELS.waiting, `aucun check sur ce commit : review sans CI dans ${Number.isNaN(left) ? NO_CI_MS / 60000 : left} min`);
       }
       step = REVIEW.find((r) => (r !== "qa" || ctx.hasQa) && !s.markers.has(r) && !silent.includes(r));
     }
@@ -217,7 +218,7 @@ export function decide(s, entry, tab, ctx) {
   }
 
   const blocked = !ctx.on ? "surveillance coupée" : ctx.slots <= 0 ? "tous les agents de surveillance sont pris"
-    : KARADOC.includes(step) && !ctx.karadocFree ? "karadoc est pris par un autre pr-demo ou qa" : null;
+    : KARADOC.includes(step) && !ctx.karadocFree ? "karadoc occupé par un autre pr-demo ou qa" : null;
   if (blocked) {
     const why = `${step} à lancer, mais ${blocked}`;
     return out(yours ? LABELS.yours : LABELS.waiting, yours ? `${yours} ; ${why}` : why, null, toast);
