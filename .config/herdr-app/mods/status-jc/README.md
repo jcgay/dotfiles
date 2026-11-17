@@ -4,7 +4,7 @@ Clone perso du mod `workspace-status` de Herdr (version 0.1.15, voir `mod.json`)
 
 ## Ce que fait le mod
 
-Il affiche la barre d'état : machine, branche, nombre d'agents et combien t'attendent, puis les ports ouverts par les programmes du space affiché, et le raccourci de la palette. Il héberge aussi la surveillance des PR : toutes les 5 minutes, il lit tes PR ouvertes et lance des agents Claude dans des onglets visibles pour réparer Jenkins ou Sonar, puis pour la revue. Le panneau PR (`mods/pr/`) n'en est que l'affichage et l'interrupteur.
+Il affiche la barre d'état : machine, branche, nombre d'agents et combien t'attendent, puis les ports ouverts par les programmes du space affiché, et le raccourci de la palette. Il héberge aussi la surveillance des PR : toutes les 5 minutes, il lit tes PR ouvertes et lance des agents Claude dans des onglets visibles pour réparer Jenkins ou Sonar, puis pour la revue. Le panneau PR (`mods/pr/`) n'en est que l'affichage et l'interrupteur. Il fusionne aussi, toutes les minutes, les PR armées depuis le panneau dès que leurs checks sont verts (voir « Merge armé »).
 
 ## Barre d'état
 
@@ -134,23 +134,41 @@ status-jc réécrit tout le registre en fin de tour, sauf `on` et `paused` qu'il
 
 `shared("pr-watch-lease")` vaut `{ at, id }` pendant un tour, `null` sinon.
 
+## Merge armé
+
+Le bouton « Merger quand tout est vert » du résumé de la PR (panneau `pr`) écrit la PR dans `shared("pr-merge")` : `{ "<owner>/<repo>#<N>": { head, at, why, error } }`, `head` étant le commit de tête au moment du clic, et `at` l'heure du clic. Ce mod le relit toutes les minutes, sans appel gh si rien n'est armé, que la surveillance soit coupée ou non et quel que soit l'auteur de la PR. Pour chaque PR, `gh pr view --json state,headRefOid,statusCheckRollup,commits` puis `mergeStep` :
+
+| Situation | Effet |
+|---|---|
+| PR fusionnée ou fermée | désarmée, sans toast |
+| commit de tête ≠ celui armé | désarmée, toast « nouveau commit, merge annulé » |
+| un commit `fixup!`, `amend!` ou `squash!` | désarmée, toast |
+| aucun check, un check en cours ou en échec | on attend (`why` le dit au panneau) ; un build instable relancé peut repasser vert |
+| un `Jenkinsfile` au commit de tête, mais Jenkins n'a pas encore rapporté (build en file) | on attend |
+| tout vert | `gh pr merge --rebase --match-head-commit <head armé>` ; succès : désarmée, toast « fusionnée » (un échec sur une PR déjà `MERGED` compte comme un succès) ; refus : toast « merge refusé », l'entrée reste avec `refused` et l'erreur, plus jamais retentée, jusqu'au ✕ du panneau |
+| `gh pr view` échoue | toujours armée, `error` gardée, sans toast |
+
+En fin de tour, `applyResults` ne modifie une entrée que si son `at` n'a pas changé : un désarmement ou un nouvel armement fait pendant le tour l'emporte. Le tour revérifie aussi `at` juste avant un toast ou un merge. Un bail `shared("pr-merge-lease")`, renouvelé à chaque PR, évite deux merges par deux copies du mod.
+
 ## Fichiers et tests
 
 | Fichier | Rôle |
 |---|---|
 | `mod.json` | Origine du clone (`workspace-status` 0.1.15). |
-| `main.js` | La vue : barre d'état, minuteurs des ports (5 s) et de la surveillance (60 s puis 5 min), écriture du registre. |
+| `main.js` | La vue : barre d'état, minuteurs des ports (5 s), de la surveillance (60 s puis 5 min) et du merge armé (1 min), écriture du registre. |
 | `ports.js` | Fonctions pures des ports : lecture de lsof et ps, space d'un listener, santé, quoi interroger. |
 | `watch.js` | Fonctions pures de la surveillance : signaux d'une PR, `decide`, prompts, lecture de git. Sans import Herdr. |
 | `watcher.js` | Un tour : bail, appels gh et git, clone local, worktree `-watch`, ouverture des onglets. |
-| `ports.test.mjs`, `watch.test.mjs` | Tests `node:test` des deux fichiers purs. |
+| `merge.js` | Fonctions pures du merge armé : `mergeStep`, `applyResults`. Sans import Herdr. |
+| `merger.js` | Un tour de merge armé : bail, appels gh, toasts. |
+| `ports.test.mjs`, `watch.test.mjs`, `merge.test.mjs` | Tests `node:test` des fichiers purs. |
 
 ```sh
 node --test ~/.config/herdr-app/mods/status-jc/*.test.mjs
 herdr-app check ~/.config/herdr-app/mods/status-jc
 ```
 
-`watcher.js` et `main.js` n'ont pas de test : ils parlent à Herdr, gh et git.
+`watcher.js`, `merger.js` et `main.js` n'ont pas de test : ils parlent à Herdr, gh et git.
 
 ## À savoir
 
@@ -170,5 +188,6 @@ herdr-app check ~/.config/herdr-app/mods/status-jc
 - [Surveillance des PR](../../docs/2026-11-14-pr-watch-design.md) et son [plan](../../docs/2026-11-14-pr-watch-plan.md)
 - [Mettre une PR en pause](../../docs/2026-11-16-pr-watch-pause-design.md)
 - [Ne pas lancer d'agent sur une branche où je travaille](../../docs/2026-11-16-pr-watch-busy-branch-design.md)
+- [Merge armé](../../docs/2026-11-17-pr-armed-merge-design.md)
 
 Les conceptions peuvent être en retard sur le code : le code fait foi.
