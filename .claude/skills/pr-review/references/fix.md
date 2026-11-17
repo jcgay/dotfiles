@@ -35,6 +35,9 @@ no-PR mode. `<base-sha>`, `<head>`, `headRefName`, `headRefOid` and
   `fixup! fixup!`.
   A finding that a commit message claims something false: `git commit
   --fixup=amend:<sha>` carries both the code fix and the corrected message.
+  `git rebase --autosquash` keeps only the original message: when a fixup's
+  body explains a behaviour change, use `git commit --fixup=amend:<sha>` with
+  the merged message (the original one plus that explanation) instead.
 - PR mode (and a PR whose diff GitHub refused), push: `git fetch origin <headRefName>`, then
   `git merge-base --is-ancestor origin/<headRefName> HEAD` must succeed, then
   `git push origin HEAD:refs/heads/<headRefName>`. Never force. Remote moved
