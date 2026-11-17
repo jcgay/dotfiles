@@ -7,7 +7,7 @@ import { jenkinsBuild, checks, otherChecks, summary, minutes, deploymentsFor, pa
 const KEEP = 30;
 
 // The pull request of the shown space's branch (gh), and its Jenkins build (jk).
-const FIELDS = "number,title,state,isDraft,reviewDecision,reviewRequests,url,headRefName,baseRefName,additions,deletions,statusCheckRollup";
+const FIELDS = "number,title,state,isDraft,headRefOid,reviewDecision,reviewRequests,url,headRefName,baseRefName,additions,deletions,statusCheckRollup";
 
 function location() {
   const space = spaces().find((s) => s.active), f = focused();
@@ -179,6 +179,17 @@ export default class PullRequest extends View {
           .when(Boolean(c.url), (r) => r.cursor_pointer().hover((s) => s.bg(t.hover)).on_click(() => exec("open", [c.url])))
           .child(dot(c.state)).child(div().flex_1().min_w(0).truncate().child(c.name)))))];
 
+    // Armed merge: status-jc (mods/status-jc/merge.js, ARMED) merges it once every check is green; the panel only arms and disarms.
+    const armedAll = shared("pr-merge") ?? {};
+    const mergeRepo = pr && /github\.com\/([^/]+\/[^/]+)\/pull\//.exec(pr.url)?.[1];
+    const mergeKey = mergeRepo && `${mergeRepo}#${pr.number}`, armed = mergeKey && armedAll[mergeKey];
+    const disarm = () => { const { [mergeKey]: _, ...rest } = shared("pr-merge") ?? {}; setShared("pr-merge", rest); };
+    const mergeRow = armed && ["Merge", v_flex().gap(3)
+      .child(h_flex().gap(8).items_center()
+        .child(div().flex_1().min_w(0).truncate().child(armed.refused ? "merge refusé" : `armé${armed.why ? ` · ${armed.why}` : ""}`))
+        .child(icon("pr-disarm", "✕", armed.refused ? "Effacer" : "Désarmer", disarm)))
+      .when(Boolean(armed.error), (e) => e.child(div().text_size(11).text_color(t.ansi1).child(armed.error)))];
+    const canArm = Boolean(mergeKey) && pr.state === "OPEN" && !pr.isDraft && !armed;
     const reviewers = (pr?.reviewRequests ?? []).map((r) => r.login ?? r.name ?? r.slug);
     const body = !where.branch ? div().text_color(t.dim).child("Pas de branche git ici.")
       : this.error ? div().text_color(t.ansi1).child(this.error)
@@ -192,7 +203,9 @@ export default class PullRequest extends View {
           .child(div().text_color(t.muted).child(`#${pr.number}`))
           .child(chip(...state)).when(Boolean(review), (e) => e.child(chip(...review)))
           .child(div().text_size(11).text_color(t.ansi2).child(`+${pr.additions}`)).child(div().text_size(11).text_color(t.ansi1).child(`−${pr.deletions}`)))
-        .child(table([buildRow, deployedRow, checksRow]))
+        .child(table([buildRow, deployedRow, checksRow, mergeRow]))
+        .when(canArm, (e) => e.child(h_flex().pt(12).child(button("pr-arm", "Merger quand tout est vert",
+          () => setShared("pr-merge", { ...(shared("pr-merge") ?? {}), [mergeKey]: { head: pr.headRefOid, at: Date.now(), why: null, error: null } })))))
         .child(div().pt(8).text_size(11).text_color(t.dim)
           .child(`${pr.headRefName} → ${pr.baseRefName}${reviewers.length ? ` · revue demandée à ${reviewers.join(", ")}` : ""}`));
 
