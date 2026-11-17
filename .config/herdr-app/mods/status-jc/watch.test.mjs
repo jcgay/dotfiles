@@ -105,7 +105,7 @@ const ALL = new Set(["pr-risk", "pr-review", "pr-demo", "qa"]);
 const NO_TAB = { exists: false, running: false };
 const RUNNING = { exists: true, running: true };
 const DONE = { exists: true, running: false };
-const CTX = { on: true, slots: 3, karadocFree: true, hasQa: true, hasCi: true };
+const CTX = { on: true, slots: 3, karadocFree: true, hasQa: true, hasDemo: true, hasCi: true };
 const at = (over = {}) => ({ ...emptyEntry(), head: "h1", ...over });
 
 test("jenkins ko launches jenkins", () => {
@@ -149,6 +149,13 @@ test("qa skipped without the skill", () => {
   const r = decide(green({ markers: new Set(["pr-risk", "pr-review", "pr-demo"]) }), at(), NO_TAB, { ...CTX, hasQa: false });
   assert.equal(r.launch, null);
   assert.equal(r.entry.label, "ok");
+});
+
+test("pr-demo skipped without a Demo section", () => {
+  const r = decide(green({ markers: new Set(["pr-risk", "pr-review"]) }), at(), NO_TAB, { ...CTX, hasDemo: false });
+  assert.equal(r.launch, "qa");
+  assert.match(decide(green({ markers: new Set(["pr-risk", "pr-review", "qa"]) }), at(), NO_TAB, { ...CTX, hasDemo: false }).entry.why, /pas de pr-demo/);
+  assert.doesNotMatch(decide(green({ markers: ALL }), at(), NO_TAB, { ...CTX, hasDemo: false, hasQa: false }).entry.why, /pas de/, "a done step is not also skipped");
 });
 
 test("draft gets no review", () => {
