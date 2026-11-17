@@ -12,6 +12,11 @@
 !mods/subagent-band/hooks/*
 !mods/subagent-band/types/
 !mods/subagent-band/types/*
+!mods/commit-guard/
+!mods/commit-guard/.claude-plugin/
+!mods/commit-guard/.claude-plugin/plugin.json
+!mods/commit-guard/hooks/
+!mods/commit-guard/hooks/*
 !.ponytail-band
 !rules/
 !rules/git-commit.md

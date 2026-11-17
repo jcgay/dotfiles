@@ -1,0 +1,1 @@
+{ "name": "commit-guard", "version": "0.1.0", "description": "Refuse git/yadm commits whose message breaks ~/.claude/rules/git-commit.md: Co-Authored-By, dashes, Closes #PR" }
