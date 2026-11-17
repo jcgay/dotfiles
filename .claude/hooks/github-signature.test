@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Self-check for github-signature: ./github-signature.test (silent on success)
 cd "$(dirname "$0")"
-signed=$(mktemp -d)/b\ c.md; printf 'b\n\n🤖 Jean-Claude\n' > "$signed"
+dir=$(mktemp -d); signed=$dir/b\ c.md; printf 'b\n\n🤖 Jean-Claude\n' > "$signed"; cp "$signed" "$dir/gh"
 fail=0
-t() { got=$(jq -n --arg c "$2" '{tool_input:{command:$c}}' | ./github-signature | jq -r '.hookSpecificOutput.permissionDecision // "allow"')
+t() { got=$(jq -n --arg c "$2" --arg d "$dir" '{tool_input:{command:$c},cwd:$d}' | ./github-signature | jq -r '.hookSpecificOutput.permissionDecision // "allow"')
       got=${got:-allow}; [ "$got" = "$1" ] || { echo "FAIL want $1 got $got: $2"; fail=1; }; }
 t deny  'gh pr comment 12 --body "hello"'
 t allow 'gh pr comment 12 --body "hello
@@ -43,4 +43,28 @@ X'
 t allow 'git commit -F - <<-X
 	gh pr comment 1 -b x
 	X'
+t allow 'gh pr edit 3 --add-label bug && git log -n 3'
+t allow 'gh pr review 3 --approve && wc -l -n'
+t allow 'gh pr edit 3 --title t; gh api x -F foo=bar'
+t allow 'git commit -m "Fix; gh pr comment 3 -b x"'
+t allow 'gh pr create --title t -w'
+t deny  'FOO=1 gh pr comment 3 -b x'
+t deny  'gh --repo=o/r pr comment 1 --body=x'
+t deny  'x=$(gh pr comment 1 -b hi)'
+t allow "gh pr comment 1 --body-file='$signed'"
+t deny  'gh issue comment 1 \
+-b x'
+t deny  'gh \
+  pr comment 1 -b x'
+t deny  'echo "Créé : $(gh pr comment 1 -b x)"'
+t allow 'echo "$(gh pr view 1)"; git log -n 3'
+t deny  'echo `gh pr comment 1 -b x`'
+t deny  'for n in 1 2; do gh pr comment $n -b x; done'
+t deny  'env gh pr comment 1 -b x'
+t deny  'gh -R=o/r pr comment 1 -b x'
+t deny  'gh -Ro/r pr comment 1 -b x'
+t deny  'gh pr comment 1 -bhello'
+t allow 'gh pr comment 1 -F "b c.md"'
+t allow 'gh pr comment 1 -F gh'
+t allow "gh pr comment 1 -F'$signed'"
 exit $fail

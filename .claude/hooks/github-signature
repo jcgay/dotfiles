@@ -3,25 +3,74 @@
 # the "🤖 Jean-Claude" signature (see ~/.claude/rules/github.md).
 # Fails open: without jq or with unreadable input, the command goes through.
 sig='🤖 Jean-Claude'
-cmd=$(jq -r '.tool_input.command // empty')
+input=$(cat)
+cmd=$(jq -r '.tool_input.command // empty' <<<"$input")
+# Relative body files are read from the session's directory.
+cd "$(jq -r '.cwd // "."' <<<"$input")" 2>/dev/null
 
-# gh must start a command segment (line start, ;, &, |, (, $( ) so that text
-# merely mentioning it (commit message) does not count. Heredoc bodies are
-# dropped first: their lines are text, not commands.
+# Heredoc bodies are dropped first: their lines are text, not commands. Then
+# the command is split into segments on ; & | ( ) $( and newlines outside
+# quotes, each segment into words; only the options of a gh segment count, so
+# text merely mentioning gh (commit message) or another command's -n does not.
+# Prints a gh line per gh segment that publishes a body, then F:<body file>.
 flat=$(perl -0pe 's/(<<-?\s*([\x27"]?)(\w+)\2[^\n]*)\n.*?\n\s*\3(?=\n|$)/$1/gs' <<<"$cmd")
-seg='(^|[;&|(]|\$\()[[:space:]]*(rtk +(proxy +)?)?gh( +(-R|--repo)[ =][^ ]+)? +'
-grep -qE "$seg(pr +(create|comment|review|edit)|issue +(create|comment|edit)|release +(create|edit))( |$)" <<<"$flat" || exit 0
-# pr/issue create always write a body (unless --web hands over to the browser);
-# the others only with a body flag.
-if ! grep -qE -- '(-b|--body|-F|--body-file|-n|--notes|--notes-file)([ =]|$)' <<<"$cmd"; then
-  grep -qE "$seg(pr|issue) +create( |$)" <<<"$flat" && ! grep -qE -- '--web( |$)' <<<"$cmd" || exit 0
-fi
+found=$(perl -0ne '
+  my (@segs, $word, $has, @outer) = ([]);
+  my $q = "";
+  my $end_word = sub { push @{$segs[-1]}, $word if $has; ($word, $has) = ("", 0) };
+  my $cut = sub { $end_word->(); push @segs, [] };
+  my @c = split //;
+  for (my $i = 0; $i < @c; $i++) {
+    my $ch = $c[$i];
+    my $sub = $ch eq "\$" && ($c[$i + 1] // "") eq "(";
+    if ($q eq "\x27") { if ($ch eq $q) { $q = "" } else { $word .= $ch } }
+    elsif ($q eq "\"") {
+      if ($ch eq $q) { $q = "" }
+      elsif ($ch eq "\\" && $i + 1 < @c) { my $n = $c[++$i]; $word .= $n unless $n eq "\n" }
+      # "$(...)" runs a command: leave the quotes until its closing )
+      elsif ($sub) { $cut->(); push @outer, $q; $q = ""; $i++ }
+      else { $word .= $ch }
+    }
+    elsif ($ch eq "\x27" || $ch eq "\"") { $q = $ch; $has = 1 }
+    # bash drops a backslash-newline pair: the command goes on
+    elsif ($ch eq "\\" && $i + 1 < @c) { my $n = $c[++$i]; next if $n eq "\n"; $word .= $n; $has = 1 }
+    elsif ($sub || $ch eq "(") { $cut->(); push @outer, ""; $i++ if $sub }
+    elsif ($ch eq ")") { $cut->(); $q = pop(@outer) // ""; $has = 1 if $q }
+    elsif ($ch =~ /[;&|\n`]/) { $cut->() }
+    elsif ($ch =~ /\s/) { $end_word->() }
+    else { $word .= $ch; $has = 1 }
+  }
+  $end_word->();
+  for my $s (@segs) {
+    my @w = @$s;
+    shift @w while @w && $w[0] =~ /^(\w+=.*|do|then|else|elif|if|while|until|time|!|\{|env|command|exec)$/s;
+    if (@w && $w[0] eq "rtk") { shift @w; shift @w if @w && $w[0] eq "proxy" }
+    next unless @w && shift(@w) eq "gh";
+    if (@w && $w[0] =~ /^(-R|--repo)$/) { splice @w, 0, 2 } elsif (@w && $w[0] =~ /^(-R.|--repo=)/s) { shift @w }
+    my $sub = "@w[0,1]";
+    next unless $sub =~ /^(pr (create|comment|review|edit)|issue (create|comment|edit)|release (create|edit))$/;
+    my ($body, $web, @files);
+    for (my $j = 2; $j < @w; $j++) {
+      # --opt=value, and short options with their value attached (-bhi, -F=x)
+      my ($o, $v) = $w[$j] =~ /^(--[\w-]+)=(.*)$/s ? ($1, $2) : $w[$j] =~ /^(-[bFn])=?(.+)$/s ? ($1, $2) : ($w[$j]);
+      $web = 1 if $o =~ /^(-w|--web)$/;
+      next unless $o =~ /^(-b|--body|-F|--body-file|-n|--notes|--notes-file)$/;
+      $body = 1;
+      $v //= $w[++$j];
+      push @files, $v if $o =~ /^(-F|--body-file|--notes-file)$/ && defined $v;
+    }
+    # pr/issue create always write a body, unless --web hands over to the browser
+    $body ||= $sub =~ /^(pr|issue) create$/ && !$web;
+    print "gh\n", map("F:$_\n", @files) if $body;
+  }' <<<"$flat")
+[ -n "$found" ] || exit 0
 
 grep -qF "$sig" <<<"$cmd" && exit 0
 while IFS= read -r f; do
-  f=${f#\"}; f=${f%\"}; f=${f#\'}; f=${f%\'}; f=${f/#\~/$HOME}
+  [[ $f == F:* ]] || continue
+  f=${f#F:}; f=${f/#\~/$HOME}; f=${f//\$\{HOME\}/$HOME}; f=${f//\$HOME/$HOME}
   [ -f "$f" ] && grep -qF "$sig" "$f" && exit 0
-done < <(grep -oE -- "(-F|--body-file|--notes-file)[ =]+(\"[^\"]*\"|'[^']*'|[^ ;&|\"']+)" <<<"$cmd" | sed -E 's/^[^ =]+[ =]+//')
+done <<<"$found"
 
 jq -n --arg r "Le texte publié sur GitHub doit se terminer par une ligne vide puis \"$sig\" (voir ~/.claude/rules/github.md)." \
   '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"deny",permissionDecisionReason:$r}}'
