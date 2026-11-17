@@ -53,3 +53,8 @@ softwareupdate -l
 # Merge what a Herdr update changed in its shipped layouts and mods into our clones
 echo -e "\033[0;34mMerging Herdr updates into the cloned layouts and mods...\033[0m"
 herdr-upstream
+
+# Our launchd jobs, last so it is the first thing read in the morning; `launchd-status <job>` shows its log.
+# A job reloaded above starts again at 0 runs: its failure, if any, was reported at the top.
+echo -e "\033[0;34mlaunchd jobs:\033[0m"
+launchd-status
