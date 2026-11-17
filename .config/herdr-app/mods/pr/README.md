@@ -17,7 +17,9 @@ Titre de la PR                      ← clic : la PR sur GitHub
 │          │ 412 tests · 3 en échec · 2 ignorés           │
 │ Déployée │ merlin-feat-x.dockersw.vidal.net             │ ← « nulle part » si rien, « … » pendant la recherche
 │ Checks   │ ● 1 en échec · 2 ✓                        ›  │ ← clic : déplie la liste
+│ Merge    │ armé · CI en cours                         ✕  │ ← seulement une fois armé
 └──────────┴───────────────────────────────────────────────┘
+[Merger quand tout est vert]          ← PR ouverte, pas brouillon, pas armée
 feat/x → master · revue demandée à alice
 SURVEILLANCE …
 ```
@@ -25,6 +27,7 @@ SURVEILLANCE …
 - La ligne **Build** n'existe que si un check de la PR pointe vers un build Jenkins. 📜 ouvre la console, 🔁 relance (`jk run rerun`) et n'apparaît que sur un build terminé qui n'a pas réussi. Hors VPN : « Jenkins injoignable (VPN ?) ».
 - **Checks** ne compte pas le check du build affiché dans Build, sauf hors VPN (Build ne connaît alors pas son résultat) ; un autre job Jenkins y reste. La ligne disparaît s'il ne reste aucun check. Dépliée ou repliée, elle le reste d'un espace à l'autre.
 - Sans PR : « Pas de PR pour `<branche>` », la ligne Déployée si un conteneur a été trouvé, et le bouton **Créer la PR** (`gh pr create --web`).
+- **Merger quand tout est vert** arme un « rebase and merge » de la PR sur son commit de tête : `status-jc` la fusionne dans la minute qui suit le passage au vert de tous ses checks, même panneau fermé (détail dans son [README](../status-jc/README.md#merge-armé)). La ligne **Merge** dit ce qu'on attend et l'erreur éventuelle de gh ; ✕ désarme. Un merge refusé par GitHub y reste affiché (« merge refusé » et l'erreur) jusqu'au ✕. Un nouveau commit ou un commit `fixup!`/`amend!`/`squash!` désarme avec un toast.
 - Une action (relance, création) affiche sa progression puis son erreur éventuelle en bas du panneau.
 
 ## D'où viennent les données
@@ -89,4 +92,4 @@ Tests : `node --test ~/.config/herdr-app/mods/pr/*.test.mjs`. Vérification du m
 - `model.js` n'importe rien de Herdr, sinon Node ne peut pas le tester.
 - Jenkins n'a pas le plugin Pipeline Graph View : pas d'étapes, seulement résultat, tests et durée.
 
-Designs : [aspect du panneau](../../docs/2026-11-16-pr-panel-look-design.md), [surveillance](../../docs/2026-11-14-pr-watch-design.md).
+Designs : [aspect du panneau](../../docs/2026-11-16-pr-panel-look-design.md), [surveillance](../../docs/2026-11-14-pr-watch-design.md), [merge armé](../../docs/2026-11-17-pr-armed-merge-design.md).
