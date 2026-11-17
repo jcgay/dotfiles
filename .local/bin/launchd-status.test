@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# Self-check for launchd-status: bash launchd-status.test (silent on success)
+cd "$(dirname "$0")" || exit 1
+tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
+mkdir -p "$tmp/bin" "$tmp/home/Library/LaunchAgents" "$tmp/home/logs"
+for j in fr.jcgay.ok fr.jcgay.ko fr.jcgay.off com.glane.run other.thing; do touch "$tmp/home/Library/LaunchAgents/$j.plist"; done
+echo 'last line' > "$tmp/home/logs/ok.log"
+# fake launchctl: "print gui/<uid>/<label>" answers from $tmp/state/<label>, absent = not loaded
+mkdir "$tmp/state"
+printf '\tstate = not running\n\tstdout path = %s\n\truns = 3\n\tlast exit code = 0\n' "$tmp/home/logs/ok.log" > "$tmp/state/fr.jcgay.ok"
+printf '\tstate = not running\n\truns = 1\n\tlast exit code = 2\n' > "$tmp/state/fr.jcgay.ko"
+printf '\tstate = running\n\truns = 5\n\tlast exit code = 1\n' > "$tmp/state/com.glane.run"
+printf '#!/usr/bin/env bash\ncat "%s/state/${2##*/}" 2>/dev/null\n' "$tmp" > "$tmp/bin/launchctl"
+chmod +x "$tmp/bin/launchctl"
+
+run() { out=$(HOME=$tmp/home PATH=$tmp/bin:$PATH bash ./launchd-status "$@"); } # not a tty: no colors
+want() { grep -qE "$1" <<<"$out" || { printf 'FAIL: no /%s/ in\n%s\n' "$1" "$out"; exit 1; }; }
+
+run
+want '^ok +fr\.jcgay\.ok +runs 3 +log [0-9-]+ [0-9:]+  ~/logs/ok\.log$'
+want '^failed \(2\) +fr\.jcgay\.ko +runs 1 +log never'
+want '^not loaded +fr\.jcgay\.off '
+want '^running \(last 1\) com\.glane\.run '
+grep -q other.thing <<<"$out" && { echo "FAIL: other.thing listed"; exit 1; }
+# a name filters and prints the log
+run ok
+[ "$out" = "$(head -1 <<<"$out")"$'\n    last line' ] || { printf 'FAIL filter:\n%s\n' "$out"; exit 1; }
+HOME=$tmp/home PATH=$tmp/bin:$PATH bash ./launchd-status ok > /dev/null || { echo "FAIL: ok job should exit 0"; exit 1; }
+HOME=$tmp/home PATH=$tmp/bin:$PATH bash ./launchd-status ko > /dev/null && { echo "FAIL: failed job should exit 1"; exit 1; }
+HOME=$tmp/home PATH=$tmp/bin:$PATH bash ./launchd-status zzz 2>&1 | grep -q 'no job matches zzz' || { echo "FAIL: no message for an unknown name"; exit 1; }
+HOME=$tmp/home PATH=$tmp/bin:$PATH bash ./launchd-status zzz 2>/dev/null && { echo "FAIL: unknown name should exit 1"; exit 1; }
+HOME=$tmp/home PATH=$tmp/bin:$PATH bash ./launchd-status ok all 2>/dev/null; [ $? = 2 ] || { echo "FAIL: bad lines should exit 2"; exit 1; }
+exit 0

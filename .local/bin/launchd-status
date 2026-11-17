@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# Status of our launchd jobs (fr.jcgay.*, com.glane.*): loaded?, running?, runs, last exit code,
+# when the log last changed. With a name (or part of it), only the matching jobs, each followed
+# by the end of its log; the exit code then covers those jobs only.
+# launchd keeps no last-run time: the log's mtime stands in for it (a run with no output leaves it as is).
+# Usage: launchd-status [name] [lines]
+filter=$1 lines=${2:-20} rc=0 found=
+[[ $lines =~ ^[0-9]+$ ]] || { echo "usage: launchd-status [name] [lines]" >&2; exit 2; }
+field() { sed -n "s/^[[:space:]]*$1 = //p" <<<"$state" | head -1; }
+paint() { if [ -t 1 ]; then printf '\033[0;%sm%-14s\033[0m' "$1" "$2"; else printf '%-14s' "$2"; fi; }
+for plist in ~/Library/LaunchAgents/{fr.jcgay,com.glane}.*.plist; do
+  [ -f "$plist" ] || continue
+  label=$(basename "$plist" .plist)
+  [[ $label == *"$filter"* ]] || continue
+  found=1
+  state=$(launchctl print "gui/$(id -u)/$label" 2>/dev/null)
+  code=$(field 'last exit code') log=$(field 'stdout path')
+  [ -n "$log" ] || log=$(plutil -extract StandardOutPath raw "$plist" 2>/dev/null)
+  case $code in 0 | "(never exited)" | "") failed= ;; *) failed=$code ;; esac
+  if [ -z "$state" ]; then status='not loaded' color=33 rc=1
+  elif [ "$(field state)" = running ]; then status="running${failed:+ (last $failed)}" color=34
+  elif [ -n "$failed" ]; then status="failed ($failed)" color=31 rc=1
+  else status=ok color=32
+  fi
+  when=never; [ -f "$log" ] && when=$(date -r "$log" '+%F %H:%M')
+  paint "$color" "$status"
+  printf ' %-24s runs %-4s log %s  %s\n' "$label" "$(field runs)" "$when" "${log/#"$HOME"/\~}"
+  [ -n "$filter" ] && [ -f "$log" ] && tail -n "$lines" "$log" | sed 's/^/    /'
+done
+[ -n "$found" ] || { echo "no job matches ${filter}" >&2; exit 1; }
+exit $rc
