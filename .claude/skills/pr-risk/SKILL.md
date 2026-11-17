@@ -24,7 +24,7 @@ URL (no-PR mode: the comment body to paste).
 ## 1. Find the target
 
 - Argument is a number, a PR URL or a branch:
-  `gh pr view <arg> --json number,title,body,baseRefName,headRefOid,url,state`.
+  `gh pr view <arg> --json number,title,body,baseRefName,baseRefOid,headRefOid,url,state`.
 - No argument: same command without `<arg>`, on the current branch.
 - Take `<owner>/<repo>` from the `url` field (`https://github.com/<owner>/<repo>/pull/<N>`).
   Write it literally in every later `gh` command: `-R <owner>/<repo>`,
@@ -32,9 +32,17 @@ URL (no-PR mode: the comment body to paste).
   calls, and an empty `-R` makes `gh` act on the current directory's repo. Never
   rely on the current directory to find the repository: a PR URL can point
   to another repository.
+- Is the current directory a clone of that repository? Compare
+  `gh repo view --json nameWithOwner --jq .nameWithOwner` with
+  `<owner>/<repo>`. Step 4 needs the answer. In no-PR mode the
+  current directory is the repository.
 - Files, with their size, from GitHub (paginated, no 100-file limit):
   `gh api "repos/<owner>/<repo>/pulls/<N>/files" --paginate --jq '.[] | "\(.status)\t+\(.additions)/-\(.deletions)\t\(.filename)"'`.
-- No PR exists (`gh pr view` fails): **no-PR mode**. Base is
+- A number or a URL that `gh pr view` cannot read (no access, typo,
+  network): stop and show its error. Never fall back to the local diff.
+- No argument or a branch, and `gh pr view` fails with "no pull requests
+  found": **no-PR mode**. Any other error: stop and show it.
+  Base is
   `gh repo view --json defaultBranchRef --jq .defaultBranchRef.name`. Head is
   the branch argument, or `HEAD` when there is none. Files come from
   `git fetch -q origin <base> && git diff --numstat origin/<base>...<head>`.
@@ -45,8 +53,13 @@ URL (no-PR mode: the comment body to paste).
 ## 2. Read the context, cheaply
 
 - The PR title and body, from step 1.
-- The repo's `CLAUDE.md`: read only a section named "Sensitive zones" if it
-  exists. Each entry is a path glob and a reason. No section: continue.
+- The repo's `AGENTS.md` and `CLAUDE.md` at the base, never at the PR head
+  or in the current directory: a PR that removes its own sensitive zone
+  must not escape the floor. For each `<file>`, PR mode:
+  `gh api "repos/<owner>/<repo>/contents/<file>?ref=<baseRefOid>" --jq .content | base64 -d`.
+  No-PR mode: `git show origin/<base>:<file>`. Read only a section named
+  "Sensitive zones" if it exists, in either file. Each entry is a path glob
+  and a reason. No file or no section: continue.
 
 ## 3. Sort the files
 
@@ -91,7 +104,10 @@ the library and what happens when it throws. Never run a blast radius search
 to look for a reason to raise a Low. Never read upstream changelogs or
 release notes of a patch or minor bump.
 `rg` searches the local checkout. If it is not at the PR head, add "callers
-searched at <sha>, not at the PR head" to the "Not read" line.
+searched at <sha>, not at the PR head" to the "Not read" line. If the
+current directory is not a clone of the PR's repository (step 1), search
+no callers and add "callers not searched: the PR is in another repository"
+to the "Not read" line.
 
 ## 5. Judge each danger
 
