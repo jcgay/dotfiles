@@ -38,6 +38,7 @@ dim_gray=$'\033[90m'
 # green(0,200,80) -> yellow(220,200,0) -> red(220,40,20), pct in 0..100
 gradient() {
   awk -v p="$1" 'BEGIN{
+    if(p>100) p=100
     if(p<=50){t=p/50; r=220*t; g=200; b=80-80*t}
     else{t=(p-50)/50; r=220; g=200-160*t; b=20*t}
     printf "%d %d %d", r, g, b
@@ -71,7 +72,8 @@ if [ -n "$used_pct" ]; then
   out="${out}${sep}${bar} ${emoji} ${pct_col}${intpct}%${reset}"
 fi
 
-if [ -n "$limit_pct" ]; then
+# Past resets_at, the rate is stale until the next response refreshes it
+if [ -n "$limit_pct" ] && ! { [ -n "$limit_reset" ] && [ "$limit_reset" -lt "$(date +%s)" ]; }; then
   read -r lr lg lb <<< "$(gradient "$limit_pct")"
   out="${out}${sep}⏳ 5h $(rgb "$lr" "$lg" "$lb")$(printf '%.0f' "$limit_pct")%${reset}"
   [ -n "$limit_reset" ] && out="${out} ${dim_gray}↻$(date -r "$limit_reset" +%H:%M)${reset}"
