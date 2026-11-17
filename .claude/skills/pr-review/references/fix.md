@@ -30,6 +30,9 @@ no-PR mode. `<base-sha>`, `<head>`, `headRefName`, `headRefOid` and
   corrected commit:
   `git blame -L <line>,<line> <head> -- <path>` when it is in
   `<base-sha>..HEAD`, else the latest commit of that range touching the file.
+  Never find it by its title (`grep`, `git log --grep`): the `fixup!` and
+  `amend!` commits carry the same title and come first, which gives
+  `fixup! fixup!`.
   A finding that a commit message claims something false: `git commit
   --fixup=amend:<sha>` carries both the code fix and the corrected message.
 - PR mode (and a PR whose diff GitHub refused), push: `git fetch origin <headRefName>`, then

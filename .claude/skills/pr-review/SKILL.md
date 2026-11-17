@@ -40,9 +40,7 @@ GitHub (review body, inline comment, reply) ends with a blank line then
   (section 5, `--body-only`): it carries the `<!-- pr-review -->` marker the
   PR watch reads, or the watch runs pr-review again. There are no threads
   to reply to; write `findings.json` (section 4), `body.md` and the report.
-  Base SHA:
-  `gh api repos/<owner>/<repo>/pulls/<N> --jq .base.sha`; head SHA:
-  `headRefOid`.
+  Base and head SHAs: the PR's, below.
 - **Local code for the reviewers** (`<repo-dir>`): the reviews read the
   surrounding code, so both SHAs must exist locally. When the current
   directory is that repository (`gh repo view --json nameWithOwner`), it is
@@ -50,6 +48,11 @@ GitHub (review body, inline comment, reply) ends with a blank line then
   clone it into the scratchpad (`gh repo clone <owner>/<repo> <scratchpad>/repo
   -- --filter=blob:none`), fetch the same refs there, and use that clone.
   Pass `<repo-dir>` to every reviewer.
+- **PR mode SHAs**: head SHA is `headRefOid`. Base SHA is
+  `git merge-base origin/<baseRefName> <headRefOid>` in `<repo-dir>`.
+  Never give the base branch's tip to the reviewers: when the base branch
+  moved since the branch was cut, its new commits show in the diff as
+  changes of the PR, reverted.
 - **No-PR mode**: base is the default branch
   (`gh repo view --json defaultBranchRef --jq .defaultBranchRef.name`), head
   the branch argument or `HEAD`; `git fetch -q origin <base>`, base SHA is
