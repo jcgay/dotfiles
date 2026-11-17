@@ -69,12 +69,16 @@ async function cloneOf(repo, clones) {
   // Without the marker in its report template, a QA would be relaunched on every head.
   const report = (dir) => readTextFile(`${clone}/${dir}/skills/testing-api-pull-requests/references/report.md`);
   const hasQa = clone !== null && /^<!-- testing-api-pull-requests -->$/m.test((await report(".agents")) ?? (await report(".claude")) ?? "");
+  // pr-demo stops without a "## Demo" section telling how to start the app. No clone: kept, so its launch says "pas de clone local".
+  // shortcut: read on the clone's checked-out branch, like hasCi; a PR adding the section gets no demo until the clone has it
+  const demo = async (file) => /^## Demo\s*$/m.test((await readTextFile(`${clone}/${file}`)) ?? "");
+  const hasDemo = clone === null || (await demo("AGENTS.md")) || (await demo("CLAUDE.md"));
   // Signals of a CI on the clone's checked-out branch: a PR adding the first one is seen without CI.
   const has = async (path) => clone !== null && (await exec("test", ["-e", `${clone}/${path}`])).code === 0;
   const dir = async (path) => clone !== null && (await exec("test", ["-d", `${clone}/${path}`])).code === 0;
   const hasCi = (await has("Jenkinsfile")) || (await has(".github/workflows"));
   // karadoc is arthur's module: only repos that hold it run it on its fixed ports
-  return { clone, hasQa, hasCi, hasKaradoc: await dir("karadoc") };
+  return { clone, hasQa, hasDemo, hasCi, hasKaradoc: await dir("karadoc") };
 }
 
 // The watch's own worktree for branch, detached on origin/<branch>; dirty when an agent left work in it, busy (the
@@ -190,8 +194,8 @@ async function roundUnderLease(registry, cache, at) {
     const before = registry.prs[s.key] ?? emptyEntry();
     try {
       const busy = [...new Set([...heldTabs(all), ...launched])];
-      const { clone, hasQa, hasCi, hasKaradoc } = repos.get(s.repo);
-      const ctx = { on: registry.on, paused: (registry.paused ?? []).includes(s.key), slots: MAX_AGENTS - busy.length, karadocFree: !hasKaradoc || !karadocHeld(busy, karadocPrs, roundPrs), hasQa, hasCi };
+      const { clone, hasQa, hasDemo, hasCi, hasKaradoc } = repos.get(s.repo);
+      const ctx = { on: registry.on, paused: (registry.paused ?? []).includes(s.key), slots: MAX_AGENTS - busy.length, karadocFree: !hasKaradoc || !karadocHeld(busy, karadocPrs, roundPrs), hasQa, hasDemo, hasCi };
       const tab = { ...tabOf(before), busy: busy.some((t) => t.startsWith(`⟳ #${s.number} `)) };
       const r = decide(s, before, tab, ctx);
       if (r.toast) notify({ title: r.toast, body: s.url, level: "warning" });

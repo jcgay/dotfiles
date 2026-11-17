@@ -240,7 +240,7 @@ export function decide(s, entry, tab, ctx) {
     if (!s.draft) {
       if (s.failing) return out(LABELS.yours, "un check en échec que la surveillance ne corrige pas (ni Jenkins ni Sonar)", null, toast);
       if (!s.reported && ctx.hasCi) return out(LABELS.waiting, "aucun check sur ce commit : attente de la CI du repo");
-      step = REVIEW.find((r) => (r !== "qa" || ctx.hasQa) && !s.markers.has(r) && !silent.includes(r));
+      step = REVIEW.find((r) => (r !== "qa" || ctx.hasQa) && (r !== "pr-demo" || ctx.hasDemo) && !s.markers.has(r) && !silent.includes(r));
     }
     if (!step) {
       if (yours) return out(LABELS.yours, yours, null, toast);
@@ -248,7 +248,8 @@ export function decide(s, entry, tab, ctx) {
       if (s.draft) return out(LABELS.draft, `${ci}, pas de review sur un brouillon`);
       const done = REVIEW.filter((r) => s.markers.has(r));
       return out(LABELS.ok, [ci, done.length && `faits : ${done.join(", ")}`, silent.length && `fermés sans commentaire : ${silent.join(", ")}`,
-        !ctx.hasQa && "pas de qa (skill absent du clone)"].filter(Boolean).join(" ; "));
+        !ctx.hasDemo && !s.markers.has("pr-demo") && "pas de pr-demo (pas de section ## Demo dans AGENTS.md ni CLAUDE.md)",
+        !ctx.hasQa && !s.markers.has("qa") && "pas de qa (skill absent du clone)"].filter(Boolean).join(" ; "));
     }
   }
 
