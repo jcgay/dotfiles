@@ -4,7 +4,14 @@
 *
 !.gitignore
 !statusline-command.sh
-!subagent-statusline.py
+!mods/
+!mods/subagent-band/
+!mods/subagent-band/.claude-plugin/
+!mods/subagent-band/.claude-plugin/plugin.json
+!mods/subagent-band/hooks/
+!mods/subagent-band/hooks/*
+!mods/subagent-band/types/
+!mods/subagent-band/types/*
 !.ponytail-band
 !rules/
 !rules/git-commit.md
