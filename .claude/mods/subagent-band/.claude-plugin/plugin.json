@@ -1,0 +1,1 @@
+{ "name": "subagent-band", "version": "0.1.0", "description": "Band above the prompt: each running subagent's model and context fill", "types": "./types/index.d.ts" }
