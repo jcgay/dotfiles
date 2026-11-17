@@ -3,6 +3,7 @@ import { h_flex } from "gpui-base";
 import { spaces, agents, panes, terminals, theme, run, window, keys, exec, home, shared, setShared, setBadge } from "herdr";
 import { parseListeners, parseParents, parseCwds, spaceOf, health, stillMapped, healthPlan } from "./ports.js";
 import { round } from "./watcher.js";
+import { mergeRound } from "./merger.js";
 
 const WATCH = "pr-watch";
 const FRESH = { on: false, prs: {}, error: null, at: 0, paused: [] }; // the PR panel's switch turns it on
@@ -17,6 +18,23 @@ export default class WorkspaceStatus extends View {
     // The PR watch lives here: this bar is always shown, the PR panel is not.
     cx.timer.after(60000, (cx) => this.watch(cx));
     cx.timer.every(300000, (cx) => this.watch(cx));
+    // Armed merges (PR panel): checked every minute, a merge should follow the end of a build closely.
+    cx.timer.every(60000, (cx) => this.merge(cx));
+  }
+
+  merge(cx) {
+    if (this.merging) return;
+    this.merging = true;
+    this.mergeLease ??= `${Date.now()}-${Math.random()}`;
+    cx.spawn(async () => {
+      try {
+        await mergeRound(this.mergeLease);
+      } catch (e) {
+        console.log("merge:", e?.message ?? e);
+      } finally {
+        this.merging = false;
+      }
+    });
   }
 
   // Rounds run while the watch is off too: the panel stays fresh, decide launches nothing.
