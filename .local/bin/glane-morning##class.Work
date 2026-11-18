@@ -1,0 +1,34 @@
+#!/opt/homebrew/bin/fish
+# Morning glane run: start the local models, `glane update`, stop them.
+# Runs under fish so conf.d/glane.fish + secrets.fish provide the env.
+
+fish_add_path -g /opt/homebrew/bin /usr/local/bin
+
+function wait_for --argument-names url
+    for i in (seq 180)
+        curl -sf $url >/dev/null; and return 0
+        sleep 2
+    end
+    echo "timeout waiting for $url" >&2
+    return 1
+end
+
+echo "=== "(date)" ===" >&2
+
+ollama serve >/dev/null 2>&1 &
+set ollama_pid $last_pid
+rapid-mlx serve gemma-4-12b-8bit --no-mllm --port 8000 --max-tokens 2048 --cache-memory-mb 4096 >/dev/null 2>&1 &
+set mlx_pid $last_pid
+
+set status_code 1
+if wait_for http://localhost:11434/api/version; and wait_for http://localhost:8000/v1/models
+    # Woken at 7:00, the network may not be up yet: GitHub resets the connection and the sync is partial (exit 1).
+    wait_for https://api.github.com/zen
+    glane update
+    set status_code $status
+end
+
+kill $mlx_pid $ollama_pid 2>/dev/null
+wait
+echo "=== done ($status_code) ===" >&2
+exit $status_code
