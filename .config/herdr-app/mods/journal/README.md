@@ -13,17 +13,19 @@ Journal                          surveillance et merge
             [ Plus ]  [ Tout le journal ]
 ```
 
-- Les 20 dernières lignes (`tail -n`), la plus récente en haut. **Plus** en lit 20 de plus, visible tant que `tail` en rend autant que demandé.
+- **Marqueur de lecture** : les lignes non lues en clair en haut, puis un trait « lu », puis les lues en grisé ; tout lu, le trait reste en tête. L'en-tête dit « N non lues » et propose **Tout lu**, qui pose le marqueur sur la dernière ligne. Le bouton Journal de la barre d'onglets porte une pastille avec ce nombre, panneau fermé compris.
+- Le marqueur est un nombre de lignes du fichier, dans `shared("journal-read")`. `status-jc` publie le nombre de lignes dans `shared("journal-lines")` après chaque écriture, et le panneau le pose seulement s'il est absent (fichier écrit avant cette fonction). Pas de marqueur, ou un fichier plus court que lui (supprimé puis recréé) : tout est non lu.
+- Les 20 dernières lignes, la plus récente en haut, lues avec le nombre de lignes du fichier en un seul passage `awk` (une écriture entre les deux décalerait le marqueur). **Plus** en lit 20 de plus, visible tant que le fichier en a davantage.
 - **Tout le journal** : un nouvel onglet `less +G` sur le fichier, dans le space affiché.
 - « Rien pour l'instant » tant que le fichier n'existe pas.
-- Relu à l'ouverture du panneau, quand `watchFolder(~/Library/Logs)` signale le fichier (panneau caché : relu à la prochaine ouverture), et toutes les minutes panneau ouvert (Herdr peut reprendre une surveillance de dossier inactive).
+- Relu à l'ouverture du panneau, et panneau ouvert dès que `shared("journal-lines")` change (`status-jc` le publie après chaque écriture). Pas de surveillance de dossier : `watchFolder` est refusé au-delà de 64 dossiers et `~/Library/Logs` bouge sans arrêt. Seule la dernière lecture lancée compte.
 
 ## Fichiers et tests
 
 | Fichier | Rôle |
 |---|---|
-| `main.js` | La vue, la lecture par `tail`, la surveillance du dossier. |
-| `model.js` | Fonctions pures : lecture des lignes, heure affichée. Sans import Herdr. |
+| `main.js` | La vue, la lecture par `awk`. |
+| `model.js` | Fonctions pures : lecture des lignes, heure affichée, nombre de non-lues. Sans import Herdr. |
 | `model.test.mjs` | Tests `node:test` de `model.js`. |
 
 ```sh

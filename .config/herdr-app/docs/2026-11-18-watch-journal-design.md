@@ -34,6 +34,22 @@ JOURNAL
 - Un clic sur une ligne ouvre la PR sur GitHub.
 - Le panneau se met à jour seul quand le journal change (panneau ouvert).
 
+### Marqueur de lecture
+
+- Les lignes non lues en clair en haut, puis une ligne « lu », puis les anciennes en grisé.
+- Le bouton Journal de la barre d'onglets porte une pastille avec le nombre de lignes non lues,
+  visible panneau fermé.
+- Un bouton **Tout lu** dans l'en-tête du panneau (seulement s'il y a des non-lues) déplace le
+  marqueur tout en haut et éteint la pastille.
+- Le marqueur est le nombre de lignes lues du fichier, dans `shared("journal-read")` (survit à un
+  redémarrage). `status-jc` publie le nombre de lignes du fichier dans `shared("journal-lines")`
+  après chaque écriture, parce que le panneau ne tourne qu'une fois affiché et que la pastille doit
+  compter sans lui. Un fichier plus court que le marqueur (supprimé, recréé) : tout est non lu.
+- Pas de marqueur encore posé : tout le fichier est non lu.
+
+Approche écartée : faire disparaître les lignes lues du panneau. On perd le fil (« c'était après
+le rebase d'hier »).
+
 ## Ce qui est écrit
 
 Un fichier texte, `~/Library/Logs/herdr-watch.log` (à côté de `wt-prune.log`), une ligne par

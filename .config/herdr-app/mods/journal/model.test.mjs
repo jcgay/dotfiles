@@ -1,7 +1,7 @@
 // node --test ~/.config/herdr-app/mods/journal/model.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseTail, when } from "./model.js";
+import { parseTail, when, unread } from "./model.js";
 
 test("an empty or absent file has no entry", () => {
   assert.deepEqual(parseTail(""), []);
@@ -28,4 +28,18 @@ test("when shows the time today, the day before it otherwise", () => {
   assert.equal(when({ date: "2026-11-18", time: "03:12" }, "2026-11-18"), "03:12");
   assert.equal(when({ date: "2026-11-17", time: "22:40" }, "2026-11-18"), "17/11 22:40");
   assert.equal(when({ date: "2025-11-17", time: "22:40" }, "2026-11-18"), "17/11 22:40");
+});
+
+test("unread counts the lines past the read marker", () => {
+  assert.equal(unread(12, 10), 2);
+  assert.equal(unread(12, 12), 0);
+});
+
+test("no marker yet: every line is unread", () => {
+  assert.equal(unread(5, undefined), 5);
+  assert.equal(unread(undefined, undefined), 0);
+});
+
+test("a file shorter than the marker (recreated) is all unread", () => {
+  assert.equal(unread(3, 40), 3);
 });

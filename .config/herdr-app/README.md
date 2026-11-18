@@ -126,7 +126,7 @@ Bouton « Pull request » dans la barre d'onglets : la PR de la branche du space
 
 ### Panneau Journal
 
-Bouton « Journal » (icône liste) après « Pull request » : ce que la surveillance et le merge armé ont fait, toutes PR confondues, lu dans `~/Library/Logs/herdr-watch.log`. Les 20 dernières lignes, la plus récente en haut ; **Plus** en ajoute 20, **Tout le journal** ouvre le fichier dans `less` dans un nouvel onglet (`/` pour chercher). Un clic sur une ligne ouvre la PR. Une ligne par PR et par tour : agent lancé, changement d'état (dont la fin d'un agent), toast, PR fusionnée ou sortie de la surveillance, surveillance activée ou coupée. Détails : `docs/2026-11-18-watch-journal-design.md`.
+Bouton « Journal » (icône liste) après « Pull request » : ce que la surveillance et le merge armé ont fait, toutes PR confondues, lu dans `~/Library/Logs/herdr-watch.log`. Les 20 dernières lignes, la plus récente en haut ; **Plus** en ajoute 20, **Tout le journal** ouvre le fichier dans `less` dans un nouvel onglet (`/` pour chercher). Un clic sur une ligne ouvre la PR. Les non-lues sont en clair au-dessus d'un trait « lu », la pastille du bouton en donne le nombre, **Tout lu** la remet à zéro. Une ligne par PR et par tour : agent lancé, changement d'état (dont la fin d'un agent), toast, PR fusionnée ou sortie de la surveillance, surveillance activée ou coupée. Détails : `docs/2026-11-18-watch-journal-design.md`.
 
 ### spaces-jc, status-jc et tabs-jc
 
