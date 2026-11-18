@@ -1,6 +1,6 @@
 // One round of the PR watch: gh, git and Herdr side effects around the pure decisions of watch.js.
 import { exec, spaces, agents, panes, run, notify, readTextFile, home, shared, setShared } from "herdr";
-import { searchSince, signalsOf, decide, emptyEntry, promptFor, repoOfRemote, undoLaunch, holdingTabs, karadocHeld, checkoutBases, checkoutsOf, LABELS } from "./watch.js";
+import { searchSince, signalsOf, decide, emptyEntry, promptFor, repoOfRemote, undoLaunch, holdingTabs, karadocHeld, closing, checkoutBases, checkoutsOf, LABELS } from "./watch.js";
 
 const MAX_AGENTS = 3;
 const LEASE = "pr-watch-lease";
@@ -166,6 +166,17 @@ async function roundUnderLease(registry, cache, at) {
   }
 
   const all = await Promise.all(found.map((pr) => signals(pr, cache.me, registry.prs[`${pr.repository.nameWithOwner}#${pr.number}`])));
+  if (registry.on) {
+    // A watch space's folder is …/agents-worktree/<repo name>/<branch>-watch: tab names carry no repo. A PR whose signals
+    // failed has no markers (null: its tabs stay); one missing from the round (undefined) is merged or closed.
+    const markersOf = (n, folder) => {
+      const s = all.find((x) => x.number === n && folder.includes(`/agents-worktree/${x.repo.split("/")[1]}/`));
+      return s && (s.markers ?? null);
+    };
+    for (const { cmd, id } of closing(spaces().filter((sp) => !sp.machine), markersOf)) {
+      try { run(cmd, { id }); } catch { /* already gone */ }
+    }
+  }
   // Rebuilt each round from this round's repos: a repo with no open PR left drops out.
   const names = [...new Set(all.map((s) => s.repo))];
   const repos = new Map(await Promise.all(names.map(async (repo) => [repo, await cloneOf(repo, cache.clones ?? new Map())])));

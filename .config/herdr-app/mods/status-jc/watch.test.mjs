@@ -1,7 +1,7 @@
 // node --test ~/.config/herdr-app/mods/status-jc/watch.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { searchSince, sonarFindings, markers, signalsOf, checks, jenkinsBuild, decide, emptyEntry, tabName, LABELS, promptFor, repoOfRemote, undoLaunch, holdingTabs, karadocHeld, checkoutBases, checkoutsOf } from "./watch.js";
+import { searchSince, sonarFindings, markers, signalsOf, checks, jenkinsBuild, decide, emptyEntry, tabName, LABELS, promptFor, repoOfRemote, undoLaunch, holdingTabs, closing, karadocHeld, checkoutBases, checkoutsOf } from "./watch.js";
 
 // Real summaries: arthur#5458 (passed) and arthur#5449 (failed gate).
 const PASSED = `Issues  
@@ -531,4 +531,25 @@ test("checkoutsOf: folders with the branch checked out, not detached nor prunabl
   assert.deepEqual(checkoutsOf(out, "all-monograph"), ["/Volumes/sourcecode/vidal-data-aggregator-intl"]);
   assert.deepEqual(checkoutsOf(out, "all-monograph-2"), [], "a prefix is not the branch");
   assert.deepEqual(checkoutsOf("", "x"), []);
+});
+
+test("a finished pr-risk tab closes, its space when alone", () => {
+  const tab = (id, name, over = {}) => ({ id, name, status: "done", active: false, panes: 1, ...over });
+  const space = (id, tabs, active = false) => ({ id, active, tabs, folder: "/x/agents-worktree/arthur/b-watch" });
+  const marked = (n) => (n === 1 ? new Set(["pr-risk"]) : n === 2 ? new Set() : n === 3 ? null : undefined);
+  assert.deepEqual(closing([space("s1", [tab("t1", "⟳ #1 pr-risk")])], marked), [{ cmd: "space.close", id: "s1" }]);
+  assert.deepEqual(closing([space("s1", [tab("t1", "⟳ #1 pr-risk"), tab("t2", "⟳ #1 pr-review", { status: "working" })])], marked),
+    [{ cmd: "tab.close", id: "t1" }]);
+  assert.deepEqual(closing([space("s1", [tab("t1", "⟳ #4 pr-risk")])], marked), [{ cmd: "space.close", id: "s1" }], "PR gone from the round");
+  for (const sp of [
+    space("s1", [tab("t1", "⟳ #1 pr-risk", { status: "working" })]), // still working
+    space("s1", [tab("t1", "⟳ #2 pr-risk")]), // no marker yet
+    space("s1", [tab("t1", "⟳ #3 pr-risk")]), // markers unknown
+    space("s1", [tab("t1", "⟳ #1 pr-risk", { active: true })], true), // I am looking at it
+    space("s1", [tab("t1", "⟳ #1 pr-risk", { panes: 2 })]), // I split it
+    space("s1", [tab("t1", "⟳ #1 pr-review")]), // pr-review pushes after its marker
+  ]) assert.deepEqual(closing([sp], marked), []);
+  const seen = [];
+  closing([space("s1", [tab("t1", "⟳ #1 pr-risk")])], (n, folder) => { seen.push([n, folder]); return null; });
+  assert.deepEqual(seen, [[1, "/x/agents-worktree/arthur/b-watch"]], "the PR is looked up with its space's folder");
 });

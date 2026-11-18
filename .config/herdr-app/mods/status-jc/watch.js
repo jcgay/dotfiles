@@ -82,6 +82,8 @@ const REVIEW = ["pr-risk", "pr-review", "pr-demo", "qa"]; // pr-review --fix pus
 const KARADOC = ["pr-demo", "qa"]; // start karadoc on fixed ports: one at a time
 const PUSHES = ["pr-review"]; // review steps that push fixups after their marker: they last until their tab closes
 
+const CLOSES = ["pr-risk"]; // review steps whose marker is their last act: their tab closes once the agent stops
+
 export const tabName = (number, step) => `⟳ #${number} ${step}`;
 
 // Entry: what the watch remembers of a PR between rounds.
@@ -117,6 +119,18 @@ export function holdingTabs(tabs, markersOf) {
     const found = markersOf(Number(m[1]));
     return REVIEW.includes(m[2]) && found !== null && (PUSHES.includes(m[2]) || !found.has(m[2]));
   }).map((t) => t.name);
+}
+
+// What to close this round ([{ cmd, id }]): the tab of a CLOSES step whose agent stopped and whose PR has its marker or left
+// the round (merged, closed), or its space when that tab is the space's only one. Never the tab I am looking at, nor one
+// I split. spaces: local SpaceInfo[]; markersOf(number, folder): the PR's Set, null when unknown, undefined when gone.
+export function closing(spaces, markersOf) {
+  return spaces.flatMap((sp) => sp.tabs.filter((t) => {
+    const m = /^⟳ #(\d+) (\S+)$/.exec(t.name);
+    if (m === null || !CLOSES.includes(m[2]) || t.panes !== 1 || ["working", "blocked"].includes(t.status) || (sp.active && t.active)) return false;
+    const found = markersOf(Number(m[1]), sp.folder);
+    return found === undefined || (found?.has(m[2]) ?? false);
+  }).map((t) => (sp.tabs.length === 1 ? { cmd: "space.close", id: sp.id } : { cmd: "tab.close", id: t.id })));
 }
 
 // `git worktree list --porcelain` → the folders with branch checked out. The watch's own worktree is detached, a prunable
