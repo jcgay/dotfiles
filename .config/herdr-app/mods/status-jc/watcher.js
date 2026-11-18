@@ -1,5 +1,6 @@
 // One round of the PR watch: gh, git and Herdr side effects around the pure decisions of watch.js.
 import { exec, spaces, agents, panes, run, notify, readTextFile, home, shared, setShared } from "herdr";
+import { watchPath } from "./open.js";
 import { searchSince, signalsOf, decide, emptyEntry, promptFor, repoOfRemote, undoLaunch, holdingTabs, karadocHeld, closing, checkoutBases, checkoutsOf, LABELS } from "./watch.js";
 
 const MAX_AGENTS = 3;
@@ -84,7 +85,7 @@ async function cloneOf(repo, clones) {
 // The watch's own worktree for branch, detached on origin/<branch>; dirty when an agent left work in it, busy (the
 // folder) when I have branch checked out with work origin lacks: an agent would redo it.
 export async function prepareWorktree(clone, repo, branch) {
-  const path = `${home()}/dev/agents-worktree/${repo.split("/")[1]}/${branch}-watch`;
+  const path = watchPath(home(), repo, branch);
   await sh("git", ["-C", clone, "fetch", "origin", branch]);
   // What origin/<branch> pointed to: once a rebase agent force-pushed, my synced checkout holds commits origin no longer has.
   const pointed = await exec("git", ["-C", clone, "reflog", "show", "--format=%H", `refs/remotes/origin/${branch}`]);
