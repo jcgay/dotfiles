@@ -1,6 +1,8 @@
 // One round of the PR watch: gh, git and Herdr side effects around the pure decisions of watch.js.
 import { exec, spaces, agents, panes, run, notify, readTextFile, home, shared, setShared } from "herdr";
 import { watchPath } from "./open.js";
+import { roundLines } from "./journal.js";
+import { appendJournal } from "./journal-file.js";
 import { searchSince, signalsOf, decide, emptyEntry, promptFor, repoOfRemote, undoLaunch, holdingTabs, karadocHeld, closing, checkoutBases, checkoutsOf, LABELS } from "./watch.js";
 
 const MAX_AGENTS = 3;
@@ -196,6 +198,7 @@ async function roundUnderLease(registry, cache, at) {
   const karadocPrs = new Set(all.filter((s) => repos.get(s.repo).hasKaradoc).map((s) => s.number));
   const launched = []; // tab names started this round: running before agents() lists them
   const prs = {};
+  const toasts = new Map(); // PR key → this round's toast, for the journal
   for (const s of all) {
     const before = registry.prs[s.key] ?? emptyEntry();
     try {
@@ -205,7 +208,7 @@ async function roundUnderLease(registry, cache, at) {
       const ctx = { on: registry.on, paused: (shared("pr-watch")?.paused ?? registry.paused ?? []).includes(s.key), slots: MAX_AGENTS - busy.length, karadocFree: !hasKaradoc || !karadocHeld(busy, karadocPrs, roundPrs), hasQa, hasDemo, hasCi };
       const tab = { ...tabOf(before), busy: busy.some((t) => t.startsWith(`⟳ #${s.number} `)) };
       const r = decide(s, before, tab, ctx);
-      if (r.toast) notify({ title: r.toast, body: s.url, level: "warning" });
+      if (r.toast) { notify({ title: r.toast, body: s.url, level: "warning" }); toasts.set(s.key, r.toast); }
       let entry = r.entry;
       if (r.launch) {
         if (clone === null) entry = undoLaunch(entry, r.launch, LABELS.noClone, null, `aucun clone local de ${s.repo} pour lancer ${r.launch}`);
@@ -232,5 +235,7 @@ async function roundUnderLease(registry, cache, at) {
       prs[s.key] = pruned({ ...before, label: LABELS.error, why: "la surveillance a planté sur cette PR", error: e?.message ?? String(e) });
     }
   }
-  return { ...registry, prs, error: null, at };
+  await appendJournal(roundLines(registry, { on: registry.on, prs }, toasts));
+  // journalOn: `on` as this round saw it, so the next round writes a switch made in between.
+  return { ...registry, prs, error: null, at, journalOn: registry.on };
 }
