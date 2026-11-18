@@ -21,6 +21,10 @@ playwright-cli -s=pr-demo close
   the video starts where the change starts.
 - Aim for less than 60 seconds. Pause about 2 seconds on the result the PR
   changes, so the reviewer can read it.
+- A page that refreshes itself (polling, `setInterval`) can undo what a
+  step shows, such as an expanded row. Look for a timer in the page's code,
+  then run the step's action right after a refresh, in one `run-code`:
+  `await page.waitForResponse(r => r.url().endsWith('<polled path>')); await page.click('<selector>')`.
 - `--compare`: record the same steps on the base app into
   `<capture dir>/pr-<N>-base.webm`, then on the PR app.
 - Check each file: `ffprobe -v error -show_entries format=duration -of csv=p=0 <file>`

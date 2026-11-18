@@ -15,7 +15,9 @@ too and play the same scenario on both sides. With `--narrate`, a voice and
 captions explain the video step by step (UI and CLI captures).
 
 Write to the user in their language. Write the comment in the language of
-the PR description.
+the PR description. A language the user asks for the narration covers the
+voice and the captions only: the comment keeps the PR description's
+language unless the user names it too.
 
 ## Guardrails
 

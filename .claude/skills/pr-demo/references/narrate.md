@@ -11,7 +11,7 @@ Everything goes in `<capture dir>/voice/`.
 ## 1. The sentences, before any capture
 
 The scenario step 3 approved carries one sentence per step, in the language
-of the PR description: what the viewer sees and why it matters, as you would
+of the PR description, or the one the user asked for the narration: what the viewer sees and why it matters, as you would
 say it to a colleague. Spell out numbers that the voice would misread
 ("cent-treizième", not "113ᵉ"). The caption is a short version of the
 sentence, under 70 characters.
