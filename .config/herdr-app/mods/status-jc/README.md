@@ -155,18 +155,33 @@ Le bouton « Merger quand tout est vert » du résumé de la PR (panneau `pr`) �
 
 En fin de tour, `applyResults` ne modifie une entrée que si son `at` n'a pas changé : un désarmement ou un nouvel armement fait pendant le tour l'emporte. Le tour revérifie aussi `at` juste avant un toast ou un merge. Un bail `shared("pr-merge-lease")`, renouvelé à chaque PR, évite deux merges par deux copies du mod.
 
+## Travailler sur une PR
+
+Le bouton ⌨ « Travailler dessus » d'une ligne de la Surveillance (panneau PR) écrit `{ state: "asked" }` sous la clé de la PR (`owner/repo#N`) dans `shared("pr-open")`. Un minuteur de 5 s (`opener.js`) la prend, une à la fois :
+
+| PR | Worktree | Pause |
+|---|---|---|
+| brouillon | celui de la branche ; sinon `wt switch <branche> --no-cd` le crée | aucune (la surveillance ne fait rien sur un brouillon) |
+| prête | `…/agents-worktree/<repo>/<branche>-watch` tel quel, jamais remis sur origin ; absent : recréé détaché sur `origin/<branche>` | ajoutée à `pr-watch.paused`, entrée `held` avec le dossier |
+
+Un espace local déjà sur ce dossier est sélectionné, sinon un espace s'ouvre avec `claude`. Dès qu'aucun espace local (son dossier ou le cwd d'une de ses panes, sous-dossiers compris, `~/dev` comme `/Volumes/sourcecode`) ne montre plus le dossier d'une entrée `held`, la pause est levée et l'entrée effacée ; rien n'est levé tant que le layout local n'est pas lu (démarrage, reconnexion). Une PR déjà en pause à la main n'est pas `held` : elle reste en pause. Un nouveau clic sur une PR `held` garde la pause à l'ouverture, même si la réouverture échoue. Un tour de surveillance relit la pause juste avant de décider puis avant de lancer : un clic pendant le tour suffit. Une erreur (pas de clone local, gh, git, wt) devient `{ state: "error", error }`, affichée 5 min sur la ligne ; rien n'est ouvert ni mis en pause.
+
+Deux copies de `status-jc` : la demande passe à `opening` avec l'id de la copie avant tout appel, l'autre la laisse. Une ouverture de plus de 15 min (copie morte) redevient demandée. L'état vit hors de `pr-watch` : le tour de surveillance réécrit ce registre en fin de tour (il garde `on` et `paused`).
+
 ## Fichiers et tests
 
 | Fichier | Rôle |
 |---|---|
 | `mod.json` | Origine du clone (`workspace-status` 0.1.15). |
-| `main.js` | La vue : barre d'état, minuteurs des ports (5 s), de la surveillance (60 s puis 5 min) et du merge armé (1 min), écriture du registre. |
+| `main.js` | La vue : barre d'état, minuteurs des ports (5 s), de la surveillance (60 s puis 5 min) du merge armé (1 min) et des ouvertures (5 s), écriture du registre. |
 | `ports.js` | Fonctions pures des ports : lecture de lsof et ps, space d'un listener, santé, quoi interroger. |
 | `watch.js` | Fonctions pures de la surveillance : signaux d'une PR, `decide`, prompts, lecture de git. Sans import Herdr. |
 | `watcher.js` | Un tour : bail, appels gh et git, clone local, worktree `-watch`, ouverture des onglets. |
 | `merge.js` | Fonctions pures du merge armé : `mergeStep`, `applyResults`. Sans import Herdr. |
 | `merger.js` | Un tour de merge armé : bail, appels gh, toasts. |
-| `ports.test.mjs`, `watch.test.mjs`, `merge.test.mjs` | Tests `node:test` des fichiers purs. |
+| `open.js` | Fonctions pures de l'ouverture : chemin du `-watch`, pause posée, pauses à lever. Sans import Herdr. |
+| `opener.js` | Un passage d'ouverture : demande, gh, worktree, espace, pause. |
+| `ports.test.mjs`, `watch.test.mjs`, `merge.test.mjs`, `open.test.mjs` | Tests `node:test` des fichiers purs. |
 
 ```sh
 node --test ~/.config/herdr-app/mods/status-jc/*.test.mjs
