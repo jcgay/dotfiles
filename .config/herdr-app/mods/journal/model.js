@@ -24,3 +24,9 @@ export function parseTail(text) {
 
 // shortcut: no year for an older line, fine while the journal is read within the year.
 export const when = (e, today) => (e.date === today ? e.time : `${e.date.slice(8)}/${e.date.slice(5, 7)} ${e.time}`);
+
+// Lines past the read marker (shared "journal-read"). A file shorter than the marker was recreated: all unread.
+export function unread(lines, read) {
+  const total = lines ?? 0;
+  return read === undefined || read === null || read > total ? total : total - read;
+}
