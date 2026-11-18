@@ -33,6 +33,10 @@ no-PR mode. `<base-sha>`, `<head>`, `headRefName`, `headRefOid` and
   Never find it by its title (`grep`, `git log --grep`): the `fixup!` and
   `amend!` commits carry the same title and come first, which gives
   `fixup! fixup!`.
+  A fix to an older commit that relies on code a later commit of the
+  branch adds goes in that later commit's fixup instead: applied to the
+  older one, the autosquash leaves an intermediate commit that does not
+  work and the rebase conflicts. Say so in the fixup's body.
   A finding that a commit message claims something false: `git commit
   --fixup=amend:<sha>` carries both the code fix and the corrected message.
   `git rebase --autosquash` keeps only the original message: when a fixup's
