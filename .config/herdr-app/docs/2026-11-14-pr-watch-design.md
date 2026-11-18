@@ -153,7 +153,7 @@ ces trois situations :
 - Les PR hors de l'organisation softwarevidal.
 - D'autres machines que celle-ci (`on`) : les agents se lancent en local.
 - Fusionner une PR, la sortir du brouillon, changer ses labels ou son titre.
-- Fermer les onglets des agents : ils restent ouverts, je les ferme moi-même.
+- Fermer les onglets des agents : ils restent ouverts, je les ferme moi-même. Seule exception, ajoutée ensuite : l'onglet `pr-risk`, une fois son marqueur posté et son agent arrêté.
 - Un budget en temps ou en tokens.
 
 ## Anti-objectifs (un échec même si ça marche)
