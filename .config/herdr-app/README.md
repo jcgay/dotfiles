@@ -21,12 +21,12 @@ Les terminaux tournent dans **herdr-core** (`hc`), pas dans la fenêtre : fermer
 
 ```
 ┌─────────────┬───────────────────────────────────────────┬───────────┐
-│ Spaces      │ tabs ……………………………  +  [Files][Changes][PR] │           │
+│ Spaces      │ tabs ……………………  +  [Files][Changes][PR][Jal] │           │
 │             ├───────────────────────────────────────────┤  panneau  │
 │             │                                           │  latéral  │
 │─────────────│          tab courant (ses panes)          │ (Files /  │
 │ Agents      │                                           │ Changes / │
-│             │                                           │   PR)     │
+│             │                                           │ PR / Jal) │
 ├─────────────┴───────────────────────────────────────────┴───────────┤
 │ machine · branche · N agents · N needs you      :8080 ●   ⌘⇧P cmds  │
 └─────────────────────────────────────────────────────────────────────┘
@@ -34,7 +34,7 @@ Les terminaux tournent dans **herdr-core** (`hc`), pas dans la fenêtre : fermer
 
 - **Sidebar** (`⌘B` pour la replier) : les spaces (`spaces-jc`, avec l'icône JetBrains du dépôt quand il en a une), puis les agents de tous les spaces. Glisser un space le réordonne.
 - **Barre d'onglets** (`tabs-jc`) : double-clic sur un tab pour le renommer, glisser pour le déplacer, `+` ouvre le menu « nouveau » (terminal, agent, space).
-- **Panneau latéral** : les trois boutons à droite des tabs l'ouvrent sur Files, Changes ou Pull request ; recliquer le referme. Il est mémorisé **par space**.
+- **Panneau latéral** : les quatre boutons à droite des tabs l'ouvrent sur Files, Changes, Pull request ou Journal ; recliquer le referme. Il est mémorisé **par space**.
 - **Barre d'état** (`status-jc`) : machine, branche, nombre d'agents et combien t'attendent, puis les **ports** ouverts par les programmes du space (point vert = répond, clignotant = démarre ; clic = ouvre `http://localhost:<port>/`). Le raccourci de droite ouvre la palette. Le nombre d'agents qui t'attendent s'affiche aussi en pastille sur l'icône du Dock.
 
 ---
@@ -106,7 +106,7 @@ Les terminaux tournent dans **herdr-core** (`hc`), pas dans la fenêtre : fermer
 
 ## 4. Nos mods
 
-Chaque mod a son README avec le détail et les arbres de décision : [`start-work`](mods/start-work/README.md), [`pr`](mods/pr/README.md), [`status-jc`](mods/status-jc/README.md) (dont la surveillance des PR), [`spaces-jc`](mods/spaces-jc/README.md), [`tabs-jc`](mods/tabs-jc/README.md). La structure du layout `jc` est dans [`layouts/README.md`](layouts/README.md).
+Chaque mod a son README avec le détail et les arbres de décision : [`start-work`](mods/start-work/README.md), [`pr`](mods/pr/README.md), [`journal`](mods/journal/README.md), [`status-jc`](mods/status-jc/README.md) (dont la surveillance des PR), [`spaces-jc`](mods/spaces-jc/README.md), [`tabs-jc`](mods/tabs-jc/README.md). La structure du layout `jc` est dans [`layouts/README.md`](layouts/README.md).
 
 ### start-work (`⌘⇧J`)
 
@@ -124,9 +124,13 @@ Les projets Jira du dépôt sont devinés depuis les sujets de commit ; sinon le
 
 Bouton « Pull request » dans la barre d'onglets : la PR de la branche du space, puis un tableau Build (Jenkins), Déployée (URLs des conteneurs) et Checks (résumé, dépliable d'un clic, sans le check Jenkins). **Merger quand tout est vert** arme un « rebase and merge » : `status-jc` fusionne la PR dans la minute où tous ses checks passent au vert, même panneau fermé ; un nouveau commit ou un `fixup!`/`amend!`/`squash!` désarme, ✕ sur la ligne Merge aussi. Son interrupteur **Surveillance** suit mes PR ouvertes toutes les 5 minutes (depuis `status-jc`, même panneau fermé) et lance un agent Claude visible quand la PR est en conflit avec sa base (rebase puis push forcé), quand le build Jenkins casse, quand Sonar remonte des problèmes, ou pour `pr-risk`, `pr-review --fix` puis `pr-demo --narrate` (narration en français, seulement si `AGENTS.md` ou `CLAUDE.md` du clone a une section `## Demo`) quand tout est vert ; l'onglet `pr-risk` (et son space s'il est seul) se ferme une fois son commentaire posté. Les PR surveillées sont triées par urgence (à toi, erreur, pas de clone local, agent en cours, en attente, brouillon, ok), avec leur titre et une ligne qui dit pourquoi elles ont leur état (CI en cours, agent lancé, karadoc pris…). Une PR sans aucun check attend sa CI si le clone local a un `Jenkinsfile` ou un `.github/workflows/`, sinon elle passe tout de suite à la review. Aucun agent ne part non plus quand la branche de la PR est checkout dans le clone ou un de ses worktrees avec du travail pas encore poussé : la PR passe « à toi » et reprend une fois tout poussé. Le bouton ⏸ d'une ligne met cette PR en pause : plus aucun agent ni toast pour elle, un agent déjà lancé finit ; ▶ la reprend. Le bouton ⌨ ouvre un espace Claude pour travailler sur la PR : le worktree de la branche (créé par `wt` au besoin) pour un brouillon, le `-watch` (recréé s'il manque) pour une PR prête, mise en pause tant que cet espace reste ouvert. Détails : `docs/2026-11-14-pr-watch-design.md`, `docs/2026-11-18-pr-watch-open-design.md`.
 
+### Panneau Journal
+
+Bouton « Journal » (icône liste) après « Pull request » : ce que la surveillance et le merge armé ont fait, toutes PR confondues, lu dans `~/Library/Logs/herdr-watch.log`. Les 20 dernières lignes, la plus récente en haut ; **Plus** en ajoute 20, **Tout le journal** ouvre le fichier dans `less` dans un nouvel onglet (`/` pour chercher). Un clic sur une ligne ouvre la PR. Une ligne par PR et par tour : agent lancé, changement d'état (dont la fin d'un agent), toast, PR fusionnée ou sortie de la surveillance, surveillance activée ou coupée. Détails : `docs/2026-11-18-watch-journal-design.md`.
+
 ### spaces-jc, status-jc et tabs-jc
 
-Clones des mods `spaces`, `workspace-status` et `tabs` de Herdr : l'icône JetBrains du dépôt comme avatar de space, les ports cliquables dans la barre d'état, le bouton PR dans la barre d'onglets (le panneau mémorisé par space vient du mod d'origine).
+Clones des mods `spaces`, `workspace-status` et `tabs` de Herdr : l'icône JetBrains du dépôt comme avatar de space, les ports cliquables dans la barre d'état, les boutons PR et Journal dans la barre d'onglets (le panneau mémorisé par space vient du mod d'origine).
 
 L'avatar d'un space prend le `.idea/icon.svg` (sinon `icon.png`) du checkout principal, ou `icon_dark.svg` sur un thème sombre ; sans icône, la lettre colorée reste. Une icône ajoutée ou changée s'affiche en une à deux minutes.
 

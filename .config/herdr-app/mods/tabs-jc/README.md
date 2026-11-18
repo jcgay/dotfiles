@@ -5,6 +5,7 @@ Clone du mod `tabs` de Herdr (version 0.1.15, voir `cloned_from` dans `mod.json`
 ## Ce que le clone ajoute
 
 - Un bouton « Pull request » à droite des tabs, après Files et Changes. Il ouvre le panneau latéral sur le mod `pr` ; recliquer le referme.
+- Un bouton « Journal » (`journal.svg`) juste après, sur le mod `journal`, même mécanique.
 - Les boutons du panneau n'affichent plus que leur icône (le libellé passe en infobulle et en `accessibility_label`) : trois libellés prenaient trop de place dans la barre.
 - Les icônes de fenêtre Windows (`win-*.svg`) pointent vers `mods/tabs-jc/` au lieu de `mods/tabs/`.
 

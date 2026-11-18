@@ -26,13 +26,14 @@ root (row)
     │       └── panel-body (stack, actif : files)
     │           ├── files ─── files
     │           ├── changes ─ changes
-    │           └── pr ────── pr          (absent de main)
+    │           ├── pr ────── pr          (absent de main)
+    │           └── journal ─ journal     (absent de main)
     └── status (28 px) ────── status-jc   (main : workspace-status)
 ```
 
 Les boutons de `tabs-jc` ouvrent `panel` sur un de ses onglets, et le panneau est mémorisé par space.
 
-Chaque mod a son README : [`spaces-jc`](../mods/spaces-jc/README.md), [`tabs-jc`](../mods/tabs-jc/README.md), [`pr`](../mods/pr/README.md), [`status-jc`](../mods/status-jc/README.md), et [`start-work`](../mods/start-work/README.md) (pas dans le layout : il s'ouvre en popup sur `⌘⇧J`).
+Chaque mod a son README : [`spaces-jc`](../mods/spaces-jc/README.md), [`tabs-jc`](../mods/tabs-jc/README.md), [`pr`](../mods/pr/README.md), [`journal`](../mods/journal/README.md), [`status-jc`](../mods/status-jc/README.md), et [`start-work`](../mods/start-work/README.md) (pas dans le layout : il s'ouvre en popup sur `⌘⇧J`).
 
 ## Quand Herdr se met à jour
 

@@ -130,7 +130,7 @@ export default class Tabs extends View {
       : 10;
     const panel = find(root, "panel"), body = find(root, "panel-body");
     const enabled = shared("workspace.panels") ?? ["files", "changes"];
-    this.syncPanel(space, panel, body, [...enabled, "pr"]);
+    this.syncPanel(space, panel, body, [...enabled, "pr", "journal"]);
     // Icon only: three labels took a lot of the tab bar.
     const panelButton = (id, icon, label) => {
       const on = panel && !panel.hidden && body?.active === id;
@@ -152,6 +152,7 @@ export default class Tabs extends View {
       .when(enabled.includes("files"), el => el.child(panelButton("files", "mods/files/file.svg", "Files")))
       .when(enabled.includes("changes"), el => el.child(panelButton("changes", "mods/changes/changes.svg", "Changes")))
       .child(panelButton("pr", "mods/tabs-jc/pull-request.svg", "Pull request")) // not in workspace.panels: Settings knows only Files and Changes
+      .child(panelButton("journal", "mods/tabs-jc/journal.svg", "Journal"))
       .when(w?.buttons, el => el.child(button("minimize", w.platform === "windows" ? svg("mods/tabs-jc/win-min.svg").size(16) : "−", () => run("window.minimize")))
         .child(button("maximize", w.platform === "windows" ? svg(`mods/tabs-jc/${w.maximized ? "win-restore" : "win-max"}.svg`).size(16) : "□", () => run("window.maximize")))
         .child(button("close-window", w.platform === "windows" ? svg("mods/tabs-jc/win-close.svg").size(16) : svg("mods/pane/close.svg").size(13), () => run("window.close"))));
