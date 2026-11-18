@@ -147,6 +147,13 @@
                       "content": {
                         "mod": "pr"
                       }
+                    },
+                    {
+                      "id": "journal",
+                      "type": "block",
+                      "content": {
+                        "mod": "journal"
+                      }
                     }
                   ],
                   "active": "files"
