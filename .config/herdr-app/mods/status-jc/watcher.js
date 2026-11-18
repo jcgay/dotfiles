@@ -183,8 +183,8 @@ async function roundUnderLease(registry, cache, at) {
       const s = all.find((x) => x.number === n && folder.includes(`/agents-worktree/${x.repo.split("/")[1]}/`));
       return s && (s.markers ?? null);
     };
-    for (const { cmd, id } of closing(spaces().filter((sp) => !sp.machine), markersOf)) {
-      try { run(cmd, { id }); } catch { /* already gone */ }
+    for (const { cmd, args } of closing(spaces().filter((sp) => !sp.machine), markersOf)) {
+      try { run(cmd, args); } catch { /* already gone */ }
     }
   }
   // Rebuilt each round from this round's repos: a repo with no open PR left drops out.

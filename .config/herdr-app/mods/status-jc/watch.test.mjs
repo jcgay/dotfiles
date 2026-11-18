@@ -544,10 +544,10 @@ test("a finished pr-risk tab closes, its space when alone", () => {
   const tab = (id, name, over = {}) => ({ id, name, status: "done", active: false, panes: 1, ...over });
   const space = (id, tabs, active = false) => ({ id, active, tabs, folder: "/x/agents-worktree/arthur/b-watch" });
   const marked = (n) => (n === 1 ? new Set(["pr-risk"]) : n === 2 ? new Set() : n === 3 ? null : undefined);
-  assert.deepEqual(closing([space("s1", [tab("t1", "⟳ #1 pr-risk")])], marked), [{ cmd: "space.close", id: "s1" }]);
+  assert.deepEqual(closing([space("s1", [tab("t1", "⟳ #1 pr-risk")])], marked), [{ cmd: "space.close", args: { id: "s1", confirmed: true } }]);
   assert.deepEqual(closing([space("s1", [tab("t1", "⟳ #1 pr-risk"), tab("t2", "⟳ #1 pr-review", { status: "working" })])], marked),
-    [{ cmd: "tab.close", id: "t1" }]);
-  assert.deepEqual(closing([space("s1", [tab("t1", "⟳ #4 pr-risk")])], marked), [{ cmd: "space.close", id: "s1" }], "PR gone from the round");
+    [{ cmd: "tab.close", args: { id: "t1", confirmed: true } }]);
+  assert.deepEqual(closing([space("s1", [tab("t1", "⟳ #4 pr-risk")])], marked), [{ cmd: "space.close", args: { id: "s1", confirmed: true } }], "PR gone from the round");
   for (const sp of [
     space("s1", [tab("t1", "⟳ #1 pr-risk", { status: "working" })]), // still working
     space("s1", [tab("t1", "⟳ #2 pr-risk")]), // no marker yet
