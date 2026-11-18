@@ -168,6 +168,10 @@ Un espace local déjà sur ce dossier est sélectionné, sinon un espace s'ouvre
 
 Deux copies de `status-jc` : la demande passe à `opening` avec l'id de la copie avant tout appel, l'autre la laisse. Une ouverture de plus de 15 min (copie morte) redevient demandée. L'état vit hors de `pr-watch` : le tour de surveillance réécrit ce registre en fin de tour (il garde `on` et `paused`).
 
+## Journal
+
+Chaque tour de surveillance et chaque merge armé ajoutent leurs lignes à `~/Library/Logs/herdr-watch.log` (`AAAA-MM-JJ HH:MM  owner/repo#N  texte`, `-` à la place de la PR pour l'interrupteur), que le panneau Journal (`mods/journal/`) affiche. Au plus une ligne par PR et par tour, et seulement surveillance active : un agent lancé (`agent <étape> lancé`, même quand deux s'enchaînent sous « agent en cours »), sinon un changement d'étiquette (`<étiquette> : <pourquoi>`, ce qui dit aussi la fin d'un agent), sinon le toast du tour. Une PR nouvelle écrit son état, une PR qui sort de la recherche `sortie de la surveillance`. L'interrupteur est écrit au tour suivant, en comparant `on` au `journalOn` gardé dans le registre (jusqu'à 5 min de retard, un aller-retour rapide est perdu). Le merge écrit `fusionnée` ou `merge refusé : <erreur>`. Une écriture ratée part dans la console du mod, le tour continue. Le fichier n'est jamais tronqué.
+
 ## Fichiers et tests
 
 | Fichier | Rôle |
@@ -181,7 +185,9 @@ Deux copies de `status-jc` : la demande passe à `opening` avec l'id de la copie
 | `merger.js` | Un tour de merge armé : bail, appels gh, toasts. |
 | `open.js` | Fonctions pures de l'ouverture : chemin du `-watch`, pause posée, pauses à lever. Sans import Herdr. |
 | `opener.js` | Un passage d'ouverture : demande, gh, worktree, espace, pause. |
-| `ports.test.mjs`, `watch.test.mjs`, `merge.test.mjs`, `open.test.mjs` | Tests `node:test` des fichiers purs. |
+| `journal.js` | Fonctions pures du journal : lignes d'un tour, format d'une ligne. Sans import Herdr. |
+| `journal-file.js` | Ajout des lignes au fichier du journal. |
+| `ports.test.mjs`, `watch.test.mjs`, `merge.test.mjs`, `open.test.mjs`, `journal.test.mjs` | Tests `node:test` des fichiers purs. |
 
 ```sh
 node --test ~/.config/herdr-app/mods/status-jc/*.test.mjs
@@ -209,5 +215,6 @@ herdr-app check ~/.config/herdr-app/mods/status-jc
 - [Mettre une PR en pause](../../docs/2026-11-16-pr-watch-pause-design.md)
 - [Ne pas lancer d'agent sur une branche où je travaille](../../docs/2026-11-16-pr-watch-busy-branch-design.md)
 - [Merge armé](../../docs/2026-11-17-pr-armed-merge-design.md)
+- [Journal](../../docs/2026-11-18-watch-journal-design.md)
 
 Les conceptions peuvent être en retard sur le code : le code fait foi.

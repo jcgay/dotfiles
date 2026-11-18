@@ -1,6 +1,7 @@
 // One round of armed merges: gh and Herdr side effects around the pure decisions of merge.js.
 import { exec, notify, shared, setShared } from "herdr";
 import { ARMED, mergeStep, applyResults } from "./merge.js";
+import { appendJournal } from "./journal-file.js";
 
 const LEASE = "pr-merge-lease";
 const LEASE_MS = 240000; // a round older than this died without clearing its lease
@@ -38,11 +39,13 @@ async function one(key, armed) {
     const state = await gh(["pr", "view", n, "-R", repo, "--json", "state", "--jq", ".state"]).catch(() => "");
     if (state.trim() !== "MERGED") {
       notify({ title: `PR #${n} : merge refusé`, body: e.message, level: "warning" });
+      await appendJournal([{ key, text: `merge refusé : ${e.message}` }]);
       // Kept, not retried: the summary shows the error until ✕ clears it.
       return { drop: false, refused: true, why: null, error: e.message };
     }
   }
   notify({ title: `PR #${n} fusionnée`, body: url, level: "info" });
+  await appendJournal([{ key, text: "fusionnée" }]);
   return { drop: true };
 }
 
