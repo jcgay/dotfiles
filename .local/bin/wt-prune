@@ -23,7 +23,15 @@ done | sort -u | {
   failed=()
   while IFS= read -r main; do
     echo "== $main ($(date '+%F %T'))"
-    wt -C "$main" step prune "$@" || { echo "wt-prune: failed in $main" >&2; failed+=("${main##*/}"); }
+    # yadm: wt takes $HOME (core.worktree, no .git) for the main worktree, and its `git rev-parse
+    # --git-common-dir` there fails every worktree removal. Remove those it picks with git first.
+    if [ "$(git --git-dir "$main" config --bool yadm.managed 2>/dev/null)" = true ] && [[ " $* " != *" --dry-run "* ]]; then
+      while IFS=$'\t' read -r path branch; do
+        git --git-dir "$main" worktree remove "$path" && git --git-dir "$main" branch -qD "$branch" &&
+          echo "✓ Removed $branch worktree & branch" || failed+=("${main##*/}")
+      done < <(wt -C "$main" step prune --dry-run --format=json "$@" | jq -r '.[] | select(.kind == "worktree" and .branch) | [.path, .branch] | @tsv')
+    fi
+    wt -C "$main" step prune "$@" ||{ echo "wt-prune: failed in $main" >&2; failed+=("${main##*/}"); }
   done
   # Nobody reads the log: say it now. Exit 1 also shows in `launchctl print` (checked by `dot`).
   if [ ${#failed[@]} -gt 0 ]; then

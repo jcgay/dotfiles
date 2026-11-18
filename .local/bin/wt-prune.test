@@ -25,3 +25,13 @@ check "$(printf '%s\n0' "$calls" | sort)"
 # one repo fails: the other still runs, one notification names it, exit 1
 run "b c"
 check "$(printf '%s\n1\nosascript wt-prune a échoué b c, voir ~/Library/Logs/wt-prune.log' "$calls" | sort)"
+
+# yadm repo (git dir apart, core.worktree without .git): wt-prune removes with git the worktrees wt picks, then runs wt
+y=$tmp/y; mkdir -p "$y/home"; rm -rf "$w"/*
+git init -q --bare "$y/repo.git" && git --git-dir "$y/repo.git" config core.bare false && git --git-dir "$y/repo.git" config core.worktree "$y/home"
+git --git-dir "$y/repo.git" config yadm.managed true && git --git-dir "$y/repo.git" commit -q --allow-empty -m init
+git --git-dir "$y/repo.git" worktree add -q "$w/y/m" -b m
+printf '#!/usr/bin/env bash\necho "$*" >> "$CALLS"\n[[ "$*" != *--format=json* ]] || echo "$JSON"\n' > "$tmp/bin/wt"
+JSON='[{"branch":"m","path":"'$w/y/m'","kind":"worktree"},{"branch":"gone","kind":"branch"}]' \
+  HOME=$tmp/home PATH=$tmp/bin:$PATH CALLS=$tmp/calls bash ./wt-prune --foreground > /dev/null 2>&1 || { echo "FAIL: yadm run exit $?"; exit 1; }
+[ ! -e "$w/y/m" ] && ! git --git-dir "$y/repo.git" rev-parse -q --verify m > /dev/null || { echo "FAIL: yadm worktree m not removed"; exit 1; }
