@@ -11,8 +11,8 @@ const VIEW_FIELDS = "number,title,url,isDraft,headRefName,headRefOid,statusCheck
 const firstLine = (text) => (text ?? "").trim().split("\n")[0] || null;
 
 // A program's stdout; a nonzero exit throws its first stderr line.
-async function sh(cmd, args, cwd) {
-  const r = await exec(cmd, args, { cwd, timeout: 120000 });
+export async function sh(cmd, args, cwd, timeout = 120000) {
+  const r = await exec(cmd, args, { cwd, timeout });
   if (r.code !== 0) throw new Error(firstLine(r.stderr) ?? `${cmd} ${args[0]} : code ${r.code}`);
   return r.stdout;
 }
@@ -30,7 +30,7 @@ async function signals(pr, me, before) {
 }
 
 // The main checkout of a local clone of repo (owner/name), or null.
-async function findClone(repo) {
+export async function findClone(repo) {
   const name = repo.split("/")[1];
   const local = spaces().filter((s) => !s.machine);
   const tabs = new Set(local.flatMap((s) => s.tabs.map((t) => t.id)));
@@ -84,9 +84,11 @@ async function cloneOf(repo, clones) {
 
 // The watch's own worktree for branch, detached on origin/<branch>; dirty when an agent left work in it, busy (the
 // folder) when I have branch checked out with work origin lacks: an agent would redo it.
-export async function prepareWorktree(clone, repo, branch) {
+// paused: asked after the fetch, the one long step: the PR panel's ⌨ may have opened this worktree meanwhile.
+export async function prepareWorktree(clone, repo, branch, paused = () => false) {
   const path = watchPath(home(), repo, branch);
   await sh("git", ["-C", clone, "fetch", "origin", branch]);
+  if (paused()) return { paused: true };
   // What origin/<branch> pointed to: once a rebase agent force-pushed, my synced checkout holds commits origin no longer has.
   const pointed = await exec("git", ["-C", clone, "reflog", "show", "--format=%H", `refs/remotes/origin/${branch}`]);
   const pushed = pointed.code === 0 ? pointed.stdout.split("\n").filter(Boolean) : [];
@@ -199,7 +201,8 @@ async function roundUnderLease(registry, cache, at) {
     try {
       const busy = [...new Set([...heldTabs(all), ...launched])];
       const { clone, hasQa, hasDemo, hasCi, hasKaradoc } = repos.get(s.repo);
-      const ctx = { on: registry.on, paused: (registry.paused ?? []).includes(s.key), slots: MAX_AGENTS - busy.length, karadocFree: !hasKaradoc || !karadocHeld(busy, karadocPrs, roundPrs), hasQa, hasDemo, hasCi };
+      // paused read live: the PR panel's ⌨ may have paused this PR since the round started.
+      const ctx = { on: registry.on, paused: (shared("pr-watch")?.paused ?? registry.paused ?? []).includes(s.key), slots: MAX_AGENTS - busy.length, karadocFree: !hasKaradoc || !karadocHeld(busy, karadocPrs, roundPrs), hasQa, hasDemo, hasCi };
       const tab = { ...tabOf(before), busy: busy.some((t) => t.startsWith(`⟳ #${s.number} `)) };
       const r = decide(s, before, tab, ctx);
       if (r.toast) notify({ title: r.toast, body: s.url, level: "warning" });
@@ -208,9 +211,12 @@ async function roundUnderLease(registry, cache, at) {
         if (clone === null) entry = undoLaunch(entry, r.launch, LABELS.noClone, null, `aucun clone local de ${s.repo} pour lancer ${r.launch}`);
         else {
           try {
-            const wt = await prepareWorktree(clone, s.repo, s.branch);
+            const isPaused = () => (shared("pr-watch")?.paused ?? []).includes(s.key);
+            const wt = await prepareWorktree(clone, s.repo, s.branch, isPaused);
             if (wt.busy) entry = undoLaunch(entry, r.launch, LABELS.yours, null, `tu travailles sur ${s.branch} dans ${wt.busy.split("/").pop()} (non poussé)`);
             else if (wt.dirty) entry = undoLaunch(entry, r.launch, LABELS.yours, null, `le worktree de surveillance a du travail non poussé : ${r.launch} pas lancé`);
+            // Paused during prepareWorktree's fetch: the user may already be working in this worktree.
+            else if (wt.paused || isPaused()) entry = undoLaunch(entry, r.launch, LABELS.paused, null, `mise en pause pendant la préparation : ${r.launch} pas lancé`);
             else {
               start(wt.path, entry.launched.tab, promptFor(r.launch, s));
               launched.push(entry.launched.tab);

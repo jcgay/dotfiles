@@ -4,6 +4,7 @@ import { spaces, agents, panes, terminals, theme, run, window, keys, exec, home,
 import { parseListeners, parseParents, parseCwds, spaceOf, health, stillMapped, healthPlan } from "./ports.js";
 import { round } from "./watcher.js";
 import { mergeRound } from "./merger.js";
+import { openRound } from "./opener.js";
 
 const WATCH = "pr-watch";
 const FRESH = { on: false, prs: {}, error: null, at: 0, paused: [] }; // the PR panel's switch turns it on
@@ -20,6 +21,23 @@ export default class WorkspaceStatus extends View {
     cx.timer.every(300000, (cx) => this.watch(cx));
     // Armed merges (PR panel): checked every minute, a merge should follow the end of a build closely.
     cx.timer.every(60000, (cx) => this.merge(cx));
+    // "Travailler dessus" (PR panel): picked up within 5 s, the watch round waits 5 min.
+    cx.timer.every(5000, (cx) => this.open(cx));
+  }
+
+  open(cx) {
+    if (this.opening) return;
+    this.opening = true;
+    this.openId ??= `${Date.now()}-${Math.random()}`;
+    cx.spawn(async () => {
+      try {
+        await openRound(this.openId);
+      } catch (e) {
+        console.log("open:", e?.message ?? e);
+      } finally {
+        this.opening = false;
+      }
+    });
   }
 
   merge(cx) {
