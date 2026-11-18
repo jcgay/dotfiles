@@ -71,7 +71,10 @@ the options, and these six items. Then offer to write the section into
 ## 3. Propose the scenario, then wait
 
 Read `gh pr diff <N> -R <owner>/<repo>`, the PR body, and the JIRA tickets the title or
-body cite. Pick the capture:
+body cite. Check each behavior the scenario or a narration sentence claims
+against the code at `headRefOid` (diff, or the files it relies on), not only
+the PR body: a description can be stale. When they disagree, follow the code
+and tell the user. Pick the capture:
 
 | The diff changes… | Capture | Read |
 |---|---|---|
