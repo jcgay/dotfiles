@@ -3,7 +3,7 @@
 Notre mod (pas un clone). Il remplit le bloc `pr` du panneau latéral du layout `jc`, ouvert par le bouton PR de `tabs-jc`. Il a deux parties :
 
 - en haut, la PR de la branche affichée, son build Jenkins, où elle est déployée et ses checks ;
-- en bas, la **Surveillance** : la liste des PR que `status-jc` suit, avec l'interrupteur et le bouton pause. Le panneau ne fait que l'afficher et écrire l'interrupteur et les pauses ; toute la logique est dans [`status-jc`](../status-jc/README.md).
+- en bas, la **Surveillance** : la liste des PR que `status-jc` suit, avec l'interrupteur, le bouton ⌨ « Travailler dessus » et le bouton pause. ⌨ ouvre un espace Claude dans le worktree de la PR : celui de la branche pour un brouillon, le `-watch` pour une PR prête, qui est alors mise en pause jusqu'à la fermeture de cet espace ; « ouverture… » puis l'éventuelle erreur s'affichent sous la ligne. Le panneau ne fait que l'afficher et écrire l'interrupteur, les pauses et les demandes d'ouverture (`shared("pr-open")`) ; toute la logique est dans [`status-jc`](../status-jc/README.md).
 
 ## Ce que tu vois
 

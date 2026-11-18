@@ -229,10 +229,24 @@ export default class PullRequest extends View {
       .tooltip(paused.includes(k) ? "Reprendre" : "Mettre en pause")
       .on_click((_e, cx) => {
         cx.stop_propagation(); // the row's own click opens the PR or its agent
+        // A pause touched by hand is the user's now: the opening no longer lifts it on close.
+        if (shared("pr-open")?.[k]?.state === "held") { const { [k]: _, ...rest } = shared("pr-open"); setShared("pr-open", rest); }
         setShared("pr-watch", { on: false, prs: {}, error: null, at: 0, ...reg,
           paused: paused.includes(k) ? paused.filter((p) => p !== k) : [...paused, k] });
       })
       .child(paused.includes(k) ? "▶" : "⏸");
+    // "Travailler dessus": status-jc opens a space in the PR's worktree (opener.js), the panel only asks.
+    const opens = shared("pr-open") ?? {};
+    const pending = (k) => ["asked", "opening"].includes(opens[k]?.state);
+    const work = (k) => h_flex().id(`work-${k}`).w(18).h(18).flex_none().items_center().justify_center().rounded(4)
+      .text_size(11).text_color(t.dim).cursor_pointer().hover((s) => s.bg(t.hover).text_color(t.foreground))
+      .tooltip("Travailler dessus")
+      .on_click((_e, cx) => {
+        cx.stop_propagation(); // the row's own click opens the PR or its agent
+        // held is kept: the opening still owns the PR's pause, reopening its space must not make it the user's.
+        if (!pending(k)) setShared("pr-open", { ...(shared("pr-open") ?? {}), [k]: { state: "asked", at: Date.now(), held: opens[k]?.state === "held", folders: opens[k]?.folders } });
+      })
+      .child("⌨");
     const row = ([k, entry]) => {
       const [color, state] = look(entry.label), [repo, number] = k.split("#");
       return h_flex().id(`watch-${k}`).gap(10).items_start().rounded(8).px(8).py(7).cursor_pointer().hover((s) => s.bg(t.hover))
@@ -242,10 +256,12 @@ export default class PullRequest extends View {
           .child(h_flex().gap(6).items_center()
             .child(div().text_size(12).font_semibold().child(repo.split("/").pop()))
             .child(div().text_size(12).text_color(t.dim).child(`#${number}`))
-            .child(div().flex_1()).child(pause(k)).child(chip(entry.label ?? "", color)))
+            .child(div().flex_1()).child(work(k)).child(pause(k)).child(chip(entry.label ?? "", color)))
           .when(Boolean(entry.title), (e) => e.child(div().text_size(12).text_color(t.muted).truncate().child(entry.title)))
           .when(Boolean(entry.why), (e) => e.child(div().text_size(11).text_color(t.dim).child(entry.why)))
-          .when(Boolean(entry.error), (e) => e.child(div().text_size(11).text_color(t.ansi1).child(entry.error))));
+          .when(Boolean(entry.error), (e) => e.child(div().text_size(11).text_color(t.ansi1).child(entry.error)))
+          .when(pending(k), (e) => e.child(div().text_size(11).text_color(t.dim).child("ouverture…")))
+          .when(Boolean(opens[k]?.error) && !pending(k), (e) => e.child(div().text_size(11).text_color(t.ansi1).child(opens[k].error))));
     };
     const sorted = [...entries].sort(([, a], [, b]) => rank(a.label) - rank(b.label)); // stable: registry order within a label
     const watch = v_flex().gap(2)
