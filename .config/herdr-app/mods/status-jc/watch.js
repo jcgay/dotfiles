@@ -79,7 +79,7 @@ export const LABELS = Object.freeze({
 });
 
 const BUDGET = 2; // attempts per check (rebase, jenkins, sonar) and PR
-const REVIEW = ["pr-risk", "pr-review", "pr-demo", "qa"]; // pr-review --fix pushes: the demo then shows the fixed code
+const REVIEW = ["pr-review", "qa", "pr-demo", "pr-risk"]; // pr-review --fix pushes first: qa, demo and risk see the fixed code; qa finds bugs before the demo shows them
 const KARADOC = ["pr-demo", "qa"]; // start karadoc on fixed ports: one at a time
 const PUSHES = ["pr-review"]; // review steps that push fixups after their marker: they last until their tab closes
 

@@ -76,14 +76,14 @@ flowchart TD
   K -->|non| M{"aucun check et le clone a une CI ?"}
   M -->|oui| Lwait2["en attente de la CI"]
   M -->|non| R{"première étape de revue à faire ?"}
-  R -->|trouvée| Sr["étape pr-risk, pr-review, pr-demo ou qa"]
+  R -->|trouvée| Sr["étape pr-review, qa, pr-demo ou pr-risk"]
   R -->|aucune| N{"Sonar noté à toi ?"}
   N -->|oui| Lyours4["à toi"]
   N -->|"non, brouillon"| Ldraft["brouillon"]
   N -->|"non, pas brouillon"| Lok["ok"]
 ```
 
-L'étape de revue est la première, dans l'ordre `pr-risk`, `pr-review`, `pr-demo`, `qa`, qui n'a pas son marqueur sur la PR et n'a pas été fermée sans commentaire sur ce commit. `pr-demo` seulement si `AGENTS.md` ou `CLAUDE.md` à la racine du clone a une section `## Demo` (le skill s'arrête sans elle), `qa` seulement si le clone a le skill avec son marqueur. Un brouillon n'a jamais de revue, même avec un check en échec : il reste « brouillon ».
+L'étape de revue est la première, dans l'ordre `pr-review`, `qa`, `pr-demo`, `pr-risk`, qui n'a pas son marqueur sur la PR et n'a pas été fermée sans commentaire sur ce commit. `pr-demo` seulement si `AGENTS.md` ou `CLAUDE.md` à la racine du clone a une section `## Demo` (le skill s'arrête sans elle), `qa` seulement si le clone a le skill avec son marqueur. Un brouillon n'a jamais de revue, même avec un check en échec : il reste « brouillon ».
 
 « L'agent lancé tient encore » : une étape de correction (rebase, jenkins, sonar) tant que son agent est `working` ou `blocked` ; `pr-review` tant que son onglet existe (il pose son marqueur avant de corriger) ; les autres étapes de revue tant que leur onglet existe sans leur marqueur. Une étape de revue dont l'onglet est fermé sans marqueur est notée « fermée sans commentaire » pour ce commit : elle ne repart pas, la suivante peut partir, et un nouveau commit la relance.
 
@@ -109,7 +109,7 @@ flowchart TD
   T --> Lr["agent en cours"]
 ```
 
-Une erreur git pendant la préparation donne « erreur », tentative rendue. Le worktree est `~/dev/agents-worktree/<repo>/<branche>-watch`. L'onglet s'appelle `⟳ #<n> <étape>` ; il s'ouvre dans le space déjà ouvert sur ce dossier, sinon dans un nouveau space, sans prendre le focus. Le prompt (`promptFor`) : jenkins lit le log avec `jk log` puis corrige et pousse, ou relance avec `jk run rerun` ; sonar corrige toutes les issues et hotspots ; puis `/pr-review <url> --fix`, `/pr-demo <url> --narrate` en français, `/testing-api-pull-requests <url>` arrêté au rapport. Les pushes passent par `git push origin HEAD:refs/heads/<branche>`. Une fois son marqueur posté et son agent arrêté, l'onglet `pr-risk` se ferme au tour suivant (surveillance allumée), et son space avec s'il était son seul onglet ; de même quand la PR a été mergée ou fermée entre-temps. Jamais l'onglet affiché à l'écran, ni un onglet où tu as ouvert un autre pane. La PR d'un onglet se retrouve par son numéro et le dossier de son space (`…/agents-worktree/<repo>/<branche>-watch`). Les autres étapes gardent leur onglet : `pr-review --fix` pousse après son marqueur.
+Une erreur git pendant la préparation donne « erreur », tentative rendue. Le worktree est `~/dev/agents-worktree/<repo>/<branche>-watch`. L'onglet s'appelle `⟳ #<n> <étape>` ; il s'ouvre dans le space déjà ouvert sur ce dossier, sinon dans un nouveau space, sans prendre le focus. Le prompt (`promptFor`) : jenkins lit le log avec `jk log` puis corrige et pousse, ou relance avec `jk run rerun` ; sonar corrige toutes les issues et hotspots ; puis `/pr-review <url> --fix`, `/testing-api-pull-requests <url>` arrêté au rapport, `/pr-demo <url> --narrate` en français et `/pr-risk <url>`. Les pushes passent par `git push origin HEAD:refs/heads/<branche>`. Une fois son marqueur posté et son agent arrêté, l'onglet `pr-risk` se ferme au tour suivant (surveillance allumée), et son space avec s'il était son seul onglet ; de même quand la PR a été mergée ou fermée entre-temps. Jamais l'onglet affiché à l'écran, ni un onglet où tu as ouvert un autre pane. La PR d'un onglet se retrouve par son numéro et le dossier de son space (`…/agents-worktree/<repo>/<branche>-watch`). Les autres étapes gardent leur onglet : `pr-review --fix` pousse après son marqueur.
 
 Pas d'autre ménage : à part l'onglet `pr-risk`, la surveillance ne ferme aucun onglet et ne supprime aucun worktree. C'est à toi de fermer les autres onglets `⟳`. Le seul toast est celui de « à toi » sur Jenkins ou Sonar après 2 tentatives (une fois par check, jusqu'au retour au vert ou à ton push).
 
