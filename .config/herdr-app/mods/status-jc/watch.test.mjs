@@ -97,7 +97,7 @@ const green = (over = {}) => ({
   title: "T", branch: "b", head: "h1", draft: false,
   jenkins: { state: "ok", url: "https://jenkins/x/1/", jobPath: "x", number: 1 },
   sonar: { state: "ok", failed: false, issues: 0, hotspots: 0, url: "https://sonarcloud.io/x" },
-  pending: false, failing: false, reported: true, markers: new Set(), error: null, ...over,
+  pending: false, failing: false, reported: true, markers: new Set(), error: null, conflict: false, base: "master", ...over,
 });
 const jenkinsKo = { state: "ko", url: "https://jenkins/x/1/", jobPath: "x", number: 1 };
 const sonarKo = (failed) => ({ state: "ko", failed, issues: 2, hotspots: 0, url: "https://sonarcloud.io/x" });
@@ -559,4 +559,31 @@ test("a finished pr-risk tab closes, its space when alone", () => {
   const seen = [];
   closing([space("s1", [tab("t1", "⟳ #1 pr-risk")])], (n, folder) => { seen.push([n, folder]); return null; });
   assert.deepEqual(seen, [[1, "/x/agents-worktree/arthur/b-watch"]], "the PR is looked up with its space's folder");
+});
+
+test("conflict with the base launches rebase before any check", () => {
+  const r = decide(green({ conflict: true, base: "master", jenkins: jenkinsKo }), at(), NO_TAB, CTX);
+  assert.deepEqual([r.launch, r.entry.attempts.rebase, r.entry.attempts.jenkins], ["rebase", 1, 0]);
+  const spent = decide(green({ conflict: true, base: "master" }), at({ attempts: { jenkins: 0, sonar: 0, rebase: 2 } }), NO_TAB, CTX);
+  assert.deepEqual([spent.launch, spent.entry.label, spent.entry.why, spent.toast],
+    [null, LABELS.yours, "encore en conflit avec master après 2 rebases", "PR #5462 : rebase à toi"]);
+  const solved = decide(green(), at({ attempts: { jenkins: 0, sonar: 0, rebase: 2 }, told: { jenkins: false, sonar: false, rebase: true } }), NO_TAB, CTX);
+  assert.deepEqual([solved.entry.attempts, solved.entry.told], [{ jenkins: 0, sonar: 0 }, { jenkins: false, sonar: false }]);
+});
+
+test("signalsOf and prompt of a conflicting PR", () => {
+  const s = signalsOf({ repo: "o/r", number: 1, headRefName: "b", headRefOid: "abc", baseRefName: "master", mergeable: "CONFLICTING" }, [], "me");
+  assert.deepEqual([s.conflict, s.base], [true, "master"]);
+  assert.equal(signalsOf({ repo: "o/r", number: 1, mergeable: "UNKNOWN" }, [], "me").conflict, null);
+  assert.equal(signalsOf({ repo: "o/r", number: 1, mergeable: "MERGEABLE" }, [], "me").conflict, false);
+  const p = promptFor("rebase", { ...s, url: "u" });
+  assert.match(p, /git rebase --no-autosquash origin\/master/);
+  assert.match(p, /git push --force-with-lease=b:\$\(git rev-parse ORIG_HEAD\) origin HEAD:refs\/heads\/b/);
+});
+
+test("unknown mergeable waits without resetting the rebase budget", () => {
+  const r = decide(green({ conflict: null, jenkins: jenkinsKo }), at({ attempts: { jenkins: 0, sonar: 0, rebase: 2 }, told: { jenkins: false, sonar: false, rebase: true } }), NO_TAB, CTX);
+  assert.deepEqual([r.launch, r.entry.label, r.entry.why, r.entry.attempts.rebase, r.entry.told.rebase],
+    [null, LABELS.waiting, "GitHub calcule si la PR est en conflit avec master", 2, true]);
+  assert.equal(decide(green({ conflict: true }), at(), NO_TAB, { ...CTX, paused: true }).entry.why, "en pause ; en conflit avec master");
 });

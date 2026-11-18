@@ -61,7 +61,8 @@ export function signalsOf(view, checkRuns, me) {
   };
   return {
     key: `${view.repo}#${view.number}`, repo: view.repo, number: view.number, url: view.url, title: view.title,
-    branch: view.headRefName, head: view.headRefOid, draft: Boolean(view.isDraft),
+    branch: view.headRefName, head: view.headRefOid, draft: Boolean(view.isDraft), base: view.baseRefName,
+    conflict: { CONFLICTING: true, MERGEABLE: false }[view.mergeable] ?? null, // null: GitHub is still computing it
     jenkins: build && { state: build.c.state, url: build.c.url, ...build.b },
     sonar,
     pending: all.some((c) => c.state === "running"),
@@ -77,7 +78,7 @@ export const LABELS = Object.freeze({
   yours: "à toi", noClone: "pas de clone local", error: "erreur", paused: "en pause",
 });
 
-const BUDGET = 2; // attempts per check (jenkins, sonar) and PR
+const BUDGET = 2; // attempts per check (rebase, jenkins, sonar) and PR
 const REVIEW = ["pr-risk", "pr-review", "pr-demo", "qa"]; // pr-review --fix pushes: the demo then shows the fixed code
 const KARADOC = ["pr-demo", "qa"]; // start karadoc on fixed ports: one at a time
 const PUSHES = ["pr-review"]; // review steps that push fixups after their marker: they last until their tab closes
@@ -194,12 +195,18 @@ export function decide(s, entry, tab, ctx) {
   if (tab.busy) return out(LABELS.running, "un autre onglet ⟳ de cette PR travaille encore");
   if (ctx.paused) {
     // After the launched agent (it finishes), before any count or toast: resuming finds the PR as it was.
-    const ci = state("jenkins") === "ko" || state("sonar") === "ko" || s.failing ? "un check en échec"
+    const ci = s.conflict ? `en conflit avec ${s.base}` : state("jenkins") === "ko" || state("sonar") === "ko" || s.failing ? "un check en échec"
       : state("jenkins") === "running" || state("sonar") === "running" || s.pending ? "CI en cours"
       : s.reported ? "CI verte" : "aucun check";
     return out(LABELS.paused, `en pause ; ${ci}`);
   }
 
+  // Right after a push to the base GitHub answers UNKNOWN: neither a reset nor a launch on a PR that may conflict.
+  if (s.conflict === null) return out(LABELS.waiting, `GitHub calcule si la PR est en conflit avec ${s.base}`);
+  if (!s.conflict) {
+    delete e.attempts.rebase;
+    delete e.told.rebase;
+  }
   for (const c of ["jenkins", "sonar"]) {
     if (s[c]?.state === "ok") {
       e.attempts[c] = 0;
@@ -216,7 +223,14 @@ export function decide(s, entry, tab, ctx) {
   };
 
   let step;
-  if (state("jenkins") === "ko") {
+  if (s.conflict) {
+    // GitHub runs no CI on a PR in conflict: rebase first.
+    if ((e.attempts.rebase ?? 0) >= BUDGET) {
+      refuse("rebase", `encore en conflit avec ${s.base} après ${BUDGET} rebases`);
+      return out(LABELS.yours, yours, null, toast);
+    }
+    step = "rebase";
+  } else if (state("jenkins") === "ko") {
     if (e.attempts.jenkins >= BUDGET) {
       refuse("jenkins", `Jenkins encore en échec après ${BUDGET} corrections`);
       return out(LABELS.yours, yours, null, toast);
@@ -259,7 +273,7 @@ export function decide(s, entry, tab, ctx) {
     const why = `${step} à lancer, mais ${blocked}`;
     return out(yours ? LABELS.yours : LABELS.waiting, yours ? `${yours} ; ${why}` : why, null, toast);
   }
-  if (!REVIEW.includes(step)) e.attempts[step]++;
+  if (!REVIEW.includes(step)) e.attempts[step] = (e.attempts[step] ?? 0) + 1;
   e.launched = { step, head: s.head, tab: tabName(s.number, step) };
   return out(LABELS.running, `agent ${step} lancé sur ${short(s.head)}`, step, toast);
 }
@@ -288,6 +302,11 @@ export function promptFor(step, s) {
         + `Lis les nouvelles issues et les security hotspots de la pull request ${s.number} : sur sonarcloud.io avec le MCP SonarQube (paramètre \`pullRequest\`), `
         + `sur un SonarQube interne avec son API web. Si tu ne peux pas les lire, dis-le et arrête-toi. Sinon `
         + `corrige-les tous, bloquants ou non. Commite et pousse avec \`${push}\` (jamais de push forcé, jamais sur une autre branche).`;
+    case "rebase":
+      return `${s.url} est en conflit avec sa base ${s.base}. ${folder} `
+        + `Rebase (le bail du push est le commit d'où il part, ORIG_HEAD) avec \`git fetch origin ${s.base} && git rebase --no-autosquash origin/${s.base}\` et résous les conflits en gardant l'intention des deux côtés. `
+        + `Si un conflit est ambigu, \`git rebase --abort\`, dis pourquoi et arrête-toi. Sinon compile et lance les tests des fichiers en conflit, `
+        + `puis pousse avec \`git push --force-with-lease=${s.branch}:$(git rev-parse ORIG_HEAD) origin HEAD:refs/heads/${s.branch}\` (seul push forcé permis, jamais sur une autre branche).`;
     case "pr-review":
       return `/pr-review ${s.url} --fix\n\n${folder}`;
     case "pr-demo":

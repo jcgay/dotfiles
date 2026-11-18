@@ -41,7 +41,7 @@ Jenkins = un check dont l'URL est un build Jenkins (un contexte `ko` l'emporte s
 
 ### Décision pour une PR
 
-`decide()` dans `watch.js`. Les tentatives Jenkins et Sonar repartent à 0 quand le check est vert ou quand un nouveau commit arrive sans qu'un onglet d'agent correcteur de la PR (jenkins, sonar, pr-review) soit ouvert : c'est ton push. Un commit apparu pendant que cet onglet existe est celui de l'agent, le budget reste.
+`decide()` dans `watch.js`. Une PR en conflit avec sa base (`mergeable` à `CONFLICTING`) passe avant tout : GitHub n'y lance aucune CI. Tant que GitHub répond `UNKNOWN` (juste après un push sur la base), la PR attend sans rien lancer ni remettre à 0. L'agent `rebase` rebase sur `origin/<base>` sans autosquash et pousse en `--force-with-lease` sur le commit d'où il est parti ; un conflit ambigu, il abandonne. Ses tentatives repartent à 0 dès que la PR n'est plus en conflit. Son push change le head : un merge armé sur la PR est désarmé. Ton checkout de la branche, à jour avant ce push, ne compte pas comme du travail non poussé (les anciennes positions de `origin/<branche>` sont exclues). Les tentatives Jenkins et Sonar repartent à 0 quand le check est vert ou quand un nouveau commit arrive sans qu'un onglet d'agent correcteur de la PR (rebase, jenkins, sonar, pr-review) soit ouvert : c'est ton push. Un commit apparu pendant que cet onglet existe est celui de l'agent, le budget reste.
 
 ```mermaid
 flowchart TD
@@ -53,7 +53,12 @@ flowchart TD
   D -->|oui| Lrun
   D -->|non| E{"PR en pause ?"}
   E -->|oui| Lpause["en pause, sans toast ni comptage"]
-  E -->|non| F{"Jenkins ko ?"}
+  E -->|non| X0{"GitHub calcule encore le conflit ?"}
+  X0 -->|oui| Lwait0["en attente"]
+  X0 -->|non| X{"en conflit avec sa base ?"}
+  X -->|"oui, moins de 2 tentatives"| Sx["étape rebase"]
+  X -->|"oui, 2 tentatives"| Lyours0["à toi, toast une fois"]
+  X -->|non| F{"Jenkins ko ?"}
   F -->|oui| F2{"déjà 2 tentatives Jenkins ?"}
   F2 -->|oui| Lyours1["à toi, toast une fois"]
   F2 -->|non| Sj["étape jenkins"]
@@ -80,7 +85,7 @@ flowchart TD
 
 L'étape de revue est la première, dans l'ordre `pr-risk`, `pr-review`, `pr-demo`, `qa`, qui n'a pas son marqueur sur la PR et n'a pas été fermée sans commentaire sur ce commit. `pr-demo` seulement si `AGENTS.md` ou `CLAUDE.md` à la racine du clone a une section `## Demo` (le skill s'arrête sans elle), `qa` seulement si le clone a le skill avec son marqueur. Un brouillon n'a jamais de revue, même avec un check en échec : il reste « brouillon ».
 
-« L'agent lancé tient encore » : une étape de correction (jenkins, sonar) tant que son agent est `working` ou `blocked` ; `pr-review` tant que son onglet existe (il pose son marqueur avant de corriger) ; les autres étapes de revue tant que leur onglet existe sans leur marqueur. Une étape de revue dont l'onglet est fermé sans marqueur est notée « fermée sans commentaire » pour ce commit : elle ne repart pas, la suivante peut partir, et un nouveau commit la relance.
+« L'agent lancé tient encore » : une étape de correction (rebase, jenkins, sonar) tant que son agent est `working` ou `blocked` ; `pr-review` tant que son onglet existe (il pose son marqueur avant de corriger) ; les autres étapes de revue tant que leur onglet existe sans leur marqueur. Une étape de revue dont l'onglet est fermé sans marqueur est notée « fermée sans commentaire » pour ce commit : elle ne repart pas, la suivante peut partir, et un nouveau commit la relance.
 
 ### Lancement d'une étape
 

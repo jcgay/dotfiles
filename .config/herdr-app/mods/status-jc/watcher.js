@@ -5,7 +5,7 @@ import { searchSince, signalsOf, decide, emptyEntry, promptFor, repoOfRemote, un
 const MAX_AGENTS = 3;
 const LEASE = "pr-watch-lease";
 const LEASE_MS = 240000; // a round older than this died without clearing its lease
-const VIEW_FIELDS = "number,title,url,isDraft,headRefName,headRefOid,statusCheckRollup,comments,reviews";
+const VIEW_FIELDS = "number,title,url,isDraft,headRefName,headRefOid,statusCheckRollup,comments,reviews,mergeable,baseRefName";
 
 const firstLine = (text) => (text ?? "").trim().split("\n")[0] || null;
 
@@ -86,11 +86,14 @@ async function cloneOf(repo, clones) {
 export async function prepareWorktree(clone, repo, branch) {
   const path = `${home()}/dev/agents-worktree/${repo.split("/")[1]}/${branch}-watch`;
   await sh("git", ["-C", clone, "fetch", "origin", branch]);
+  // What origin/<branch> pointed to: once a rebase agent force-pushed, my synced checkout holds commits origin no longer has.
+  const pointed = await exec("git", ["-C", clone, "reflog", "show", "--format=%H", `refs/remotes/origin/${branch}`]);
+  const pushed = pointed.code === 0 ? pointed.stdout.split("\n").filter(Boolean) : [];
   for (const folder of checkoutsOf(await sh("git", ["-C", clone, "worktree", "list", "--porcelain"]), branch)) {
     // My live checkout: git status must not take its index lock under a commit of mine.
     try {
       if ((await sh("git", ["--no-optional-locks", "status", "--porcelain"], folder)).trim()
-        || (await sh("git", ["rev-list", "HEAD", "--not", "--remotes=origin"], folder)).trim()) return { busy: folder };
+        || (await sh("git", ["rev-list", "HEAD", "--not", "--remotes=origin", ...pushed], folder)).trim()) return { busy: folder };
     } catch {
       // git fails there (unmounted volume): it does not hold the PR
     }
