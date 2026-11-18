@@ -122,16 +122,17 @@ export function holdingTabs(tabs, markersOf) {
   }).map((t) => t.name);
 }
 
-// What to close this round ([{ cmd, id }]): the tab of a CLOSES step whose agent stopped and whose PR has its marker or left
+// What to close this round ([{ cmd, args }]): the tab of a CLOSES step whose agent stopped and whose PR has its marker or left
 // the round (merged, closed), or its space when that tab is the space's only one. Never the tab I am looking at, nor one
-// I split. spaces: local SpaceInfo[]; markersOf(number, folder): the PR's Set, null when unknown, undefined when gone.
+// I split. args are confirmed: Herdr asks before closing a space, and nobody is there to answer.
+// spaces: local SpaceInfo[]; markersOf(number, folder): the PR's Set, null when unknown, undefined when gone.
 export function closing(spaces, markersOf) {
   return spaces.flatMap((sp) => sp.tabs.filter((t) => {
     const m = /^⟳ #(\d+) (\S+)$/.exec(t.name);
     if (m === null || !CLOSES.includes(m[2]) || t.panes !== 1 || ["working", "blocked"].includes(t.status) || (sp.active && t.active)) return false;
     const found = markersOf(Number(m[1]), sp.folder);
     return found === undefined || (found?.has(m[2]) ?? false);
-  }).map((t) => (sp.tabs.length === 1 ? { cmd: "space.close", id: sp.id } : { cmd: "tab.close", id: t.id })));
+  }).map((t) => (sp.tabs.length === 1 ? { cmd: "space.close", args: { id: sp.id, confirmed: true } } : { cmd: "tab.close", args: { id: t.id, confirmed: true } })));
 }
 
 // `git worktree list --porcelain` → the folders with branch checked out. The watch's own worktree is detached, a prunable
