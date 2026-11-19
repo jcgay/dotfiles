@@ -1,5 +1,5 @@
 // Armed "rebase and merge" of a PR: pure decisions, fed with `gh pr view` JSON. No herdr import, loads in plain Node.
-import { checks } from "./watch.js";
+import { checks, fixups } from "./watch.js";
 
 // shared() key, written by the PR panel (arm, disarm) and by status-jc (result): { "o/r#N": { head, at, why, error } }.
 export const ARMED = "pr-merge";
@@ -13,7 +13,7 @@ export function mergeStep(key, view, armed, ctx = {}) {
   const n = key.split("#")[1];
   if (view.state !== "OPEN") return out("drop");
   if (view.headRefOid !== armed.head) return out("drop", null, `PR #${n} : nouveau commit, merge annulé`);
-  if ((view.commits ?? []).some((c) => /^(fixup|amend|squash)! /.test(c.messageHeadline ?? ""))) {
+  if (fixups(view.commits)) {
     return out("drop", null, `PR #${n} : commit fixup!/amend!/squash!, merge annulé`);
   }
   const all = checks(view.statusCheckRollup);

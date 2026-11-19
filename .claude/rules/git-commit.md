@@ -11,7 +11,7 @@ except to a branch with a pull request (see below).
 Changes asked for in a code review go in `git commit --fixup=<sha>`
 commits, one per commit being corrected (find it with `git blame` /
 `git log -L`), never in a new standalone commit. Don't autosquash them:
-I run `git rebase -i --autosquash` myself.
+the Herdr PR watch does it once a human approves the PR, or I do.
 
 ## Pull request
 

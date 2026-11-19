@@ -5,6 +5,7 @@ import { parseListeners, parseParents, parseCwds, spaceOf, health, stillMapped, 
 import { round } from "./watcher.js";
 import { mergeRound } from "./merger.js";
 import { openRound } from "./opener.js";
+import { squashRound } from "./squasher.js";
 
 const WATCH = "pr-watch";
 const FRESH = { on: false, prs: {}, error: null, at: 0, paused: [] }; // the PR panel's switch turns it on
@@ -23,6 +24,23 @@ export default class WorkspaceStatus extends View {
     cx.timer.every(60000, (cx) => this.merge(cx));
     // "Travailler dessus" (PR panel): picked up within 5 s, the watch round waits 5 min.
     cx.timer.every(5000, (cx) => this.open(cx));
+    // Squash button (PR panel): same pace as the openings.
+    cx.timer.every(5000, (cx) => this.squash(cx));
+  }
+
+  squash(cx) {
+    if (this.squashing) return;
+    this.squashing = true;
+    this.squashId ??= `${Date.now()}-${Math.random()}`;
+    cx.spawn(async () => {
+      try {
+        await squashRound(this.squashId);
+      } catch (e) {
+        console.log("squash:", e?.message ?? e);
+      } finally {
+        this.squashing = false;
+      }
+    });
   }
 
   open(cx) {

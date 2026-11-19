@@ -41,7 +41,7 @@ Jenkins = un check dont l'URL est un build Jenkins (un contexte `ko` l'emporte s
 
 ### Décision pour une PR
 
-`decide()` dans `watch.js`. Une PR en conflit avec sa base (`mergeable` à `CONFLICTING`) passe avant tout : GitHub n'y lance aucune CI. Tant que GitHub répond `UNKNOWN` (juste après un push sur la base), la PR attend sans rien lancer ni remettre à 0. L'agent `rebase` rebase sur `origin/<base>` sans autosquash et pousse en `--force-with-lease` sur le commit d'où il est parti ; un conflit ambigu, il abandonne. Ses tentatives repartent à 0 dès que la PR n'est plus en conflit. Son push change le head : un merge armé sur la PR est désarmé. Ton checkout de la branche, à jour avant ce push, ne compte pas comme du travail non poussé (les anciennes positions de `origin/<branche>` sont exclues). Les tentatives Jenkins et Sonar repartent à 0 quand le check est vert ou quand un nouveau commit arrive sans qu'un onglet d'agent correcteur de la PR (rebase, jenkins, sonar, pr-review) soit ouvert : c'est ton push. Un commit apparu pendant que cet onglet existe est celui de l'agent, le budget reste.
+`decide()` dans `watch.js`. Une PR en conflit avec sa base (`mergeable` à `CONFLICTING`) passe avant tout : GitHub n'y lance aucune CI. Tant que GitHub répond `UNKNOWN` (juste après un push sur la base), la PR attend sans rien lancer ni remettre à 0. L'agent `rebase` rebase sur `origin/<base>` sans autosquash et pousse en `--force-with-lease` sur le commit d'où il est parti ; un conflit ambigu, il abandonne. Ses tentatives repartent à 0 dès que la PR n'est plus en conflit. Une PR approuvée par un humain (`reviewDecision` à `APPROVED`) qui a encore des commits `fixup!`/`amend!`/`squash!` passe, une fois ses étapes de revue faites, par l'étape `squash` : pas d'agent, `autosquash` dans `watcher.js` fait dans le worktree de surveillance `git rebase -i --autosquash --no-update-refs` sur le merge-base avec `origin/<base>` (la base ne bouge pas, le code non plus : un arbre différent de celui du head, commit de merge par exemple, est refusé sans rien pousser), puis le même push `--force-with-lease` sur le head. Si le rebase s'arrête sur un conflit, il l'abandonne et lance l'agent `squash`, qui doit retrouver le même arbre. Avant l'approbation, les fixups restent : le relecteur garde ses « changements depuis ma dernière revue ». Un refus (arbre différent, push rejeté, après quoi le worktree revient sur le head) compte comme une tentative. Deux tentatives, remises à 0 quand il n'y a plus de fixup. Son push change le head : un merge armé sur la PR est désarmé. Ton checkout de la branche, à jour avant ce push, ne compte pas comme du travail non poussé (les anciennes positions de `origin/<branche>` sont exclues). Les tentatives Jenkins et Sonar repartent à 0 quand le check est vert ou quand un nouveau commit arrive sans qu'un onglet d'agent correcteur de la PR (rebase, jenkins, sonar, pr-review) soit ouvert : c'est ton push. Un commit apparu pendant que cet onglet existe est celui de l'agent, le budget reste.
 
 ```mermaid
 flowchart TD
@@ -77,7 +77,10 @@ flowchart TD
   M -->|oui| Lwait2["en attente de la CI"]
   M -->|non| R{"première étape de revue à faire ?"}
   R -->|trouvée| Sr["étape pr-review, qa, pr-demo ou pr-risk"]
-  R -->|aucune| N{"Sonar noté à toi ?"}
+  R -->|aucune| Q{"approuvée avec des fixup! ?"}
+  Q -->|"oui, moins de 2 tentatives"| Sq["étape squash : git, agent si conflit"]
+  Q -->|"oui, 2 tentatives"| Lyours5["à toi, toast une fois"]
+  Q -->|non| N{"Sonar noté à toi ?"}
   N -->|oui| Lyours4["à toi"]
   N -->|"non, brouillon"| Ldraft["brouillon"]
   N -->|"non, pas brouillon"| Lok["ok"]
@@ -139,6 +142,10 @@ status-jc réécrit tout le registre en fin de tour, sauf `on` et `paused` qu'il
 
 `shared("pr-watch-lease")` vaut `{ at, id }` pendant un tour, `null` sinon.
 
+## Squash à la demande
+
+L'icône ⤵ de la ligne Squash du panneau `pr` écrit `{ state: "asked", at }` sous `"<owner>/<repo>#<N>"` dans `shared("pr-squash")`. Toutes les 5 s, `squasher.js` en prend une (`running`), lit la PR avec gh, prépare le worktree de surveillance comme pour un agent (refusé si tu travailles sur la branche sans avoir poussé, si ce worktree est sale, si la PR est en pause ou si un onglet `⟳ #N` est ouvert) et appelle le même `autosquash` que l'étape `squash`, sans attendre d'approbation. Un conflit ouvre l'onglet `⟳ #N squash`. Succès ou agent lancé : l'entrée disparaît ; un échec y laisse `error`, affichée 5 min sous la ligne. Après le push forcé, ton checkout de la branche est en retard : `git pull --rebase` le remet sur la PR.
+
 ## Merge armé
 
 Le bouton « Merger quand tout est vert » du résumé de la PR (panneau `pr`) écrit la PR dans `shared("pr-merge")` : `{ "<owner>/<repo>#<N>": { head, at, why, error } }`, `head` étant le commit de tête au moment du clic, et `at` l'heure du clic. Ce mod le relit toutes les minutes, sans appel gh si rien n'est armé, que la surveillance soit coupée ou non et quel que soit l'auteur de la PR. Pour chaque PR, `gh pr view --json state,headRefOid,statusCheckRollup,commits` puis `mergeStep` :
@@ -177,12 +184,13 @@ Chaque tour de surveillance et chaque merge armé ajoutent leurs lignes à `~/Li
 | Fichier | Rôle |
 |---|---|
 | `mod.json` | Origine du clone (`workspace-status` 0.1.15). |
-| `main.js` | La vue : barre d'état, minuteurs des ports (5 s), de la surveillance (60 s puis 5 min) du merge armé (1 min) et des ouvertures (5 s), écriture du registre. |
+| `main.js` | La vue : barre d'état, minuteurs des ports (5 s), de la surveillance (60 s puis 5 min) du merge armé (1 min) des ouvertures et des squashs (5 s), écriture du registre. |
 | `ports.js` | Fonctions pures des ports : lecture de lsof et ps, space d'un listener, santé, quoi interroger. |
 | `watch.js` | Fonctions pures de la surveillance : signaux d'une PR, `decide`, prompts, lecture de git. Sans import Herdr. |
 | `watcher.js` | Un tour : bail, appels gh et git, clone local, worktree `-watch`, ouverture des onglets. |
 | `merge.js` | Fonctions pures du merge armé : `mergeStep`, `applyResults`. Sans import Herdr. |
 | `merger.js` | Un tour de merge armé : bail, appels gh, toasts. |
+| `squasher.js` | Un passage de squash à la demande : demande du panneau, gh, worktree, `autosquash`, agent sur conflit. |
 | `open.js` | Fonctions pures de l'ouverture : chemin du `-watch`, pause posée, pauses à lever. Sans import Herdr. |
 | `opener.js` | Un passage d'ouverture : demande, gh, worktree, espace, pause. |
 | `journal.js` | Fonctions pures du journal : lignes d'un tour, format d'une ligne. Sans import Herdr. |
@@ -194,7 +202,7 @@ node --test ~/.config/herdr-app/mods/status-jc/*.test.mjs
 herdr-app check ~/.config/herdr-app/mods/status-jc
 ```
 
-`watcher.js`, `merger.js` et `main.js` n'ont pas de test : ils parlent à Herdr, gh et git.
+`watcher.js`, `merger.js`, `squasher.js` et `main.js` n'ont pas de test : ils parlent à Herdr, gh et git.
 
 ## À savoir
 

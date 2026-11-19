@@ -1,7 +1,7 @@
 // node --test ~/.config/herdr-app/mods/status-jc/watch.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { searchSince, sonarFindings, markers, signalsOf, checks, jenkinsBuild, decide, emptyEntry, tabName, LABELS, promptFor, repoOfRemote, undoLaunch, holdingTabs, closing, karadocHeld, checkoutBases, checkoutsOf } from "./watch.js";
+import { fixups, searchSince, sonarFindings, markers, signalsOf, checks, jenkinsBuild, decide, emptyEntry, tabName, LABELS, promptFor, repoOfRemote, undoLaunch, holdingTabs, closing, karadocHeld, checkoutBases, checkoutsOf } from "./watch.js";
 
 // Real summaries: arthur#5458 (passed) and arthur#5449 (failed gate).
 const PASSED = `Issues  
@@ -586,4 +586,32 @@ test("unknown mergeable waits without resetting the rebase budget", () => {
   assert.deepEqual([r.launch, r.entry.label, r.entry.why, r.entry.attempts.rebase, r.entry.told.rebase],
     [null, LABELS.waiting, "GitHub calcule si la PR est en conflit avec master", 2, true]);
   assert.equal(decide(green({ conflict: true }), at(), NO_TAB, { ...CTX, paused: true }).entry.why, "en pause ; en conflit avec master");
+});
+
+test("fixups counts fixup!, amend! and squash! commits", () => {
+  assert.equal(fixups([{ messageHeadline: "Add x" }, { messageHeadline: "fixup! Add x" }, { messageHeadline: "amend! Add x" }, { messageHeadline: "squash! Add x" }]), 3);
+  assert.equal(fixups(undefined), 0);
+  assert.equal(signalsOf({ repo: "o/r", reviewDecision: "APPROVED", commits: [{ messageHeadline: "fixup! a" }] }, [], "me").approved, true);
+});
+
+test("squash waits for a human approval, after every review step", () => {
+  assert.equal(decide(green({ markers: ALL, fixups: 2 }), at(), NO_TAB, CTX).launch, null, "not approved: fixups stay");
+  assert.equal(decide(green({ markers: new Set(["pr-review"]), approved: true, fixups: 2 }), at(), NO_TAB, CTX).launch, "qa");
+  const r = decide(green({ markers: ALL, approved: true, fixups: 2 }), at(), NO_TAB, CTX);
+  assert.deepEqual([r.launch, r.entry.attempts.squash], ["squash", 1]);
+  assert.equal(decide(green({ markers: ALL, approved: true, fixups: 0 }), at(), NO_TAB, CTX).launch, null);
+});
+
+test("squash at budget is mine, its budget goes once the fixups are gone", () => {
+  const spent = decide(green({ markers: ALL, approved: true, fixups: 1 }), at({ attempts: { jenkins: 0, sonar: 0, squash: 2 } }), NO_TAB, CTX);
+  assert.deepEqual([spent.launch, spent.entry.label, spent.toast], [null, LABELS.yours, "PR #5462 : squash à toi"]);
+  const gone = decide(green({ markers: ALL, approved: true, fixups: 0 }), at({ attempts: { jenkins: 0, sonar: 0, squash: 2 }, told: { jenkins: false, sonar: false, squash: true } }), NO_TAB, CTX);
+  assert.deepEqual([gone.entry.attempts.squash, gone.entry.told.squash], [undefined, undefined]);
+});
+
+test("squash prompt keeps the code and leases the push on the head", () => {
+  const p = promptFor("squash", green({ url: "u" }));
+  assert.match(p, /rebase -i --autosquash --no-update-refs \$\(git merge-base origin\/master HEAD\)/);
+  assert.match(p, /git diff --quiet h1 HEAD/);
+  assert.match(p, /--force-with-lease=b:h1 origin HEAD:refs\/heads\/b/);
 });

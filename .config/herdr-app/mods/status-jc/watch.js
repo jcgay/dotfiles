@@ -23,6 +23,10 @@ export function checks(rollup) {
   });
 }
 
+// A commit `git rebase --autosquash` folds into an earlier one.
+export const FIXUP = /^(fixup|amend|squash)! /;
+export const fixups = (commits) => (commits ?? []).filter((c) => FIXUP.test(c.messageHeadline ?? "")).length;
+
 const MARKERS = { "<!-- pr-risk -->": "pr-risk", "<!-- pr-demo -->": "pr-demo", "<!-- pr-review -->": "pr-review", "<!-- testing-api-pull-requests -->": "qa" };
 
 // Sonar's check-run → counts read from its markdown summary (0 when a line is absent), or null without check-run.
@@ -62,6 +66,7 @@ export function signalsOf(view, checkRuns, me) {
   return {
     key: `${view.repo}#${view.number}`, repo: view.repo, number: view.number, url: view.url, title: view.title,
     branch: view.headRefName, head: view.headRefOid, draft: Boolean(view.isDraft), base: view.baseRefName,
+    approved: view.reviewDecision === "APPROVED", fixups: fixups(view.commits),
     conflict: { CONFLICTING: true, MERGEABLE: false }[view.mergeable] ?? null, // null: GitHub is still computing it
     jenkins: build && { state: build.c.state, url: build.c.url, ...build.b },
     sonar,
@@ -78,7 +83,7 @@ export const LABELS = Object.freeze({
   yours: "à toi", noClone: "pas de clone local", error: "erreur", paused: "en pause",
 });
 
-const BUDGET = 2; // attempts per check (rebase, jenkins, sonar) and PR
+const BUDGET = 2; // attempts per check (rebase, jenkins, sonar, squash) and PR
 const REVIEW = ["pr-review", "qa", "pr-demo", "pr-risk"]; // pr-review --fix pushes first: qa, demo and risk see the fixed code; qa finds bugs before the demo shows them
 const KARADOC = ["pr-demo", "qa"]; // start karadoc on fixed ports: one at a time
 const PUSHES = ["pr-review"]; // review steps that push fixups after their marker: they last until their tab closes
@@ -208,6 +213,10 @@ export function decide(s, entry, tab, ctx) {
     delete e.attempts.rebase;
     delete e.told.rebase;
   }
+  if (!s.fixups) {
+    delete e.attempts.squash;
+    delete e.told.squash;
+  }
   for (const c of ["jenkins", "sonar"]) {
     if (s[c]?.state === "ok") {
       e.attempts[c] = 0;
@@ -256,6 +265,11 @@ export function decide(s, entry, tab, ctx) {
       if (s.failing) return out(LABELS.yours, "un check en échec que la surveillance ne corrige pas (ni Jenkins ni Sonar)", null, toast);
       if (!s.reported && ctx.hasCi) return out(LABELS.waiting, "aucun check sur ce commit : attente de la CI du repo");
       step = REVIEW.find((r) => (r !== "qa" || ctx.hasQa) && (r !== "pr-demo" || ctx.hasDemo) && !s.markers.has(r) && !silent.includes(r));
+      // Fixups stay for the reviewers' "changes since last review" until a human approves.
+      if (!step && s.approved && s.fixups) {
+        if ((e.attempts.squash ?? 0) >= BUDGET) refuse("squash", `commits fixup! encore là après ${BUDGET} squashs`);
+        else step = "squash";
+      }
     }
     if (!step) {
       if (yours) return out(LABELS.yours, yours, null, toast);
@@ -308,6 +322,11 @@ export function promptFor(step, s) {
         + `Rebase (le bail du push est le commit d'où il part, ORIG_HEAD) avec \`git fetch origin ${s.base} && git rebase --no-autosquash origin/${s.base}\` et résous les conflits en gardant l'intention des deux côtés. `
         + `Si un conflit est ambigu, \`git rebase --abort\`, dis pourquoi et arrête-toi. Sinon compile et lance les tests des fichiers en conflit, `
         + `puis pousse avec \`git push --force-with-lease=${s.branch}:$(git rev-parse ORIG_HEAD) origin HEAD:refs/heads/${s.branch}\` (seul push forcé permis, jamais sur une autre branche).`;
+    case "squash":
+      return `Les commits fixup!/amend!/squash! de ${s.url} ne s'appliquent pas sans conflit. ${folder} `
+        + `Lance \`git -c sequence.editor=: rebase -i --autosquash --no-update-refs $(git merge-base origin/${s.base} HEAD)\` et résous chaque conflit : le code final doit rester celui de ${s.head.slice(0, 8)}. `
+        + `Avant de pousser, \`git diff --quiet ${s.head} HEAD\` doit réussir ; sinon, ou si un conflit est ambigu, \`git rebase --abort\`, dis pourquoi et arrête-toi. `
+        + `Pousse avec \`git push --force-with-lease=${s.branch}:${s.head} origin HEAD:refs/heads/${s.branch}\` (seul push forcé permis, jamais sur une autre branche).`;
     case "pr-review":
       return `/pr-review ${s.url} --fix\n\n${folder}`;
     case "pr-demo":

@@ -7,7 +7,7 @@ import { jenkinsBuild, checks, otherChecks, summary, minutes, deploymentsFor, pa
 const KEEP = 30;
 
 // The pull request of the shown space's branch (gh), and its Jenkins build (jk).
-const FIELDS = "number,title,state,isDraft,headRefOid,reviewDecision,reviewRequests,url,headRefName,baseRefName,additions,deletions,statusCheckRollup";
+const FIELDS = "number,title,state,isDraft,headRefOid,reviewDecision,reviewRequests,url,headRefName,baseRefName,additions,deletions,statusCheckRollup,commits";
 
 function location() {
   const space = spaces().find((s) => s.active), f = focused();
@@ -189,6 +189,20 @@ export default class PullRequest extends View {
         .child(div().flex_1().min_w(0).truncate().child(armed.refused ? "merge refusé" : `armé${armed.why ? ` · ${armed.why}` : ""}`))
         .child(icon("pr-disarm", "✕", armed.refused ? "Effacer" : "Désarmer", disarm)))
       .when(Boolean(armed.error), (e) => e.child(div().text_size(11).text_color(t.ansi1).child(armed.error)))];
+    // Squash: status-jc (mods/status-jc/squasher.js) folds the fixup! commits on a click; its watch does it alone once approved.
+    // The regex is watch.js's FIXUP: Herdr refuses imports from another mod's folder.
+    const fixes = (pr?.commits ?? []).filter((c) => /^(fixup|amend|squash)! /.test(c.messageHeadline ?? "")).length;
+    // The watch squashes alone only my ready PRs, Surveillance on; the row cannot tell mine, so the hint skips drafts and off.
+    const approved = pr?.reviewDecision === "APPROVED", auto = !pr?.isDraft && Boolean(shared("pr-watch")?.on);
+    const squash = mergeKey && (shared("pr-squash") ?? {})[mergeKey], squashing = squash && squash.state !== "error";
+    const squashRow = mergeKey && pr.state === "OPEN" && ["Squash", v_flex().gap(3)
+      .child(h_flex().gap(8).items_center()
+        .child(dot(squashing ? "running" : !fixes ? "ok" : approved ? "ko" : "idle", fixes && approved && !squashing ? t.blocked : null))
+        .child(div().flex_1().min_w(0).truncate().child(squashing ? "squash en cours…" : !fixes ? "rien à squasher"
+          : `${fixes} commit${fixes > 1 ? "s" : ""} fixup! à squasher${!approved && auto ? " · auto après approbation" : ""}`))
+        .when(fixes > 0 && !squashing, (r) => r.child(icon("pr-squash", "⤵", "Squasher et pousser (push forcé)",
+          () => setShared("pr-squash", { ...(shared("pr-squash") ?? {}), [mergeKey]: { state: "asked", at: Date.now() } })))))
+      .when(Boolean(squash?.error), (e) => e.child(div().text_size(11).text_color(t.ansi1).child(squash.error)))];
     const canArm = Boolean(mergeKey) && pr.state === "OPEN" && !pr.isDraft && !armed;
     const reviewers = (pr?.reviewRequests ?? []).map((r) => r.login ?? r.name ?? r.slug);
     const body = !where.branch ? div().text_color(t.dim).child("Pas de branche git ici.")
@@ -203,7 +217,7 @@ export default class PullRequest extends View {
           .child(div().text_color(t.muted).child(`#${pr.number}`))
           .child(chip(...state)).when(Boolean(review), (e) => e.child(chip(...review)))
           .child(div().text_size(11).text_color(t.ansi2).child(`+${pr.additions}`)).child(div().text_size(11).text_color(t.ansi1).child(`−${pr.deletions}`)))
-        .child(table([buildRow, deployedRow, checksRow, mergeRow]))
+        .child(table([buildRow, deployedRow, checksRow, squashRow, mergeRow]))
         .when(canArm, (e) => e.child(h_flex().pt(12).child(button("pr-arm", "Merger quand tout est vert",
           () => setShared("pr-merge", { ...(shared("pr-merge") ?? {}), [mergeKey]: { head: pr.headRefOid, at: Date.now(), why: null, error: null } })))))
         .child(div().pt(8).text_size(11).text_color(t.dim)
