@@ -8,7 +8,7 @@ import { searchSince, signalsOf, decide, emptyEntry, promptFor, repoOfRemote, un
 const MAX_AGENTS = 3;
 const LEASE = "pr-watch-lease";
 const LEASE_MS = 240000; // a round older than this died without clearing its lease
-const VIEW_FIELDS = "number,title,url,isDraft,headRefName,headRefOid,statusCheckRollup,comments,reviews,mergeable,baseRefName";
+const VIEW_FIELDS = "number,title,url,isDraft,headRefName,headRefOid,statusCheckRollup,comments,reviews,mergeable,baseRefName,reviewDecision,commits";
 
 const firstLine = (text) => (text ?? "").trim().split("\n")[0] || null;
 
@@ -120,8 +120,35 @@ export async function prepareWorktree(clone, repo, branch, paused = () => false)
   return { path };
 }
 
+// Folds the fixup!/amend!/squash! commits of a watch worktree checked out at s.head and force-pushes. Rebased on its own
+// merge-base, so the code must not change: a different tree is put back and refused. false: the rebase stopped (a conflict),
+// aborted, an agent has to solve it.
+export async function autosquash(path, s) {
+  if ((await sh("git", ["rev-parse", "HEAD"], path)).trim() !== s.head) throw new Error(`origin/${s.branch} n'est plus ${s.head.slice(0, 8)}`);
+  await sh("git", ["fetch", "origin", s.base], path);
+  const base = (await sh("git", ["merge-base", `origin/${s.base}`, "HEAD"], path)).trim();
+  // squash! keeps both messages: core.editor=: takes git's combined message as is.
+  const r = await exec("git", ["-c", "sequence.editor=:", "-c", "core.editor=:", "rebase", "-i", "--autosquash", "--no-update-refs", base], { cwd: path, timeout: 120000 });
+  if (r.code !== 0) {
+    await exec("git", ["rebase", "--abort"], { cwd: path });
+    return false;
+  }
+  if ((await exec("git", ["diff", "--quiet", s.head, "HEAD"], { cwd: path })).code !== 0) {
+    await sh("git", ["checkout", "--detach", s.head], path);
+    throw new Error("le squash change le code (commit de merge ?) : rien poussé");
+  }
+  try {
+    await sh("git", ["push", `--force-with-lease=${s.branch}:${s.head}`, "origin", `HEAD:refs/heads/${s.branch}`], path);
+  } catch (e) {
+    // Left on the squashed commits, the worktree would look unpushed and block every later step of the PR.
+    await exec("git", ["checkout", "--detach", s.head], { cwd: path });
+    throw e;
+  }
+  return true;
+}
+
 // A background launch: focus false keeps the user where they are.
-function start(path, name, task) {
+export function start(path, name, task) {
   const space = spaces().find((s) => !s.machine && s.folder === path);
   if (space) run("tab.new", { space: space.id, folder: path, name, argv: ["claude"], task, focus: false });
   else run("space.new", { folder: path, tab: name, argv: ["claude"], task, focus: false });
@@ -221,8 +248,14 @@ async function roundUnderLease(registry, cache, at) {
             // Paused during prepareWorktree's fetch: the user may already be working in this worktree.
             else if (wt.paused || isPaused()) entry = undoLaunch(entry, r.launch, LABELS.paused, null, `mise en pause pendant la préparation : ${r.launch} pas lancé`);
             else {
-              start(wt.path, entry.launched.tab, promptFor(r.launch, s));
-              launched.push(entry.launched.tab);
+              // squash goes through git alone; only a conflict (false) needs its agent. A refusal spends the attempt.
+              const squashed = r.launch === "squash" ? await autosquash(wt.path, s).catch((err) => err) : false;
+              if (squashed === true) entry = { ...entry, launched: null, label: LABELS.waiting, why: `fixups squashés et poussés sur ${s.branch}` };
+              else if (squashed instanceof Error) entry = { ...entry, launched: null, label: LABELS.error, error: squashed.message, why: "squash refusé" };
+              else {
+                start(wt.path, entry.launched.tab, promptFor(r.launch, s));
+                launched.push(entry.launched.tab);
+              }
             }
           } catch (e) {
             entry = undoLaunch(entry, r.launch, LABELS.error, e.message, `préparation du worktree pour ${r.launch} impossible`);

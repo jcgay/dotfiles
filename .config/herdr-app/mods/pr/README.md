@@ -17,6 +17,7 @@ Titre de la PR                      ← clic : la PR sur GitHub
 │          │ 412 tests · 3 en échec · 2 ignorés           │
 │ Déployée │ merlin-feat-x.dockersw.vidal.net             │ ← « nulle part » si rien, « … » pendant la recherche
 │ Checks   │ ● 1 en échec · 2 ✓                        ›  │ ← clic : déplie la liste
+│ Squash   │ ● 2 commits fixup! à squasher · auto…     ⤵  │ ← PR ouverte ; « rien à squasher » sinon
 │ Merge    │ armé · CI en cours                         ✕  │ ← seulement une fois armé
 └──────────┴───────────────────────────────────────────────┘
 [Merger quand tout est vert]          ← PR ouverte, pas brouillon, pas armée
@@ -28,6 +29,7 @@ SURVEILLANCE …
 - **Checks** ne compte pas le check du build affiché dans Build, sauf hors VPN (Build ne connaît alors pas son résultat) ; un autre job Jenkins y reste. La ligne disparaît s'il ne reste aucun check. Dépliée ou repliée, elle le reste d'un espace à l'autre.
 - Sans PR : « Pas de PR pour `<branche>` », la ligne Déployée si un conteneur a été trouvé, et le bouton **Créer la PR** (`gh pr create --web`).
 - **Merger quand tout est vert** arme un « rebase and merge » de la PR sur son commit de tête : `status-jc` la fusionne dans la minute qui suit le passage au vert de tous ses checks, même panneau fermé (détail dans son [README](../status-jc/README.md#merge-armé)). La ligne **Merge** dit ce qu'on attend et l'erreur éventuelle de gh ; ✕ désarme. Un merge refusé par GitHub y reste affiché (« merge refusé » et l'erreur) jusqu'au ✕. Un nouveau commit ou un commit `fixup!`/`amend!`/`squash!` désarme avec un toast.
+- **Squash** compte les commits `fixup!`/`amend!`/`squash!` de la PR. ⤵ demande à `status-jc` de les replier et de pousser en force (git seul, un agent seulement sur conflit) ; « squash en cours… » puis l'erreur éventuelle s'affichent sur la ligne (détail dans son [README](../status-jc/README.md#squash-à-la-demande)). Sans clic, la surveillance le fait seule une fois la PR approuvée (« auto après approbation » tant qu'elle ne l'est pas).
 - Une action (relance, création) affiche sa progression puis son erreur éventuelle en bas du panneau.
 
 ## D'où viennent les données
