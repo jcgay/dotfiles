@@ -15,7 +15,7 @@ Le reste est l'original : renommer au double-clic, glisser pour déplacer, molet
 
 Files et Changes ne s'affichent que s'ils sont dans `workspace.panels` (réglé dans Settings). Le bouton PR, lui, est toujours là : Settings ne connaît que Files et Changes, donc `pr` n'est jamais dans cette liste.
 
-Un clic fait `layout.select` sur la pile `panel-body` (enfant `pr`) puis `layout.show` sur `panel`. Le layout `jc` doit donc avoir un enfant `pr` dans `panel-body` qui monte le mod `pr` ; c'est le cas aujourd'hui. Avec un autre layout sans cet enfant, le bouton ne ferait rien d'utile (non vérifié).
+Un clic fait `layout.select` sur la pile `panel-body` (enfant `pr`) puis `layout.show` sur `panel`. `⌘⇧R` fait pareil : `keys.json` envoie `tabs-jc.panel:pr` au mod, que `nextCommand()` reçoit dans `togglePanel`. Le layout `jc` doit donc avoir un enfant `pr` dans `panel-body` qui monte le mod `pr` ; c'est le cas aujourd'hui. Avec un autre layout sans cet enfant, le bouton ne ferait rien d'utile (non vérifié).
 
 ## Le panneau mémorisé par space
 

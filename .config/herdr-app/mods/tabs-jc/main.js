@@ -1,6 +1,6 @@
 import { View, div, svg, image } from "gpui-kit";
 import { h_flex, ScrollHandle } from "gpui-base";
-import { spaces, panes, run, openOverlay, theme, window, shared, layout, settings } from "herdr";
+import { spaces, panes, run, openOverlay, theme, window, shared, layout, settings, nextCommand } from "herdr";
 
 function find(node, id) {
   if (node?.id === id) return node;
@@ -28,12 +28,26 @@ function label(tab, lead) {
 }
 
 export default class Tabs extends View {
-  init() {
+  init(_p, cx) {
     this.pressed = null;
     this.scroll = ScrollHandle.new();
     try { this.panels = JSON.parse(localStorage.getItem("panels") ?? "{}"); } catch { this.panels = {}; }
     if (!this.panels || typeof this.panels !== "object" || Array.isArray(this.panels)) this.panels = {};
     this.swipe = { acc: 0, steps: 0, at: 0, last: 0 };
+    // keys.json binds "tabs-jc.panel:<id>", same toggle as the panel buttons.
+    cx.spawn(async (cx) => {
+      for (;;) {
+        const c = await nextCommand();
+        if (typeof c === "string" && c.startsWith("panel:")) this.togglePanel(c.slice(6));
+        cx.notify();
+      }
+    });
+  }
+
+  togglePanel(id) {
+    const root = layout(), panel = find(root, "panel"), body = find(root, "panel-body");
+    if (panel && !panel.hidden && body?.active === id) run("layout.hide", { id: "panel" });
+    else { run("layout.select", { stack: "panel-body", child: id }); run("layout.show", { id: "panel" }); }
   }
 
   // One tab per wheel notch. A touchpad or smooth-scrolling mouse sends many
@@ -137,10 +151,7 @@ export default class Tabs extends View {
       return h_flex().id(`panel-${id}`).relative().tooltip(label).accessibility_label(label).size(26).flex_none().items_center().justify_center().rounded(6)
         .bg(on ? t.selected : t.chrome).text_color(on ? t.foreground : t.muted)
         .hover(s => s.bg(t.hover)).on_mouse_down("left", stop)
-        .on_click(() => {
-          if (on) run("layout.hide", { id: "panel" });
-          else { run("layout.select", { stack: "panel-body", child: id }); run("layout.show", { id: "panel" }); }
-        }).child(svg(icon).size(14))
+        .on_click(() => this.togglePanel(id)).child(svg(icon).size(14))
         .when(badge > 0, el => el.child(div().absolute().top(-2).right(-3).min_w(14).h(14).px(3).rounded(7).flex().items_center().justify_center()
           .bg(t.accent).text_color(t.background).text_size(9).font_semibold().child(badge > 99 ? "99+" : String(badge))));
     };
