@@ -1,3 +1,5 @@
 #!/bin/bash
 
 brew upgrade && brew cleanup
+# sonar n'est installé que pour la classe Work
+if command -v sonar >/dev/null; then sonar update; fi
