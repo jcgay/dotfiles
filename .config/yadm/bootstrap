@@ -102,6 +102,7 @@ if claude --version &>/dev/null; then
   claude plugin marketplace add blader/humanizer || true
   claude plugin marketplace add gradle/gradle-skills || true
   claude plugin marketplace add docker/skills || true
+  claude plugin marketplace add prime-radiant-inc/prime-radiant-marketplace || true
 
   # Sans lancement préalable de claude, l'index local de claude-plugins-official
   # n'est pas encore fetché → install échoue. On le rafraîchit d'abord.
@@ -119,7 +120,8 @@ if claude --version &>/dev/null; then
     humanizer@humanizer \
     gradle-skills@gradle-skills \
     docker-skills@docker \
-    claude-md-management@claude-plugins-official; do
+    claude-md-management@claude-plugins-official \
+    toolsmith@prime-radiant-marketplace; do
     claude plugin install "$plugin" || true
   done
 
