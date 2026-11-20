@@ -86,3 +86,45 @@ export function remember(map, key, value, max) {
   while (map.size > max) map.delete(map.keys().next().value);
   return value;
 }
+
+// The watch list (status-jc writes its registry, pipeline.js its band and clock).
+
+// A watched PR's clock → its line's first words: the running step, the time to ready-to-approve, or "dépend de toi".
+export function clockText(clock, now) {
+  if (!clock) return null;
+  if (clock.yours) return "dépend de toi";
+  return [
+    clock.step && clock.since != null && `${clock.step} depuis ${minutes(now - clock.since)}`,
+    clock.readyAt && (clock.readyAt > now ? `prête à approuver dans ~${minutes(clock.readyAt - now)}` : "prête à approuver bientôt"),
+  ].filter(Boolean).join(" · ") || null;
+}
+
+// What ⌨ shows for entry.work ({ folder, exists } or null without a clone), given the folders local spaces show.
+export function workLook(work, folders) {
+  const shown = Boolean(work?.folder) && folders.some((f) => f === work.folder || f.startsWith(`${work.folder}/`));
+  const tip = !work ? "Travailler dessus" : shown ? "Aller au space" : work.exists ? "Ouvrir le worktree" : "Créer le worktree et travailler dessus";
+  return { tip, missing: Boolean(work) && !work.exists, shown };
+}
+
+// The row's ⤵ and ⇥/✕: merge and squash are the PR's requests in shared("pr-merge") and shared("pr-squash").
+export function rowActions(entry, merge, squash) {
+  return {
+    squash: entry.fixups > 0 && (!squash || squash.state === "error"),
+    // status-jc cancels a merge armed over fixup! commits; after a squash the stale count hides ⇥ until the next round.
+    arm: entry.draft === false && entry.head ? (merge ? (merge.refused ? "refused" : "disarm") : entry.fixups > 0 ? null : "arm") : null,
+  };
+}
+
+// The nine slots of a band (a draft's band has three): an armed merge runs, a refused one failed.
+// merge: the PR's shared("pr-merge") entry (true stands for armed).
+export function bandStates(band, merge) {
+  const last = !merge ? null : merge.refused ? "ko" : "run";
+  return Array.from({ length: 9 }, (_, i) => (i === 8 && last && band.length === 9 ? last : band[i] ?? null));
+}
+
+// The header's round: running (or asked through ↻), when the next comes, or none yet. every: 5 min before it was written.
+export function nextRound(reg, asked, now) {
+  if (reg?.running || asked) return "tour en cours";
+  if (!reg?.at) return "pas encore de tour";
+  return `tour dans ${minutes(Math.max(60000, (reg.next ?? reg.at + (reg.every ?? 300000)) - now))}`;
+}

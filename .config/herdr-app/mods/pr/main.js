@@ -1,7 +1,7 @@
-import { View, div } from "gpui-kit";
+import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
 import { spaces, panes, agents, focused, exec, theme, layout, run, shared, setShared } from "herdr";
-import { jenkinsBuild, checks, otherChecks, summary, minutes, deploymentsFor, parseContainers, watchBranch, remember } from "./model.js";
+import { jenkinsBuild, checks, otherChecks, summary, minutes, deploymentsFor, parseContainers, watchBranch, remember, clockText, workLook, rowActions, bandStates, nextRound } from "./model.js";
 
 // How many spaces, checkouts and Jenkins builds the caches keep.
 const KEEP = 30;
@@ -238,11 +238,11 @@ export default class PullRequest extends View {
     };
     // status-jc launches nothing on a paused PR; it only reads the list, the panel writes it.
     const paused = reg?.paused ?? [];
-    const pause = (k) => h_flex().id(`pause-${k}`).w(18).h(18).flex_none().items_center().justify_center().rounded(4)
-      .text_size(11).text_color(t.dim).cursor_pointer().hover((s) => s.bg(t.hover).text_color(t.foreground))
-      .tooltip(paused.includes(k) ? "Reprendre" : "Mettre en pause")
-      .on_click((_e, cx) => {
-        cx.stop_propagation(); // the row's own click opens the PR or its agent
+    // A row's small button; its click must not reach the row, whose own click opens the PR or its agent.
+    const rowButton = (id, tip, onClick) => h_flex().id(id).min_w(24).h(24).px(3).gap(2).flex_none().items_center().justify_center().rounded(5)
+      .text_size(15).text_color(t.dim).cursor_pointer().hover((s) => s.bg(t.hover).text_color(t.foreground))
+      .tooltip(tip).on_click((_e, cx) => { cx.stop_propagation(); onClick(cx); });
+    const pause = (k) => rowButton(`pause-${k}`, paused.includes(k) ? "Reprendre" : "Mettre en pause", () => {
         // A pause touched by hand is the user's now: the opening no longer lifts it on close.
         if (shared("pr-open")?.[k]?.state === "held") { const { [k]: _, ...rest } = shared("pr-open"); setShared("pr-open", rest); }
         setShared("pr-watch", { on: false, prs: {}, error: null, at: 0, ...reg,
@@ -252,17 +252,54 @@ export default class PullRequest extends View {
     // "Travailler dessus": status-jc opens a space in the PR's worktree (opener.js), the panel only asks.
     const opens = shared("pr-open") ?? {};
     const pending = (k) => ["asked", "opening"].includes(opens[k]?.state);
-    const work = (k) => h_flex().id(`work-${k}`).w(18).h(18).flex_none().items_center().justify_center().rounded(4)
-      .text_size(11).text_color(t.dim).cursor_pointer().hover((s) => s.bg(t.hover).text_color(t.foreground))
-      .tooltip("Travailler dessus")
-      .on_click((_e, cx) => {
-        cx.stop_propagation(); // the row's own click opens the PR or its agent
+    // ⌨ tells what its click does from the folder status-jc found (entry.work): missing, there, or shown by a local space.
+    const local = spaces().filter((s) => !s.machine).flatMap((s) => {
+      const tabs = new Set(s.tabs.map((x) => x.id));
+      return [s.folder, ...panes().filter((p) => tabs.has(p.tab)).map((p) => p.cwd)];
+    }).filter(Boolean);
+    const work = (k, w) => {
+      const { tip, missing, shown } = workLook(w, local);
+      return rowButton(`work-${k}`, tip, () => {
         // held is kept: the opening still owns the PR's pause, reopening its space must not make it the user's.
         if (!pending(k)) setShared("pr-open", { ...(shared("pr-open") ?? {}), [k]: { state: "asked", at: Date.now(), held: opens[k]?.state === "held", folders: opens[k]?.folders } });
       })
-      .child("⌨");
+        .when(missing, (e) => e.opacity(0.4))
+        .when(shown, (e) => e.text_color(t.foreground))
+        // ⌨ has no glyph in the panel's font: workspace-chrome's terminal icon instead.
+        .child(svg("mods/workspace-chrome/terminal.svg").size(14).text_color(shown ? t.foreground : t.dim)).when(shown, (e) => e.child(div().size(4).rounded(2).bg(t.done)));
+    };
+    // ⤵ and ⇥ write the same requests as the top of the panel: status-jc does the squash and the merge.
+    const merges = shared("pr-merge") ?? {}, squashes = shared("pr-squash") ?? {};
+    const squashIt = (k, entry) => rowActions(entry, merges[k], squashes[k]).squash
+      && rowButton(`squash-${k}`, `Squasher ${entry.fixups} fixup! et pousser (push forcé)`,
+        () => setShared("pr-squash", { ...(shared("pr-squash") ?? {}), [k]: { state: "asked", at: Date.now() } })).child("⤵");
+    const arm = (k, entry) => {
+      const action = rowActions(entry, merges[k], squashes[k]).arm;
+      const disarm = () => { const { [k]: _, ...rest } = shared("pr-merge") ?? {}; setShared("pr-merge", rest); };
+      return action === "arm" ? rowButton(`arm-${k}`, "Merger quand tout est vert",
+          () => setShared("pr-merge", { ...(shared("pr-merge") ?? {}), [k]: { head: entry.head, at: Date.now(), why: null, error: null } })).child("⇥")
+        : action === "disarm" ? rowButton(`arm-${k}`, "Désarmer le merge", disarm).child("✕")
+        : action === "refused" ? rowButton(`arm-${k}`, `Merge refusé : ${merges[k].error ?? "?"} (effacer)`, disarm).text_color(t.ansi1).child("✕")
+        : null;
+    };
+    // The step band status-jc computed (pipeline.js STEPS): nine slots, a draft fills three.
+    const STEPS = ["git", "jenk", "sonar", "rev", "qa", "demo", "risk", "appr", "merge"];
+    const fills = { ok: t.done, run: t.working, wait: t.working, ko: t.ansi1, me: t.ansi5 }; // me: violet, t.blocked reads red in some themes
+    const band = (k, entry) => h_flex().gap(2).py(3).when(paused.includes(k), (e) => e.opacity(0.45))
+      .children(bandStates(entry.band, merges[k]).map((state, i) => {
+        const label = STEPS[i];
+        const cell = div().flex_1().h(16).rounded(3).flex().items_center().justify_center().text_size(9);
+        if (!state) return cell;
+        return cell.child(label)
+          .when(Boolean(fills[state]), (e) => e.bg(fills[state]).text_color(t.background))
+          .when(state === "todo", (e) => e.bg(t.raised).text_color(t.dim))
+          .when(state === "skip", (e) => e.border_1().border_dashed().border_color(t.border).text_color(t.dim))
+          .when(state === "run", (e) => e.loop("opacity", { from: 0.5, to: 1, period: 1200 }));
+      }));
     const row = ([k, entry]) => {
       const [color, state] = look(entry.label), [repo, number] = k.split("#");
+      const why = [clockText(entry.clock, Date.now()), entry.why].filter(Boolean).join(" · ");
+      const squash = squashIt(k, entry), merge = arm(k, entry);
       return h_flex().id(`watch-${k}`).gap(10).items_start().rounded(8).px(8).py(7).cursor_pointer().hover((s) => s.bg(t.hover))
         .tooltip(entry.launched ? "Aller à l'agent" : "Ouvrir la PR").on_click(() => open(entry))
         .child(div().pt(5).flex_none().child(dot(state, color)))
@@ -270,9 +307,11 @@ export default class PullRequest extends View {
           .child(h_flex().gap(6).items_center()
             .child(div().text_size(12).font_semibold().child(repo.split("/").pop()))
             .child(div().text_size(12).text_color(t.dim).child(`#${number}`))
-            .child(div().flex_1()).child(work(k)).child(pause(k)).child(chip(entry.label ?? "", color)))
+            .child(div().flex_1()).when(Boolean(squash), (e) => e.child(squash)).when(Boolean(merge), (e) => e.child(merge))
+            .child(work(k, entry.work)).child(pause(k)).child(chip(entry.label ?? "", color)))
           .when(Boolean(entry.title), (e) => e.child(div().text_size(12).text_color(t.muted).truncate().child(entry.title)))
-          .when(Boolean(entry.why), (e) => e.child(div().text_size(11).text_color(t.dim).child(entry.why)))
+          .when(Array.isArray(entry.band), (e) => e.child(band(k, entry)))
+          .when(Boolean(why), (e) => e.child(div().text_size(11).text_color(t.dim).child(why)))
           .when(Boolean(entry.error), (e) => e.child(div().text_size(11).text_color(t.ansi1).child(entry.error)))
           .when(pending(k), (e) => e.child(div().text_size(11).text_color(t.dim).child("ouverture…")))
           .when(Boolean(opens[k]?.error) && !pending(k), (e) => e.child(div().text_size(11).text_color(t.ansi1).child(opens[k].error))));
@@ -280,11 +319,16 @@ export default class PullRequest extends View {
     const sorted = [...entries].sort(([, a], [, b]) => rank(a.label) - rank(b.label)); // stable: registry order within a label
     const watch = v_flex().gap(2)
       .child(section("Surveillance"))
-      .child(h_flex().id("watch-switch").h(24).gap(8).items_center().rounded(6).px(4).text_size(12).cursor_pointer().hover((s) => s.bg(t.hover))
-        .on_click(() => setShared("pr-watch", { on: false, prs: {}, error: null, at: 0, ...reg, on: !reg?.on }))
-        .child(dot(reg?.on ? "ok" : "ko")).child(div().child(reg?.on ? "Surveillance active" : "Surveillance coupée"))
-        .child(div().flex_1()).child(div().text_size(11).text_color(t.dim)
-          .child(reg?.at ? `dernier tour il y a ${minutes(Date.now() - reg.at)}` : "pas encore de tour")))
+      .child(h_flex().gap(10).items_center().flex_wrap().text_size(11).text_color(t.muted)
+        .child(h_flex().id("watch-switch").h(24).gap(8).items_center().rounded(6).px(4).text_size(12).text_color(t.foreground).cursor_pointer().hover((s) => s.bg(t.hover))
+          .on_click(() => setShared("pr-watch", { on: false, prs: {}, error: null, at: 0, ...reg, on: !reg?.on }))
+          .child(dot(reg?.on ? "ok" : "ko")).child(div().child(reg?.on ? "Surveillance active" : "Surveillance coupée")))
+        .when(Boolean(reg?.agents), (e) => e.child(div().child(`Agents ${reg.agents.busy}/${reg.agents.max}`)))
+        .when(Boolean(reg?.agents), (e) => e.child(div().child(reg.karadoc ? `karadoc pris (${reg.karadoc.replace(/^⟳ /, "")})` : "karadoc libre")))
+        .child(div().flex_1())
+        .child(div().text_color(t.dim).child(nextRound(reg, Boolean(shared("pr-watch-now")), Date.now())))
+        .child(h_flex().id("watch-now").w(24).h(24).items_center().justify_center().rounded(5).text_size(15).cursor_pointer().hover((s) => s.bg(t.hover).text_color(t.foreground))
+          .tooltip("Faire un tour maintenant").on_click(() => setShared("pr-watch-now", { at: Date.now() })).child("↻")))
       .when(Boolean(reg?.error), (e) => e.child(div().text_size(11).text_color(t.ansi1).child(reg.error)))
       .child(v_flex().gap(1).pt(4).children(sorted.map(row)));
 
