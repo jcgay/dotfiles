@@ -3,7 +3,8 @@ import { exec, spaces, agents, panes, run, notify, readTextFile, home, shared, s
 import { watchPath } from "./open.js";
 import { roundLines } from "./journal.js";
 import { appendJournal } from "./journal-file.js";
-import { searchSince, signalsOf, decide, emptyEntry, promptFor, repoOfRemote, undoLaunch, holdingTabs, karadocHeld, closing, checkoutBases, checkoutsOf, LABELS } from "./watch.js";
+import { searchSince, signalsOf, decide, emptyEntry, promptFor, repoOfRemote, undoLaunch, holdingTabs, karadocHeld, karadocHolder, closing, checkoutBases, checkoutsOf, LABELS } from "./watch.js";
+import { bandOf, measure, addSamples, clockOf, workOf } from "./pipeline.js";
 
 const MAX_AGENTS = 3;
 const LEASE = "pr-watch-lease";
@@ -81,7 +82,9 @@ async function cloneOf(repo, clones) {
   const dir = async (path) => clone !== null && (await exec("test", ["-d", `${clone}/${path}`])).code === 0;
   const hasCi = (await has("Jenkinsfile")) || (await has(".github/workflows"));
   // karadoc is arthur's module: only repos that hold it run it on its fixed ports
-  return { clone, hasQa, hasDemo, hasCi, hasKaradoc: await dir("karadoc") };
+  // ⌨'s worktree, read before this round's launches: one created now shows at the next round.
+  const listed = clone === null ? null : await exec("git", ["-C", clone, "worktree", "list", "--porcelain"]);
+  return { clone, hasQa, hasDemo, hasCi, hasKaradoc: await dir("karadoc"), worktrees: listed?.code === 0 ? listed.stdout : "" };
 }
 
 // The watch's own worktree for branch, detached on origin/<branch>; dirty when an agent left work in it, busy (the
@@ -187,6 +190,8 @@ export async function round(registry, cache = {}) {
   const lease = shared(LEASE);
   if (lease && lease.id !== cache.lease && at - lease.at < LEASE_MS) return null;
   setShared(LEASE, { at, id: cache.lease });
+  // Only the copy running the round says so: a copy refused by the lease must not clear it.
+  setShared("pr-watch", { ...(shared("pr-watch") ?? {}), running: true });
   try {
     return await roundUnderLease(registry, cache, at);
   } finally {
@@ -223,6 +228,9 @@ async function roundUnderLease(registry, cache, at) {
 
   const roundPrs = new Set(all.map((s) => s.number));
   const karadocPrs = new Set(all.filter((s) => repos.get(s.repo).hasKaradoc).map((s) => s.number));
+  // A repo where Sonar never reported on any PR has no Sonar: its case is dotted, not green.
+  const sonarRepos = new Set([...(registry.sonarRepos ?? []), ...all.filter((s) => s.sonar).map((s) => s.repo)]);
+  const samples = []; // durations finished this round, for the step history
   const launched = []; // tab names started this round: running before agents() lists them
   const prs = {};
   const toasts = new Map(); // PR key → this round's toast, for the journal
@@ -230,7 +238,7 @@ async function roundUnderLease(registry, cache, at) {
     const before = registry.prs[s.key] ?? emptyEntry();
     try {
       const busy = [...new Set([...heldTabs(all), ...launched])];
-      const { clone, hasQa, hasDemo, hasCi, hasKaradoc } = repos.get(s.repo);
+      const { clone, hasQa, hasDemo, hasCi, hasKaradoc, worktrees } = repos.get(s.repo);
       // paused read live: the PR panel's ⌨ may have paused this PR since the round started.
       const ctx = { on: registry.on, paused: (shared("pr-watch")?.paused ?? registry.paused ?? []).includes(s.key), slots: MAX_AGENTS - busy.length, karadocFree: !hasKaradoc || !karadocHeld(busy, karadocPrs, roundPrs), hasQa, hasDemo, hasCi };
       const tab = { ...tabOf(before), busy: busy.some((t) => t.startsWith(`⟳ #${s.number} `)) };
@@ -262,6 +270,16 @@ async function roundUnderLease(registry, cache, at) {
           }
         }
       }
+      if (!s.error) {
+        if (entry.launched && entry.launched.at == null) entry = { ...entry, launched: { ...entry.launched, at: Date.now() } };
+        const m = measure(before, entry, s, Date.now());
+        samples.push(...m.samples);
+        entry = {
+          ...entry, ci: m.ci, fixups: s.fixups, draft: s.draft,
+          band: bandOf(s, entry, { hasCi, hasQa, hasDemo, hasSonar: sonarRepos.has(s.repo) }),
+          work: clone === null ? null : workOf(worktrees, { draft: s.draft, branch: s.branch, watch: watchPath(home(), s.repo, s.branch) }),
+        };
+      }
       prs[s.key] = pruned(entry);
     } catch (e) {
       // One broken PR keeps the others' launch records.
@@ -269,6 +287,11 @@ async function roundUnderLease(registry, cache, at) {
     }
   }
   await appendJournal(roundLines(registry, { on: registry.on, prs }, toasts));
+  const durations = addSamples(registry.durations ?? {}, samples);
+  for (const key of Object.keys(prs)) prs[key] = { ...prs[key], clock: clockOf(prs[key], durations, Date.now()) };
+  // For the panel's header: the watch agents at the end of the round and the one holding karadoc.
+  const busy = [...new Set([...heldTabs(all), ...launched])];
   // journalOn: `on` as this round saw it, so the next round writes a switch made in between.
-  return { ...registry, prs, error: null, at, journalOn: registry.on };
+  return { ...registry, prs, error: null, at, journalOn: registry.on, durations, sonarRepos: [...sonarRepos],
+    agents: { busy: busy.length, max: MAX_AGENTS }, karadoc: karadocHolder(busy, karadocPrs, roundPrs) };
 }
