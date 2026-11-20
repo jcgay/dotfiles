@@ -29,7 +29,7 @@ Les ports sont relus toutes les 5 s, et tout de suite quand tu changes de space 
 
 ### Quand et quoi
 
-Un premier tour 60 s après le démarrage du mod, puis toutes les 5 min. Les tours tournent aussi surveillance coupée : le panneau reste à jour, mais aucun agent ne part.
+Un premier tour 60 s après le démarrage du mod, puis toutes les 2 min, et dans les 5 s quand le ↻ du panneau écrit `shared("pr-watch-now")` (sauf si un tour tourne déjà). Les tours tournent aussi surveillance coupée : le panneau reste à jour, mais aucun agent ne part.
 
 Un tour prend un bail `shared("pr-watch-lease")` : si une autre copie du mod en tient un de moins de 4 min, le tour ne fait rien. Il lit ensuite :
 
@@ -122,7 +122,12 @@ Pas d'autre ménage : à part l'onglet `pr-risk`, la surveillance ne ferme aucun
 {
   on: false,          // interrupteur Surveillance ; un registre neuf démarre coupé
   paused: ["owner/repo#N"],
-  at: 1763300000000,  // fin du dernier tour (ms)
+  at: 1763300000000,  // début du dernier tour (ms)
+  every: 120000,      // période des tours ; next : quand le minuteur lance le suivant ; running: true pendant un tour (bandeau du panneau)
+  agents: { busy: 2, max: 3 },        // agents de surveillance occupés en fin de tour
+  karadoc: "⟳ #5471 qa" | null,        // l'onglet qui tient karadoc
+  durations: { "agent:qa": [ms, …], "ci:jenkins": [ms, …] }, // 10 dernières durées par étape
+  sonarRepos: ["owner/repo"],         // repos où Sonar a déjà rapporté : ailleurs, case sonar en pointillé
   error: null,        // erreur du tour entier (gh search, gh api user)
   prs: {
     "owner/repo#N": {
@@ -130,15 +135,22 @@ Pas d'autre ménage : à part l'onglet `pr-risk`, la surveillance ne ferme aucun
       attempts: { jenkins: 0, sonar: 0 },
       told: { jenkins: false, sonar: false }, // toast « à toi » déjà montré
       seen: { jenkins: false, sonar: false }, // ce check a déjà rapporté sur la PR
-      launched: { step, head, tab } | null,   // étape en cours ou dernière lancée
+      launched: { step, head, tab, at } | null, // étape en cours ou dernière lancée, at : son lancement
       silent: { "<sha>": ["pr-demo"] },       // fermées sans commentaire, commit courant seulement
       label, why, error,                      // étiquette, ligne d'explication, erreur de la PR
+      band: ["ok", "run", …],                 // 9 cases (3 pour un brouillon) : ok run wait ko me todo skip
+      ci: { jenkins: { head, since } | null, sonar }, // check vu tourner depuis since, pour sa durée
+      clock: { step, since, readyAt } | { yours: true } | null, // étape en cours, prête à approuver vers
+      fixups, draft,                          // pour ⤵ et ⇥ du panneau
+      work: { folder, exists } | null,        // dossier qu'ouvrirait ⌨ (null : pas de clone)
     },
   },
 }
 ```
 
-status-jc réécrit tout le registre en fin de tour, sauf `on` et `paused` qu'il relit juste avant d'écrire pour ne pas écraser un clic fait pendant le tour. `prs` est reconstruit à chaque tour avec les seules PR trouvées par la recherche. Le panneau PR lit `prs`, `at` et `error`, et n'écrit que `on` (interrupteur) et `paused` (bouton ⏸ / ▶). Il trie les lignes par étiquette : à toi, erreur, pas de clone local, agent en cours, en attente, brouillon, en pause, ok. Un clic sur une ligne va à l'agent de `launched.tab` s'il existe, sinon ouvre la PR.
+status-jc réécrit tout le registre en fin de tour, sauf `on` et `paused` qu'il relit juste avant d'écrire pour ne pas écraser un clic fait pendant le tour. `prs` est reconstruit à chaque tour avec les seules PR trouvées par la recherche. Le panneau PR lit le registre, n'écrit que `on` (interrupteur) et `paused` (bouton ⏸ / ▶), et demande un tour par `shared("pr-watch-now")`.
+
+La bande, les durées et l'estimation viennent de `pipeline.js`. Une durée d'agent va de son lancement au tour qui le voit s'arrêter (une review seulement avec son marqueur) ; celle de Jenkins ou Sonar du premier tour qui le voit tourner au premier qui le voit fini sur le même commit, ou les horodatages du check-run de Sonar. L'estimation est la médiane des 10 dernières durées, à partir de 3, et ajoute un passage de CI après un `pr-review` à faire (ses fixups relancent la CI). Le panneau trie les lignes par étiquette : à toi, erreur, pas de clone local, agent en cours, en attente, brouillon, en pause, ok. Un clic sur une ligne va à l'agent de `launched.tab` s'il existe, sinon ouvre la PR.
 
 `shared("pr-watch-lease")` vaut `{ at, id }` pendant un tour, `null` sinon.
 
@@ -184,9 +196,10 @@ Chaque tour de surveillance et chaque merge armé ajoutent leurs lignes à `~/Li
 | Fichier | Rôle |
 |---|---|
 | `mod.json` | Origine du clone (`workspace-status` 0.1.15). |
-| `main.js` | La vue : barre d'état, minuteurs des ports (5 s), de la surveillance (60 s puis 5 min) du merge armé (1 min) des ouvertures et des squashs (5 s), écriture du registre. |
+| `main.js` | La vue : barre d'état, minuteurs des ports (5 s), de la surveillance (60 s puis 2 min, et ↻ relevé toutes les 5 s) du merge armé (1 min) des ouvertures et des squashs (5 s), écriture du registre. |
 | `ports.js` | Fonctions pures des ports : lecture de lsof et ps, space d'un listener, santé, quoi interroger. |
 | `watch.js` | Fonctions pures de la surveillance : signaux d'une PR, `decide`, prompts, lecture de git. Sans import Herdr. |
+| `pipeline.js` | Fonctions pures de la bande d'étapes : cases, mesures de durée, médiane, estimation, worktree de ⌨. Sans import Herdr. |
 | `watcher.js` | Un tour : bail, appels gh et git, clone local, worktree `-watch`, ouverture des onglets. |
 | `merge.js` | Fonctions pures du merge armé : `mergeStep`, `applyResults`. Sans import Herdr. |
 | `merger.js` | Un tour de merge armé : bail, appels gh, toasts. |
@@ -195,7 +208,7 @@ Chaque tour de surveillance et chaque merge armé ajoutent leurs lignes à `~/Li
 | `opener.js` | Un passage d'ouverture : demande, gh, worktree, espace, pause. |
 | `journal.js` | Fonctions pures du journal : lignes d'un tour, format d'une ligne. Sans import Herdr. |
 | `journal-file.js` | Ajout des lignes au fichier du journal. |
-| `ports.test.mjs`, `watch.test.mjs`, `merge.test.mjs`, `open.test.mjs`, `journal.test.mjs` | Tests `node:test` des fichiers purs. |
+| `ports.test.mjs`, `watch.test.mjs`, `pipeline.test.mjs`, `merge.test.mjs`, `open.test.mjs`, `journal.test.mjs` | Tests `node:test` des fichiers purs. |
 
 ```sh
 node --test ~/.config/herdr-app/mods/status-jc/*.test.mjs

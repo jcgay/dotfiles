@@ -22,8 +22,18 @@ Titre de la PR                      ← clic : la PR sur GitHub
 └──────────┴───────────────────────────────────────────────┘
 [Merger quand tout est vert]          ← PR ouverte, pas brouillon, pas armée
 feat/x → master · revue demandée à alice
-SURVEILLANCE …
+SURVEILLANCE
+● Surveillance active  Agents 2/3  karadoc libre   tour dans 1 min ↻
+● arthur #5471                          ⤵ ⇥ ⌨ ⏸ [agent en cours]
+  Ajoute l'export PDF des ordonnances
+  [git][jenk][sonar][rev][qa][demo][risk][appr][merge]   ← la bande d'étapes
+  qa depuis 12 min · prête à approuver dans ~35 min · agent qa lancé sur 1a2b3c4d
 ```
+
+- **Bandeau** : l'interrupteur, les agents de surveillance occupés sur 3, l'onglet qui tient karadoc, le temps avant le prochain tour (toutes les 2 min) ; ↻ en demande un tout de suite.
+- **Bande d'étapes**, calculée par `status-jc` : vert fait, orange clignotant en cours (agent, CI, merge armé), orange fixe en attente d'une approbation humaine, rouge en échec que la surveillance corrige, violet à toi, gris à venir, pointillé jamais fait dans ce repo (pas de CI, de Sonar, de qa ou de `## Demo`). Un brouillon n'a que git, jenk et sonar ; une PR en pause a sa bande pâlie.
+- La ligne du dessous commence par l'étape en cours et sa durée, puis l'estimation « prête à approuver dans ~X » (médiane des passages précédents, rien avant 3 mesures), ou « dépend de toi ».
+- **⤵** (PR avec des `fixup!`) et **⇥** (PR prête ; ✕ une fois armée) font la même chose que Squash et « Merger quand tout est vert » du haut, sans ouvrir le space. **⌨** est pâli quand son worktree n'existe pas encore, a une pastille quand un space le montre déjà.
 
 - La ligne **Build** n'existe que si un check de la PR pointe vers un build Jenkins. 📜 ouvre la console, 🔁 relance (`jk run rerun`) et n'apparaît que sur un build terminé qui n'a pas réussi. Hors VPN : « Jenkins injoignable (VPN ?) ».
 - **Checks** ne compte pas le check du build affiché dans Build, sauf hors VPN (Build ne connaît alors pas son résultat) ; un autre job Jenkins y reste. La ligne disparaît s'il ne reste aucun check. Dépliée ou repliée, elle le reste d'un espace à l'autre.
@@ -80,7 +90,7 @@ flowchart TD
 | Fichier | Rôle |
 |---|---|
 | `main.js` | La vue : récupération (gh, jk, Docker), caches, rendu des deux parties. |
-| `model.js` | Fonctions pures testées : URL Jenkins → job, checks de gh, résumé, durées, parsing Docker, correspondance des déploiements, branche d'un worktree de surveillance, cache borné. |
+| `model.js` | Fonctions pures testées : URL Jenkins → job, checks de gh, résumé, durées, parsing Docker, correspondance des déploiements, branche d'un worktree de surveillance, cache borné, et ce que montre la Surveillance (texte du temps, aspect de ⌨, boutons ⤵ et ⇥, cases de la bande, prochain tour). |
 | `model.test.mjs` | Tests de `model.js`. |
 | `mod.json` | `place: none` : le mod n'est posé que par le layout. |
 
@@ -94,4 +104,4 @@ Tests : `node --test ~/.config/herdr-app/mods/pr/*.test.mjs`. Vérification du m
 - `model.js` n'importe rien de Herdr, sinon Node ne peut pas le tester.
 - Jenkins n'a pas le plugin Pipeline Graph View : pas d'étapes, seulement résultat, tests et durée.
 
-Designs : [aspect du panneau](../../docs/2026-11-16-pr-panel-look-design.md), [surveillance](../../docs/2026-11-14-pr-watch-design.md), [merge armé](../../docs/2026-11-17-pr-armed-merge-design.md).
+Designs : [bande d'étapes](../../docs/2026-11-20-pr-watch-pipeline-design.md), [aspect du panneau](../../docs/2026-11-16-pr-panel-look-design.md), [surveillance](../../docs/2026-11-14-pr-watch-design.md), [merge armé](../../docs/2026-11-17-pr-armed-merge-design.md).
