@@ -8,6 +8,8 @@ import { openRound } from "./opener.js";
 import { squashRound } from "./squasher.js";
 
 const WATCH = "pr-watch";
+const NOW = "pr-watch-now"; // the PR panel's ↻ asks for a round now
+const ROUND_MS = 120000;
 const FRESH = { on: false, prs: {}, error: null, at: 0, paused: [] }; // the PR panel's switch turns it on
 
 // workspace-status, plus the ports the shown space's programs listen on.
@@ -18,11 +20,15 @@ export default class WorkspaceStatus extends View {
     cx.timer.every(5000, (cx) => this.refresh(cx));
     this.refresh(cx);
     // The PR watch lives here: this bar is always shown, the PR panel is not.
-    cx.timer.after(60000, (cx) => this.watch(cx));
-    cx.timer.every(300000, (cx) => this.watch(cx));
+    // nextAt: when the timer runs the next round, for the panel's "tour dans X" (a ↻ round does not move it).
+    this.nextAt = Date.now() + 60000;
+    cx.timer.after(60000, (cx) => { this.nextAt = Date.now() + 60000; this.watch(cx); });
+    cx.timer.every(ROUND_MS, (cx) => { this.nextAt = Date.now() + ROUND_MS; this.watch(cx); });
+    // ↻ (PR panel): picked up within 5 s, or once the running round ends (it may have read GitHub before the click).
+    cx.timer.every(5000, (cx) => { if (shared(NOW) && !this.watching) { setShared(NOW, null); this.watch(cx); } });
     // Armed merges (PR panel): checked every minute, a merge should follow the end of a build closely.
     cx.timer.every(60000, (cx) => this.merge(cx));
-    // "Travailler dessus" (PR panel): picked up within 5 s, the watch round waits 5 min.
+    // "Travailler dessus" (PR panel): picked up within 5 s, the watch round waits 2 min.
     cx.timer.every(5000, (cx) => this.open(cx));
     // Squash button (PR panel): same pace as the openings.
     cx.timer.every(5000, (cx) => this.squash(cx));
@@ -90,7 +96,8 @@ export default class WorkspaceStatus extends View {
       if (next) {
         // paused is never pruned: the search only sees PRs updated within 7 days, a quiet paused PR would lose its pause.
         const cur = shared(WATCH);
-        setShared(WATCH, { ...next, on: cur?.on ?? next.on, paused: cur?.paused ?? next.paused ?? [] });
+        // running (set by round() once it holds the lease) and next: the panel's header.
+        setShared(WATCH, { ...next, on: cur?.on ?? next.on, paused: cur?.paused ?? next.paused ?? [], running: false, every: ROUND_MS, next: this.nextAt });
       }
     });
   }
