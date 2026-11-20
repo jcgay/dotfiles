@@ -52,16 +52,27 @@ export function markers(comments, me) {
   return found;
 }
 
+const SONAR = /^Sonar(Cloud|Qube) Code Analysis$/;
+
+// How long the CI checks with timestamps (GitHub Actions…) took on this head, Sonar aside: first start to last end,
+// null while one runs or when none has timestamps (Jenkins' status has none).
+export function ciTook(rollup) {
+  const runs = (rollup ?? []).filter((c) => c.startedAt && !SONAR.test(c.name ?? ""));
+  if (!runs.length || runs.some((c) => !c.completedAt)) return null;
+  return Math.max(...runs.map((c) => Date.parse(c.completedAt))) - Math.min(...runs.map((c) => Date.parse(c.startedAt)));
+}
+
 export function signalsOf(view, checkRuns, me) {
   const all = checks(view.statusCheckRollup);
   const builds = all.map((c) => ({ c, b: jenkinsBuild(c.url) })).filter((x) => x.b);
   const build = builds.find((x) => x.c.state === "ko") ?? builds[0];
-  const run = (checkRuns ?? []).find((r) => /^Sonar(Cloud|Qube) Code Analysis$/.test(r.name));
+  const run = (checkRuns ?? []).find((r) => SONAR.test(r.name));
   const found = sonarFindings(run);
   const sonar = found && {
     state: run.status && run.status !== "completed" ? "running" : found.failed || found.issues + found.hotspots > 0 ? "ko" : "ok",
     ...found,
     url: run.details_url ?? run.html_url ?? null,
+    took: run.started_at && run.completed_at ? Date.parse(run.completed_at) - Date.parse(run.started_at) : null,
   };
   return {
     key: `${view.repo}#${view.number}`, repo: view.repo, number: view.number, url: view.url, title: view.title,
@@ -70,6 +81,7 @@ export function signalsOf(view, checkRuns, me) {
     conflict: { CONFLICTING: true, MERGEABLE: false }[view.mergeable] ?? null, // null: GitHub is still computing it
     jenkins: build && { state: build.c.state, url: build.c.url, ...build.b },
     sonar,
+    ciTook: ciTook(view.statusCheckRollup),
     pending: all.some((c) => c.state === "running"),
     failing: all.some((c) => c.state === "ko"),
     reported: all.length > 0 || (checkRuns ?? []).length > 0,
@@ -83,8 +95,8 @@ export const LABELS = Object.freeze({
   yours: "à toi", noClone: "pas de clone local", error: "erreur", paused: "en pause",
 });
 
-const BUDGET = 2; // attempts per check (rebase, jenkins, sonar, squash) and PR
-const REVIEW = ["pr-review", "qa", "pr-demo", "pr-risk"]; // pr-review --fix pushes first: qa, demo and risk see the fixed code; qa finds bugs before the demo shows them
+export const BUDGET = 2; // attempts per check (rebase, jenkins, sonar, squash) and PR
+export const REVIEW = ["pr-review", "qa", "pr-demo", "pr-risk"]; // pr-review --fix pushes first: qa, demo and risk see the fixed code; qa finds bugs before the demo shows them
 const KARADOC = ["pr-demo", "qa"]; // start karadoc on fixed ports: one at a time
 const PUSHES = ["pr-review"]; // review steps that push fixups after their marker: they last until their tab closes
 
@@ -105,15 +117,16 @@ export function emptyEntry() {
   };
 }
 
-// Whether one of the busy tab names runs karadoc: a pr-demo/qa tab of a PR whose repo holds karadoc, or of a PR
+// The busy tab name that runs karadoc, or null: a pr-demo/qa tab of a PR whose repo holds karadoc, or of a PR
 // missing from the round (merged, closed) whose agent may still use it. karadocPrs, roundPrs: Sets of PR numbers.
 // shortcut: tab names carry no repo, so a demo of another repo's PR with the same number holds karadoc too
-export function karadocHeld(busy, karadocPrs, roundPrs) {
-  return busy.some((name) => {
+export function karadocHolder(busy, karadocPrs, roundPrs) {
+  return busy.find((name) => {
     const m = /^⟳ #(\d+) (\S+)$/.exec(name);
     return m !== null && KARADOC.includes(m[2]) && (karadocPrs.has(Number(m[1])) || !roundPrs.has(Number(m[1])));
-  });
+  }) ?? null;
 }
+export const karadocHeld = (busy, karadocPrs, roundPrs) => karadocHolder(busy, karadocPrs, roundPrs) !== null;
 
 // Watch tabs ([{ name, status }]) that hold their PR, and for pr-demo/qa karadoc: a working or blocked agent, or a review
 // step whose tab exists without its marker (a Claude waiting for a text reply reads idle), or a pushing step's open tab. markersOf(number): Set, or null.

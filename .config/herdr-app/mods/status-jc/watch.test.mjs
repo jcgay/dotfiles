@@ -57,7 +57,15 @@ test("signalsOf combines Jenkins, Sonar and markers", () => {
   assert.equal(s.jenkins.state, "ko");
   assert.equal(s.jenkins.jobPath, "team.software/github/arthur/PR-5459");
   assert.equal(s.jenkins.number, 3);
-  assert.deepEqual(s.sonar, { state: "ok", failed: false, issues: 0, hotspots: 0, url: "https://sonarcloud.io/x" });
+  assert.deepEqual(s.sonar, { state: "ok", failed: false, issues: 0, hotspots: 0, url: "https://sonarcloud.io/x", took: null });
+  const timed = { ...run, started_at: "2026-11-20T10:00:00Z", completed_at: "2026-11-20T10:01:30Z" };
+  assert.equal(signalsOf(view, [timed], "jcgay").sonar.took, 90000, "Sonar's own duration");
+  const actions = { ...view, statusCheckRollup: [
+    { name: "build", status: "COMPLETED", conclusion: "SUCCESS", startedAt: "2026-11-20T10:00:00Z", completedAt: "2026-11-20T10:04:00Z" },
+    { name: "lint", status: "COMPLETED", conclusion: "SUCCESS", startedAt: "2026-11-20T10:00:30Z", completedAt: "2026-11-20T10:05:00Z" },
+    { name: "SonarCloud Code Analysis", status: "COMPLETED", conclusion: "SUCCESS", startedAt: "2026-11-20T10:00:00Z", completedAt: "2026-11-20T10:09:00Z" }] };
+  assert.equal(signalsOf(actions, [], "jcgay").ciTook, 300000, "first start to last end of the CI checks, Sonar aside");
+  assert.equal(signalsOf(view, [], "jcgay").ciTook, null);
   assert.equal(s.pending, false);
   assert.equal(s.error, null);
   assert.equal(signalsOf({ ...view, statusCheckRollup: [] }, [], "jcgay").sonar, null);
@@ -71,7 +79,7 @@ test("signalsOf reads a self-hosted SonarQube check like SonarCloud", () => {
   const view = { repo: "r/a", number: 511, title: "T", url: "u", isDraft: false, headRefName: "b", headRefOid: "abc", comments: [], statusCheckRollup: [] };
   const run = { name: "SonarQube Code Analysis", status: "completed", conclusion: "failure", details_url: "http://build/x",
     output: { summary: "Failed conditions  \n[6 New issues](http://build/issues)  \n" } };
-  assert.deepEqual(signalsOf(view, [run], "jcgay").sonar, { state: "ko", failed: true, issues: 6, hotspots: 0, url: "http://build/x" });
+  assert.deepEqual(signalsOf(view, [run], "jcgay").sonar, { state: "ko", failed: true, issues: 6, hotspots: 0, url: "http://build/x", took: null });
 });
 
 test("signalsOf: any ko check fails, a ko Jenkins context wins, no check at all is not reported", () => {
