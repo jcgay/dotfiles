@@ -1,7 +1,7 @@
 // node --test ~/.config/herdr-app/mods/pr/model.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { jenkinsBuild, checks, otherChecks, summary, minutes, parseContainers, deploymentsFor, deployKey, watchBranch, remember, clockText, workLook, rowActions, bandStates, nextRound } from "./model.js";
+import { jenkinsBuild, checks, otherChecks, summary, minutes, parseContainers, deploymentsFor, deployKey, watchBranch, remember, clockText, workLook, rowActions, bandStates, nextRound, isDraft, hiddenDraft } from "./model.js";
 
 test("jenkins build url", () => {
   assert.deepEqual(jenkinsBuild("https://jenkins.vidal.net/job/team.software/job/github/job/arthur/job/PR-5459/1/display/redirect"),
@@ -139,4 +139,18 @@ test("nextRound: running, asked, due in, or never ran", () => {
   assert.equal(nextRound({ at: 1000, every: 120000 }, false, 116000), "tour dans 1 min");
   assert.equal(nextRound({ at: 1000 }, false, 1000), "tour dans 5 min", "a registry from before every");
   assert.equal(nextRound({ at: 1000, every: 120000, next: 121000 }, false, 101000), "tour dans 1 min", "the timer's own schedule wins");
+});
+
+test("isDraft: a draft, paused or not, and one from a registry before the band", () => {
+  assert.equal(isDraft({ draft: true, label: "en pause" }), true);
+  assert.equal(isDraft({ label: "brouillon" }), true);
+  assert.equal(isDraft({ draft: false, label: "ok" }), false);
+});
+
+test("hiddenDraft: hidden drafts keep the ones that need me", () => {
+  assert.equal(hiddenDraft({ draft: true, label: "brouillon" }, true), true);
+  assert.equal(hiddenDraft({ draft: true, label: "à toi" }, true), false);
+  assert.equal(hiddenDraft({ draft: true, label: "erreur" }, true), false);
+  assert.equal(hiddenDraft({ draft: true, label: "brouillon" }, false), false);
+  assert.equal(hiddenDraft({ draft: false, label: "ok" }, true), false);
 });

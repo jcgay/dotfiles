@@ -128,3 +128,14 @@ export function nextRound(reg, asked, now) {
   if (!reg?.at) return "pas encore de tour";
   return `tour dans ${minutes(Math.max(60000, (reg.next ?? reg.at + (reg.every ?? 300000)) - now))}`;
 }
+
+// A watched PR's entry is a draft: its draft flag (a paused draft's label is "en pause"), or the label of a registry
+// written before status-jc kept the flag.
+export function isDraft(entry) {
+  return entry.draft ?? entry.label === "brouillon";
+}
+
+// Hidden by the drafts chip: a draft, unless it needs me.
+export function hiddenDraft(entry, hideDrafts) {
+  return hideDrafts && isDraft(entry) && !["à toi", "erreur", "pas de clone local"].includes(entry.label);
+}
