@@ -1,7 +1,7 @@
 // node --test ~/.config/herdr-app/mods/pr/model.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { jenkinsBuild, checks, otherChecks, summary, minutes, parseContainers, deploymentsFor, deployKey, watchBranch, remember } from "./model.js";
+import { jenkinsBuild, checks, otherChecks, summary, minutes, parseContainers, deploymentsFor, deployKey, watchBranch, remember, clockText, workLook, rowActions, bandStates, nextRound } from "./model.js";
 
 test("jenkins build url", () => {
   assert.deepEqual(jenkinsBuild("https://jenkins.vidal.net/job/team.software/job/github/job/arthur/job/PR-5459/1/display/redirect"),
@@ -89,4 +89,54 @@ test("remember keeps the newest keys only", () => {
   remember(map, "a", 3, 2); // rewritten: newest again
   remember(map, "c", 4, 2);
   assert.deepEqual([...map], [["a", 3], ["c", 4]]);
+});
+
+const MIN = 60000;
+
+test("clockText says the running step, the time to ready, or that it waits on me", () => {
+  assert.equal(clockText(null, 0), null);
+  assert.equal(clockText({ yours: true }, 0), "dépend de toi");
+  assert.equal(clockText({ step: "qa", since: 0, readyAt: 47 * MIN }, 12 * MIN), "qa depuis 12 min · prête à approuver dans ~35 min");
+  assert.equal(clockText({ step: "CI", since: 0, readyAt: null }, 3 * MIN), "CI depuis 3 min");
+  assert.equal(clockText({ step: null, since: null, readyAt: 1 }, 2), "prête à approuver bientôt");
+  assert.equal(clockText({ step: null, since: null, readyAt: null }, 0), null);
+});
+
+test("workLook: missing, there, or shown by a space (sub-folders too, not a sibling prefix)", () => {
+  assert.deepEqual(workLook(null, []), { tip: "Travailler dessus", missing: false, shown: false });
+  assert.deepEqual(workLook({ folder: "/w/x-watch", exists: false }, []), { tip: "Créer le worktree et travailler dessus", missing: true, shown: false });
+  assert.deepEqual(workLook({ folder: "/w/x-watch", exists: true }, ["/w/x-watch-old"]), { tip: "Ouvrir le worktree", missing: false, shown: false });
+  assert.deepEqual(workLook({ folder: "/w/x-watch", exists: true }, ["/w/x-watch/src"]), { tip: "Aller au space", missing: false, shown: true });
+  assert.equal(workLook({ folder: null, exists: false }, ["/w"]).shown, false);
+});
+
+test("rowActions: squash with fixups unless one runs, arm a ready PR, disarm an armed one", () => {
+  const ready = { draft: false, head: "abc", fixups: 2 };
+  assert.deepEqual(rowActions(ready, null, null), { squash: true, arm: null }, "status-jc cancels a merge armed over fixup! commits");
+  assert.equal(rowActions({ ...ready, fixups: 0 }, null, null).arm, "arm");
+  assert.equal(rowActions(ready, { head: "abc", refused: true, error: "protected" }, null).arm, "refused");
+  assert.deepEqual(rowActions(ready, { head: "abc" }, { state: "running" }), { squash: false, arm: "disarm" });
+  assert.equal(rowActions(ready, null, { state: "error" }).squash, true, "a failed squash can be asked again");
+  assert.deepEqual(rowActions({ draft: true, head: "abc", fixups: 0 }, null, null), { squash: false, arm: null });
+  assert.equal(rowActions({ head: "abc" }, null, null).arm, null, "an entry from before the band has no draft flag");
+});
+
+test("bandStates: nine slots, merge orange once armed, a draft's empty slots stay empty", () => {
+  const band = ["ok", "ok", "ok", "ok", "ok", "ok", "ok", "wait", "todo"];
+  assert.equal(bandStates(band, false)[8], "todo");
+  assert.equal(bandStates(band, true)[8], "run");
+  assert.equal(bandStates(band, { refused: true })[8], "ko", "a refused merge is not running");
+  assert.equal(bandStates(band, { head: "abc" })[8], "run");
+  assert.deepEqual(bandStates(["ok", "run", "skip"], true), ["ok", "run", "skip", null, null, null, null, null, null]);
+});
+
+test("nextRound: running, asked, due in, or never ran", () => {
+  assert.equal(nextRound(null, false, 0), "pas encore de tour");
+  assert.equal(nextRound({ running: true, at: 0 }, false, 0), "tour en cours");
+  assert.equal(nextRound({ at: 0 }, true, 0), "tour en cours");
+  assert.equal(nextRound({ at: 0 }, false, 0), "pas encore de tour", "a fresh registry's at is 0");
+  assert.equal(nextRound({ at: 1000, every: 120000 }, false, 31000), "tour dans 2 min");
+  assert.equal(nextRound({ at: 1000, every: 120000 }, false, 116000), "tour dans 1 min");
+  assert.equal(nextRound({ at: 1000 }, false, 1000), "tour dans 5 min", "a registry from before every");
+  assert.equal(nextRound({ at: 1000, every: 120000, next: 121000 }, false, 101000), "tour dans 1 min", "the timer's own schedule wins");
 });
