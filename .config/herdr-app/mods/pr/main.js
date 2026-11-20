@@ -1,7 +1,7 @@
 import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
 import { spaces, panes, agents, focused, exec, theme, layout, run, shared, setShared } from "herdr";
-import { jenkinsBuild, checks, otherChecks, summary, minutes, deploymentsFor, parseContainers, watchBranch, remember, clockText, workLook, rowActions, bandStates, nextRound } from "./model.js";
+import { jenkinsBuild, checks, otherChecks, summary, minutes, deploymentsFor, parseContainers, watchBranch, remember, clockText, workLook, rowActions, bandStates, nextRound, isDraft, hiddenDraft } from "./model.js";
 
 // How many spaces, checkouts and Jenkins builds the caches keep.
 const KEEP = 30;
@@ -316,7 +316,10 @@ export default class PullRequest extends View {
           .when(pending(k), (e) => e.child(div().text_size(11).text_color(t.dim).child("ouverture…")))
           .when(Boolean(opens[k]?.error) && !pending(k), (e) => e.child(div().text_size(11).text_color(t.ansi1).child(opens[k].error))));
     };
-    const sorted = [...entries].sort(([, a], [, b]) => rank(a.label) - rank(b.label)); // stable: registry order within a label
+    // The view's own registry: status-jc rewrites pr-watch every round and would drop it.
+    const hideDrafts = Boolean(shared("pr-watch-view")?.hideDrafts);
+    const drafts = entries.filter(([, e]) => isDraft(e)).length;
+    const sorted = [...entries].filter(([, e]) => !hiddenDraft(e, hideDrafts)).sort(([, a], [, b]) => rank(a.label) - rank(b.label)); // stable: registry order within a label
     const watch = v_flex().gap(2)
       .child(section("Surveillance"))
       .child(h_flex().gap(10).items_center().flex_wrap().text_size(11).text_color(t.muted)
@@ -325,6 +328,11 @@ export default class PullRequest extends View {
           .child(dot(reg?.on ? "ok" : "ko")).child(div().child(reg?.on ? "Surveillance active" : "Surveillance coupée")))
         .when(Boolean(reg?.agents), (e) => e.child(div().child(`Agents ${reg.agents.busy}/${reg.agents.max}`)))
         .when(Boolean(reg?.agents), (e) => e.child(div().child(reg.karadoc ? `karadoc pris (${reg.karadoc.replace(/^⟳ /, "")})` : "karadoc libre")))
+        .when(drafts > 0, (e) => e.child(h_flex().id("watch-drafts").h(22).px(8).items_center().rounded(11).border_1().border_color(t.border).cursor_pointer()
+          .hover((s) => s.bg(t.hover)).tooltip(hideDrafts ? "Afficher les brouillons" : "Masquer les brouillons")
+          .on_click(() => setShared("pr-watch-view", { ...(shared("pr-watch-view") ?? {}), hideDrafts: !hideDrafts }))
+          .when(hideDrafts, (c) => c.opacity(0.45).line_through())
+          .child(`Brouillons (${drafts})`)))
         .child(div().flex_1())
         .child(div().text_color(t.dim).child(nextRound(reg, Boolean(shared("pr-watch-now")), Date.now())))
         .child(h_flex().id("watch-now").w(24).h(24).items_center().justify_center().rounded(5).text_size(15).cursor_pointer().hover((s) => s.bg(t.hover).text_color(t.foreground))
