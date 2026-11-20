@@ -60,13 +60,23 @@ p video-stop
 ## 3. CLI: offsets from the tape
 
 `vhs` plays the tape at a fixed pace, so the offsets are computed, not
-measured. One step per clip: `Type` the command, `Enter`, then
-`Sleep` the clip's duration plus one second, rounded up, and more if the
-command's output takes longer to appear. Clip 0 starts at 0. Clip `i`
+measured. One step per clip: the caption, then `Type` the command, `Enter`,
+then `Sleep` the clip's duration plus one second, rounded up, and more if
+the command's output takes longer to appear. Clip 0 starts at 0. Clip `i`
 starts after every earlier step: the command's length × `TypingSpeed`, plus
 its `Sleep`. Write `<capture dir>/voice/offsets.txt`, one `<i> <ms>` per line.
 
-No captions in a terminal: the commands already say what runs.
+The caption is a shell comment, printed at once so it takes no video time:
+
+```
+Hide
+Type "# <caption i>"
+Enter
+Show
+```
+
+`Set Shell bash` in the tape: zsh runs `#` lines as commands unless
+`interactivecomments` is set.
 
 ## 4. Mix and check
 

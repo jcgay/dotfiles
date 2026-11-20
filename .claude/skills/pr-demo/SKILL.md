@@ -24,7 +24,8 @@ language unless the user names it too.
 None of these is negotiable.
 
 - **Never guess how to start a project.** The repo documents it in a
-  `## Demo` section (step 2), or you stop.
+  `## Demo` section, or for a build task or script, in its own doc (step 2).
+  Otherwise you stop.
 - **No start before the user agrees with the scenario** (step 3).
 - **Never touch what you did not start**: the user's checkout, their running
   app, a process on a port. A port in use: stop and ask. Kill nothing.
@@ -50,8 +51,10 @@ None of these is negotiable.
   ask the user for its path. Its root `<root>` is `git -C <clone> rev-parse --show-toplevel`.
   Never create a worktree in another repository.
 - A merged or closed PR can still be demoed at its `headRefOid`.
-- Every changed file is build, CI, dependency, test or doc: there is nothing
-  to show. Say so and stop, before step 2.
+- Every changed file is build, CI, dependency, test or doc, and none changes
+  what a user of the build sees (a task's output, a report, a file handed
+  to a client): there is nothing to show. Say so and stop, before step 2.
+  A build task whose output changes is a CLI capture (step 3).
 
 ## 2. Read how to start the app
 
@@ -64,6 +67,12 @@ Follow the files it points to. The section gives:
 - the sign that the app is ready (a log line, a URL that answers 200);
 - the command that stops it;
 - optional: a tool that compares base and PR responses, for `--compare`.
+
+A CLI capture of a build task or a script (a Gradle task, a repo tool)
+when the `## Demo` section covers only the app: use the command the repo
+documents for that task (the README next to it, or its doc in the diff).
+Name that file in the scenario. The user's agreement at step 3 covers it.
+A command you work out yourself is still a guess.
 
 No section: stop. Offer to work it out with the user: what you found on how
 the app runs (local stack, a deployed or shared environment it can lean on),
@@ -85,8 +94,8 @@ and tell the user. Pick the capture:
 | a CLI or a script output | terminal video | `references/cli.md` |
 
 Several apply: use the one the PR title is about, add a second only if the
-user asks. Nothing a user or a client can observe (build, dependencies,
-refactoring, tests, docs): say there is nothing to show and stop. Start
+user asks. Nothing a user or a client can observe (build internals,
+dependencies, refactoring, tests, docs): say there is nothing to show and stop. Start
 nothing.
 
 Show the scenario in 10 lines or fewer: the capture type, the commit

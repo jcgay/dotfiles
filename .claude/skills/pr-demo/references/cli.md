@@ -15,7 +15,8 @@ Sleep 2s
 Run it from the PR worktree: `cd "<root>-demo-<N>" && vhs "<capture dir>/pr-<N>.tape"`.
 
 - Quote the `Output` path: `vhs` rejects an unquoted absolute path.
-- One `Type` / `Enter` / `Sleep` group per step. Give each `Sleep` enough
+- One `Type` / `Enter` / `Sleep` group per step, after its caption with
+  `--narrate` (`narrate.md`, section 3). Give each `Sleep` enough
   time for the output to finish and be read.
 - `--compare`: a second tape run from the base worktree, output
   `pr-<N>-base.webm`.
