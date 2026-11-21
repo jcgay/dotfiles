@@ -21,16 +21,16 @@ Ce que tu peux taper :
 
 | Saisie | Résultat |
 |---|---|
-| rien | mes tickets Jira pas Done des projets du dépôt, puis mes issues GitHub ouvertes |
+| rien | mes tickets Jira pas Done des projets du dépôt, puis mes issues GitHub ouvertes, 20 de chaque au plus |
 | `MERLIN-2321` (casse ignorée) | ce ticket, quel que soit son projet ou son état |
 | `#5471`, ou l'URL `https://github.com/…/pull/5471` ou `…/issues/5471` | la PR n°5471 si elle existe, sinon l'issue |
-| autre texte | recherche Jira (`text ~`) et GitHub (`--search`), 20 de chaque au plus, puis une ligne « Sans ticket : <texte> » |
+| autre texte | recherche Jira (`text ~`, tickets pas Done des projets du dépôt) et GitHub (issues ouvertes, `--search`), 20 de chaque au plus, puis une ligne « Sans ticket : <texte> » |
 
 Sous la liste : la **base** (la branche par défaut d'`origin/HEAD`, puis jusqu'à 4 `sprint-*` d'origin, les plus récentes d'abord ; clic pour choisir) et la **branche**, pré-remplie et modifiable. Un nom tapé à la main reste tant que tu ne changes pas de ligne. Sur une ligne PR, le champ est ignoré : une PR se reprend toujours sur sa propre branche.
 
-Touches : `↑` `↓` choisissent (la liste boucle), `↵` dans l'un ou l'autre champ crée ou reprend, `esc` ferme. Un clic sur une ligne la choisit.
+Touches : `↑` `↓` choisissent (la liste boucle), `↵` dans l'un ou l'autre champ crée ou reprend, `esc` ferme. Un clic sur une ligne la choisit. Une ligne montre sa source (`JIRA`, `GH`, `PR`), son numéro et son titre ; pour Jira, en plus, l'assigné s'il n'est pas toi et l'état.
 
-La recherche part 300 ms après la dernière frappe ; une réponse plus ancienne est jetée. Une ligne d'erreur rouge par source qui a échoué (`Jira : …`, `GitHub : …`) s'affiche sous le champ. En haut à droite : les projets Jira retenus pour ce dépôt.
+La recherche part 300 ms après la dernière frappe ; une réponse plus ancienne est jetée. Une ligne d'erreur rouge par source qui a échoué (`Jira : …`, `GitHub : …`) s'affiche sous le champ. En haut : le nom du dépôt, et à droite les projets Jira retenus pour lui.
 
 ## 3. Comment une saisie est résolue
 
@@ -52,7 +52,7 @@ flowchart TD
   Q -->|"#35;N ou URL pull/issues"| QP{"gh pr view N réussit ?"}
   QP -->|oui| RP["ligne PR"]
   QP -->|non| RI["gh issue view N : ligne GH"]
-  Q -->|"autre texte"| QT["Jira : text ~ saisie ; GitHub : --search saisie ; puis ligne Sans ticket"]
+  Q -->|"autre texte"| QT["Jira : text ~ saisie, pas Done ; GitHub : --search saisie ; puis ligne Sans ticket"]
   QV --> NP{"aucun projet Jira ?"}
   QT --> NP
   NP -->|oui| NJ["pas d'appel Jira, note : aucun projet trouvé (config.json)"]
@@ -160,7 +160,7 @@ Seul `lib.js` est testé ; `main.js` et `work.js` se vérifient à la main dans 
 - Une PR venant d'un fork ne se reprend pas : sa branche n'est pas sur `origin`, worktrunk échoue.
 - « Livré » veut dire : une PR mergée sur cette branche (parmi les 200 dernières). Pas `git branch --merged`, qui compte aussi une branche toute neuve sans commit. Une branche livrée est ignorée et le ticket repart sur une branche neuve ; si son nom existe encore, en local ou sur origin, Créer refuse : renomme.
 - Pour ouvrir un second chantier sur un ticket déjà en cours, change le nom de branche : le bouton repasse à Créer, avec Jira et le prompt.
-- Le bouton ne peut rien tant que le `git fetch origin` n'est pas fini (« Chargement… »), pour ne jamais partir d'un vieux `origin/<base>`. Il est aussi grisé si la branche est vide ou si la recherche en cours n'a pas répondu.
+- Le bouton ne peut rien tant que le `git fetch origin` n'est pas fini (grisé ; « Chargement… » tant que la liste est vide), pour ne jamais partir d'un vieux `origin/<base>`. Il est aussi grisé si la branche est vide ou si la recherche en cours n'a pas répondu.
 - Fermer la fenêtre pendant la création (Herdr ferme même sur `esc`) coupe le travail : un toast dit l'étape, ce qui est fait reste fait (ticket assigné, worktree).
 - Jira passe par `fish -c` pour avoir `JIRA_API_TOKEN` (`conf.d/secrets.fish`) ; mon adresse Jira est en dur dans `work.js` (`ME`).
 - Le collage exporte `LANG=en_US.UTF-8` : Herdr lance les programmes sans locale, et `pbcopy` lirait les accents en MacRoman.

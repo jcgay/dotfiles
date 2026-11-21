@@ -17,7 +17,7 @@ Journal                          surveillance et merge
 - Le marqueur est un nombre de lignes du fichier, dans `shared("journal-read")`. `status-jc` publie le nombre de lignes dans `shared("journal-lines")` après chaque écriture, et le panneau le pose seulement s'il est absent (fichier écrit avant cette fonction). Pas de marqueur, ou un fichier plus court que lui (supprimé puis recréé) : tout est non lu.
 - Les 20 dernières lignes, la plus récente en haut, lues avec le nombre de lignes du fichier en un seul passage `awk` (une écriture entre les deux décalerait le marqueur). **Plus** en lit 20 de plus, visible tant que le fichier en a davantage.
 - **Tout le journal** : un nouvel onglet `less +G` sur le fichier, dans le space affiché.
-- « Rien pour l'instant » tant que le fichier n'existe pas.
+- « Rien pour l'instant » tant que le fichier n'existe pas (ou n'a aucune ligne lisible). Une lecture en échec affiche l'erreur en rouge en tête du panneau.
 - Relu à l'ouverture du panneau, et panneau ouvert dès que `shared("journal-lines")` change (`status-jc` le publie après chaque écriture). Pas de surveillance de dossier : `watchFolder` est refusé au-delà de 64 dossiers et `~/Library/Logs` bouge sans arrêt. Seule la dernière lecture lancée compte.
 
 ## Fichiers et tests

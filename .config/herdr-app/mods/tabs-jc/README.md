@@ -5,7 +5,7 @@ Clone du mod `tabs` de Herdr (version 0.1.15, voir `cloned_from` dans `mod.json`
 ## Ce que le clone ajoute
 
 - Un bouton « Pull request » à droite des tabs, après Files et Changes. Il ouvre le panneau latéral sur le mod `pr` ; recliquer le referme.
-- Un bouton « Journal » (`journal.svg`) juste après, sur le mod `journal`, même mécanique. Sa pastille compte les lignes non lues : `shared("journal-lines")` moins `shared("journal-read")`, la même règle que `unread()` de `mods/journal/model.js`, recopiée.
+- Un bouton « Journal » (`journal.svg`) juste après, sur le mod `journal`, même mécanique. Sa pastille compte les lignes non lues : `shared("journal-lines")` moins `shared("journal-read")`, la même règle que `unread()` de `mods/journal/model.js`, recopiée. Au-delà de 99 elle affiche « 99+ », et l'infobulle devient « Journal : N non lues ».
 - Les boutons du panneau n'affichent plus que leur icône (le libellé passe en infobulle et en `accessibility_label`) : trois libellés prenaient trop de place dans la barre.
 - Les icônes de fenêtre Windows (`win-*.svg`) pointent vers `mods/tabs-jc/` au lieu de `mods/tabs/`.
 
@@ -13,13 +13,13 @@ Le reste est l'original : renommer au double-clic, glisser pour déplacer, molet
 
 ## Le bouton PR
 
-Files et Changes ne s'affichent que s'ils sont dans `workspace.panels` (réglé dans Settings). Le bouton PR, lui, est toujours là : Settings ne connaît que Files et Changes, donc `pr` n'est jamais dans cette liste.
+Files et Changes ne s'affichent que s'ils sont dans `workspace.panels` (réglé dans Settings). Les boutons PR et Journal, eux, sont toujours là : Settings ne connaît que Files et Changes, donc `pr` et `journal` ne sont jamais dans cette liste.
 
 Un clic fait `layout.select` sur la pile `panel-body` (enfant `pr`) puis `layout.show` sur `panel`. `⌘⇧R` fait pareil : `keys.json` envoie `tabs-jc.panel:pr` au mod, que `nextCommand()` reçoit dans `togglePanel`. Le layout `jc` doit donc avoir un enfant `pr` dans `panel-body` qui monte le mod `pr` ; c'est le cas aujourd'hui. Avec un autre layout sans cet enfant, le bouton ne ferait rien d'utile (non vérifié).
 
 ## Le panneau mémorisé par space
 
-Cette mémoire vient de l'original (`syncPanel`), elle n'est pas propre au clone. Le clone y ajoute seulement `pr` à la liste des panneaux reconnus, pour qu'un panneau PR soit lui aussi restauré.
+Cette mémoire vient de l'original (`syncPanel`), elle n'est pas propre au clone. Le clone y ajoute seulement `pr` et `journal` à la liste des panneaux reconnus, pour qu'un panneau PR ou Journal soit lui aussi restauré.
 
 À chaque rendu, `syncPanel` compare le space actif à celui du rendu précédent :
 
@@ -38,9 +38,10 @@ En cas de `main.js.conflict` : reporter à la main les changements dans `main.js
 
 | Fichier | Rôle |
 |---|---|
-| `main.js` | Le mod, original + bouton PR et boutons en icône seule |
+| `main.js` | Le mod, original + boutons PR et Journal, boutons en icône seule |
 | `mod.json` | `cloned_from` : ce que `herdr-upstream` lit pour trouver l'original |
 | `pull-request.svg` | Icône du bouton PR, ajoutée par le clone |
+| `journal.svg` | Icône du bouton Journal, ajoutée par le clone |
 | `win-*.svg` | Boutons de fenêtre sous Windows, copiés de l'original |
 | `gpui-kit.d.ts`, `jsconfig.json` | Écrits par Herdr, ne pas committer |
 
