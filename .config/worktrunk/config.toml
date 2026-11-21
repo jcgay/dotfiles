@@ -3,3 +3,14 @@
 # du plugin worktrunk), au même endroit plutôt qu'à côté de chaque dépôt.
 # Même convention que Herdr (~/.herdr/worktrees -> ~/dev/agents-worktree).
 worktree-path = "~/dev/agents-worktree/{{ repo }}/{{ branch | sanitize }}"
+
+# Avant le lancement de l'agent (--execute, hook WorktreeCreate) : copier les
+# fichiers gitignorés listés dans le .worktreeinclude du dépôt (.env...), puis
+# faire confiance au mise.toml du worktree, nouveau chemin donc non trusté.
+# pre-start et non post-start : l'agent doit trouver ces fichiers dès son
+# démarrage. Sans .worktreeinclude, rien n'est copié (build/, .gradle/...).
+[[pre-start]]
+copy = "wt step copy-ignored --require-include"
+
+[[pre-start]]
+mise = "mise trust || true" # un dépôt sans config mise ne bloque pas la création
