@@ -8,7 +8,7 @@ Notre mod (pas un clone). Il remplit le bloc `pr` du panneau latéral du layout 
 ## Ce que tu vois
 
 ```
-Pull request                                  …  Rafraîchir
+Pull request                               …  ?  Rafraîchir
 ────────────────────────────────────────────────────────────
 Titre de la PR                      ← clic : la PR sur GitHub
 #482 [Ouverte] [Revue attendue] +120 −34
@@ -31,7 +31,8 @@ SURVEILLANCE
 ```
 
 - **Bandeau** : l'interrupteur, les agents de surveillance occupés sur 3, l'onglet qui tient karadoc, le temps avant le prochain tour (toutes les 2 min) ; ↻ en demande un tout de suite.
-- **Brouillons (N)** dans le bandeau masque les brouillons (en pause compris) et les réaffiche ; le choix est gardé dans `shared("pr-watch-view")`, que `status-jc` ne réécrit pas.
+- **?** dans l'en-tête déplie une aide : ce que montrent les deux parties, les neuf étapes dans l'ordre, les couleurs et les boutons. Chaque statut a aussi son infobulle.
+- **Brouillons (N)** dans le bandeau masque les brouillons (en pause compris, sauf ceux « à toi », « erreur » ou « pas de clone local ») et les réaffiche ; le choix est gardé dans `shared("pr-watch-view")`, que `status-jc` ne réécrit pas.
 - **Bande d'étapes**, calculée par `status-jc` : vert fait, orange clignotant en cours (agent, CI, merge armé), orange fixe en attente d'une approbation humaine, rouge en échec que la surveillance corrige, violet à toi, gris à venir, pointillé jamais fait dans ce repo (pas de CI, de Sonar, de qa ou de `## Demo`). Un brouillon n'a que git, jenk et sonar ; une PR en pause a sa bande pâlie.
 - La ligne du dessous commence par l'étape en cours et sa durée, puis l'estimation « prête à approuver dans ~X » (médiane des passages précédents, rien avant 3 mesures), ou « dépend de toi ».
 - **⤵** (PR avec des `fixup!`) et **⇥** (PR prête ; ✕ une fois armée) font la même chose que Squash et « Merger quand tout est vert » du haut, sans ouvrir le space. **⌨** est pâli quand son worktree n'existe pas encore, a une pastille quand un space le montre déjà.

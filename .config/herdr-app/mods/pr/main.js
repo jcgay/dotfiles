@@ -9,6 +9,34 @@ const KEEP = 30;
 // The pull request of the shown space's branch (gh), and its Jenkins build (jk).
 const FIELDS = "number,title,state,isDraft,headRefOid,reviewDecision,reviewRequests,url,headRefName,baseRefName,additions,deletions,statusCheckRollup,commits";
 
+// Contextual help: what each step of the watch's band does (status-jc's watch.js decide()), what each state and label means.
+const STEP_HELP = {
+  git: "à jour avec la base, sans conflit ; en conflit, un agent rebase (2 essais)",
+  jenk: "la CI (Jenkins, ou les checks GitHub) ; en échec, un agent la corrige (2 essais)",
+  sonar: "l'analyse Sonar ; en échec, un agent la corrige (2 essais)",
+  rev: "/pr-review --fix : un agent relit la PR, poste sa revue et corrige",
+  qa: "un agent qa teste la PR pour y trouver des bugs (si le skill qa est dans le clone)",
+  demo: "/pr-demo : une démo postée sur la PR (si AGENTS.md ou CLAUDE.md a une section ## Demo)",
+  risk: "/pr-risk : le risque de la PR et s'il faut une revue humaine",
+  appr: "ton approbation sur GitHub, puis le squash des fixup!",
+  merge: "le merge armé (⇥) : rebase and merge dès que tout est vert",
+};
+const STATE_HELP = {
+  ok: "fait", run: "en cours : un agent, la CI ou le merge armé", wait: "attend une approbation humaine",
+  ko: "en échec, la surveillance le corrige", me: "à toi : la surveillance a abandonné", todo: "à venir",
+  skip: "jamais fait dans ce dépôt",
+};
+const LABEL_HELP = {
+  "à toi": "la surveillance a besoin de toi : la raison est sous la ligne",
+  erreur: "GitHub n'a pas pu lire la PR",
+  "pas de clone local": "aucun clone du dépôt sur ce Mac : aucun agent ne peut être lancé",
+  "agent en cours": "un agent travaille sur la PR ; clic pour aller à son onglet",
+  "en attente": "rien à lancer pour l'instant : CI en cours, GitHub qui calcule, agents tous pris…",
+  brouillon: "brouillon : seuls git, la CI et Sonar sont surveillés, pas de revue",
+  "en pause": "en pause : rien n'est lancé (▶ pour reprendre)",
+  ok: "la surveillance a tout fait : reste ton approbation ou le merge",
+};
+
 function location() {
   const space = spaces().find((s) => s.active), f = focused();
   const pane = f?.pane ? panes().find((p) => p.pane === f.pane) : null;
@@ -285,17 +313,17 @@ export default class PullRequest extends View {
     // The step band status-jc computed (pipeline.js STEPS): nine slots, a draft fills three.
     const STEPS = ["git", "jenk", "sonar", "rev", "qa", "demo", "risk", "appr", "merge"];
     const fills = { ok: t.done, run: t.working, wait: t.working, ko: t.ansi1, me: t.ansi5 }; // me: violet, t.blocked reads red in some themes
+    const cellOf = (label, state) => {
+      const cell = div().flex_1().h(16).rounded(3).flex().items_center().justify_center().text_size(9);
+      if (!state) return cell;
+      return cell.child(label)
+        .when(Boolean(fills[state]), (e) => e.bg(fills[state]).text_color(t.background))
+        .when(state === "todo", (e) => e.bg(t.raised).text_color(t.dim))
+        .when(state === "skip", (e) => e.border_1().border_dashed().border_color(t.border).text_color(t.dim))
+        .when(state === "run", (e) => e.loop("opacity", { from: 0.5, to: 1, period: 1200 }));
+    };
     const band = (k, entry) => h_flex().gap(2).py(3).when(paused.includes(k), (e) => e.opacity(0.45))
-      .children(bandStates(entry.band, merges[k]).map((state, i) => {
-        const label = STEPS[i];
-        const cell = div().flex_1().h(16).rounded(3).flex().items_center().justify_center().text_size(9);
-        if (!state) return cell;
-        return cell.child(label)
-          .when(Boolean(fills[state]), (e) => e.bg(fills[state]).text_color(t.background))
-          .when(state === "todo", (e) => e.bg(t.raised).text_color(t.dim))
-          .when(state === "skip", (e) => e.border_1().border_dashed().border_color(t.border).text_color(t.dim))
-          .when(state === "run", (e) => e.loop("opacity", { from: 0.5, to: 1, period: 1200 }));
-      }));
+      .children(bandStates(entry.band, merges[k]).map((state, i) => cellOf(STEPS[i], state)));
     const row = ([k, entry]) => {
       const [color, state] = look(entry.label), [repo, number] = k.split("#");
       const why = [clockText(entry.clock, Date.now()), entry.why].filter(Boolean).join(" · ");
@@ -308,7 +336,7 @@ export default class PullRequest extends View {
             .child(div().text_size(12).font_semibold().child(repo.split("/").pop()))
             .child(div().text_size(12).text_color(t.dim).child(`#${number}`))
             .child(div().flex_1()).when(Boolean(squash), (e) => e.child(squash)).when(Boolean(merge), (e) => e.child(merge))
-            .child(work(k, entry.work)).child(pause(k)).child(chip(entry.label ?? "", color)))
+            .child(work(k, entry.work)).child(pause(k)).child(chip(entry.label ?? "", color).tooltip(LABEL_HELP[entry.label] ?? "")))
           .when(Boolean(entry.title), (e) => e.child(div().text_size(12).text_color(t.muted).truncate().child(entry.title)))
           .when(Array.isArray(entry.band), (e) => e.child(band(k, entry)))
           .when(Boolean(why), (e) => e.child(div().text_size(11).text_color(t.dim).child(why)))
@@ -340,12 +368,36 @@ export default class PullRequest extends View {
       .when(Boolean(reg?.error), (e) => e.child(div().text_size(11).text_color(t.ansi1).child(reg.error)))
       .child(v_flex().gap(1).pt(4).children(sorted.map(row)));
 
+    // The "?" help: the watch's workflow, its colors and the buttons; the details sit in each tooltip.
+    const legend = (items) => v_flex().gap(4).children(items.map(([mark, text]) => h_flex().gap(8).items_start()
+      .child(div().w(44).flex_none().child(mark)).child(div().flex_1().min_w(0).text_color(t.muted).child(text))));
+    const help = v_flex().gap(4).mb(10).p(10).rounded(8).bg(t.raised).text_size(11)
+      .child(div().text_color(t.muted).child("En haut, la PR de la branche affichée. En bas, la Surveillance : tes PR ouvertes de softwarevidal touchées depuis 7 jours, "
+        + "qu'un tour (toutes les 2 min, ↻ pour tout de suite) fait avancer en lançant un agent pour l'étape suivante."))
+      .child(section("Étapes, dans l'ordre"))
+      .child(legend(STEPS.map((s) => [cellOf(s, "todo"), STEP_HELP[s]])))
+      .child(section("Couleurs"))
+      .child(legend(["ok", "run", "wait", "ko", "me", "todo", "skip"].map((s) => [cellOf("rev", s), STATE_HELP[s]])))
+      .child(section("Boutons"))
+      .child(legend([
+        ["⤵", "replie les commits fixup!/amend!/squash! et pousse en force (git seul, un agent sur conflit)"],
+        ["⇥", "arme le merge : rebase and merge dès que tous les checks sont verts ; ✕ désarme"],
+        [svg("mods/workspace-chrome/terminal.svg").size(14).text_color(t.dim), "ouvre un space Claude dans le worktree de la PR (une PR prête est mise en pause tant qu'il est ouvert)"],
+        ["⏸ ▶", "met en pause ou reprend : rien n'est lancé sur une PR en pause"],
+        ["📜 🔁", "console du build Jenkins ; relance d'un build terminé en échec"],
+        ["clic", "sur une ligne : l'agent qui y travaille, sinon la PR sur GitHub"],
+      ]))
+      .child(div().pt(4).text_color(t.dim).child("Survole un statut ou un bouton pour son détail."));
+
     return v_flex().id("pr").size_full().min_h(0).rounded(10).overflow_hidden().bg(t.background).border_1().border_color(t.border).text_color(t.foreground).text_size(13)
       .child(h_flex().h(42).flex_none().px(14).gap(8).items_center().border_b(1).border_color(t.border)
         .child(div().font_semibold().child("Pull request")).child(div().flex_1())
         .when(this.loading, (e) => e.child(div().text_size(11).text_color(t.dim).child("…")))
+        .child(h_flex().id("pr-help").w(20).h(20).items_center().justify_center().rounded(10).border_1().border_color(t.border).text_size(11).cursor_pointer()
+          .text_color(this.helpOpen ? t.foreground : t.dim).hover((s) => s.bg(t.hover)).tooltip(this.helpOpen ? "Masquer l'aide" : "Aide")
+          .on_click((_e, cx) => { this.helpOpen = !this.helpOpen; cx.notify(); }).child("?"))
         .child(div().id("pr-refresh").text_size(11).text_color(t.dim).cursor_pointer().hover((s) => s.text_color(t.foreground)).on_click((_e, cx) => { this.refresh(cx, true); cx.notify(); }).child("Rafraîchir")))
-      .child(v_flex().id("pr-body").flex_1().min_h(0).overflow_y_scroll().p(14).child(body).child(watch))
+      .child(v_flex().id("pr-body").flex_1().min_h(0).overflow_y_scroll().p(14).when(Boolean(this.helpOpen), (e) => e.child(help)).child(body).child(watch))
       .when(Boolean(this.note), (e) => e.child(div().px(14).pb(10).text_size(11).text_color(t.muted).child(this.note)));
   }
 }
