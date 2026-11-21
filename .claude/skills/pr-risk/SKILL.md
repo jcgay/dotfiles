@@ -130,12 +130,27 @@ Rules:
   diff contradicts ("X is unchanged" while X changes) is a mismatch. A commit
   that only aligns the branch with its base (the same change is already on
   the default branch) is not a mismatch. Empty body: write "No description:
-  intent not checked." and raise nothing from danger 8.
+  intent not checked." and raise nothing from danger 8. A part of the diff
+  that the description does not name, but that serves the purpose it
+  states, is a mismatch only when it carries an uncovered danger. Otherwise
+  write "Intent: update the description: <what it misses>." and raise
+  nothing. A part unrelated to the stated purpose is always a mismatch.
 - Danger 9 applies when the repo handles clinical content. Provisional or
   hand-made clinical data counts, even behind a flag, if the artifact that
   carries it ships to production or the data reaches any client.
-- Report only dangers that are present. Each gets: file, one sentence on what
-  can go wrong, one thing a reviewer must check.
+- Report only dangers that are present. Mark each one **covered** or
+  **uncovered**. A danger is covered when all three are true: a test in the
+  PR or the repo pins the changed behavior (on real data for danger 9), a
+  `git revert` undoes it, and no external consumer breaks. "No consumer
+  found" counts as no consumer breaks only when callers were searched; a
+  change with no external consumer (private code, an internal module)
+  needs no search. Unread production code is never covered.
+- A danger 6 that hits no floor of step 6 is covered. Dangers 1 and 8
+  follow their own rules: "covered" does not apply to them. A danger that
+  triggers a floor of step 6 is always reported as uncovered.
+- Each uncovered danger gets: file, one sentence on what can go wrong, one
+  thing a reviewer must check. Covered dangers get only their name and the
+  test that covers them.
 
 ## 6. Set the tier
 
@@ -144,14 +159,15 @@ never change one alone.
 
 | Tier | Humans | When |
 |---|---|---|
-| Low | 0 | No danger, or only a minor test gap. Docs, tests, additive change behind a flag, covered internal refactor, patch or minor bump of an existing dependency with no other change |
-| Medium | 1 | At least one of dangers 2–7 present and contained |
+| Low | 0 | No danger, or every danger is covered, or only a minor test gap. Docs, tests, additive change behind a flag, covered refactor or behavior change, patch or minor bump of an existing dependency with no other change |
+| Medium | 1 | At least one of dangers 2–6 is uncovered, or a test gap beyond a minor one |
 | High | 2 | Danger 1; or a major danger with no test coverage; or a significant change in a sensitive zone |
 
 Floors — apply after the table, they only raise:
 - **At least Medium**: any migration (schema or data), any SQL that writes
   data; security code;
-  a sensitive zone; intent mismatch; CI/build/dependency change **that moves
+  a sensitive zone; an intent mismatch (danger 8 as defined above, not a
+  description to update); CI/build/dependency change **that moves
   trust** — secret exposed or permission widened in CI, a check/test/quality
   step removed, disabled or bypassed (`skip`, `|| true`,
   `continue-on-error`), a publish or deploy step changed, a **new**
@@ -162,9 +178,11 @@ Floors — apply after the table, they only raise:
   pins the expected values on real data and the output reaches all clients.
 
 Last question: *"Ignore the tier. Must a human see this specific change?"*
-If yes, raise the tier and its human count together, and say why. Never
-lower it. A Low verdict means 0 humans: if you want "a quick look", the
-answer to this question is yes, so the tier is Medium. Skip this question
+Answer yes only when you can name a danger that no test covers and that
+step 5 missed. "A human should check the behavior" is not such a danger.
+If yes, add it to the uncovered dangers, raise the tier and its human
+count together, and say why. Never
+lower it. A Low verdict means 0 humans. Skip this question
 for a patch or minor bump of an existing dependency with no other change: it
 stays Low, so two runs on the same bump give the same tier.
 
@@ -180,9 +198,11 @@ Terminal, always:
 ```
 PR #<N> · <TIER> · <0|1|2> human review(s)
 Reason: <one sentence>
+Review focus: <file or area> — <the one question the reviewer must answer>
 Dangers:
   1. [<Danger>] <file>: <what can go wrong>.
-Intent: <matches the description | mismatch: <what> | No description: intent not checked.>
+Covered: <Danger> (<test>), ...
+Intent: <matches the description | mismatch: <what> | update the description: <what it misses> | No description: intent not checked.>
 Rollback: <revert is enough | what else is needed>.
 Not read: <files or "nothing">.
 ```
@@ -197,6 +217,7 @@ PR mode: write the comment body to `${TMPDIR:-/tmp}/pr-risk-<N>.md`, then post i
 <!-- pr-risk -->
 ## PR risk: <TIER> · <0|1|2> human review(s)
 **Reason:** <one sentence>
+**Review focus:** `<file or area>` — <the one question the reviewer must answer>
 
 ### Dangers
 
@@ -207,7 +228,9 @@ PR mode: write the comment body to `${TMPDIR:-/tmp}/pr-risk-<N>.md`, then post i
 **2. <Danger>** · `<file>`
 ...
 
-**Intent:** <matches the description | mismatch: <what> | No description: intent not checked.>
+**Covered:** <Danger> (<test>), ...
+
+**Intent:** <matches the description | mismatch: <what> | update the description: <what it misses> | No description: intent not checked.>
 
 ### Blast radius
 ```mermaid
@@ -223,7 +246,12 @@ graph LR
 🤖 Jean-Claude
 ````
 
-- Low with no danger: replace the "Dangers" section with "No danger found."
+These rules apply to the terminal verdict and to the comment:
+- "Review focus" only for Medium and High: the single most important
+  check among the uncovered dangers. The "Dangers" section lists uncovered
+  dangers only. Drop the "Covered" line when no danger is covered.
+- Low: replace the "Dangers" section with "No danger found." or, when
+  dangers are all covered, with the "Covered" line alone.
 - No table for dangers: long cells make GitHub columns too narrow to read.
   Keep the line breaks: GitHub shows each one in a comment.
 - "Blast radius" only for Medium and High, and only with callers you found.
