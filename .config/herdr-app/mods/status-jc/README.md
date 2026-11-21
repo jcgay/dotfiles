@@ -4,7 +4,7 @@ Clone perso du mod `workspace-status` de Herdr (version 0.1.15, voir `mod.json`)
 
 ## Ce que fait le mod
 
-Il affiche la barre d'état : machine, branche, nombre d'agents et combien t'attendent, puis les ports ouverts par les programmes du space affiché, et le raccourci de la palette. Il héberge aussi la surveillance des PR : toutes les 5 minutes, il lit tes PR ouvertes et lance des agents Claude dans des onglets visibles pour réparer Jenkins ou Sonar, puis pour la revue. Le panneau PR (`mods/pr/`) n'en est que l'affichage et l'interrupteur. Il fusionne aussi, toutes les minutes, les PR armées depuis le panneau dès que leurs checks sont verts (voir « Merge armé »).
+Il affiche la barre d'état : machine, branche, nombre d'agents et combien t'attendent, puis les ports ouverts par les programmes du space affiché, et le raccourci de la palette. Il héberge aussi la surveillance des PR : toutes les 2 minutes, et à la demande depuis le panneau, il lit tes PR ouvertes et lance des agents Claude dans des onglets visibles pour réparer Jenkins ou Sonar, puis pour la revue. Le panneau PR (`mods/pr/`) n'en est que l'affichage et l'interrupteur. Il fusionne aussi, toutes les minutes, les PR armées depuis le panneau dès que leurs checks sont verts (voir « Merge armé »).
 
 ## Barre d'état
 
@@ -29,7 +29,7 @@ Les ports sont relus toutes les 5 s, et tout de suite quand tu changes de space 
 
 ### Quand et quoi
 
-Un premier tour 60 s après le démarrage du mod, puis toutes les 2 min, et dans les 5 s quand le ↻ du panneau écrit `shared("pr-watch-now")` (sauf si un tour tourne déjà). Les tours tournent aussi surveillance coupée : le panneau reste à jour, mais aucun agent ne part.
+Un premier tour 60 s après le démarrage du mod, puis toutes les 2 min, et dans les 5 s quand le ↻ du panneau écrit `shared("pr-watch-now")` (ou dès la fin du tour en cours s'il y en a un). Les tours tournent aussi surveillance coupée : le panneau reste à jour, mais aucun agent ne part.
 
 Un tour prend un bail `shared("pr-watch-lease")` : si une autre copie du mod en tient un de moins de 4 min, le tour ne fait rien. Il lit ensuite :
 
@@ -41,7 +41,7 @@ Jenkins = un check dont l'URL est un build Jenkins (un contexte `ko` l'emporte s
 
 ### Décision pour une PR
 
-`decide()` dans `watch.js`. Une PR en conflit avec sa base (`mergeable` à `CONFLICTING`) passe avant tout : GitHub n'y lance aucune CI. Tant que GitHub répond `UNKNOWN` (juste après un push sur la base), la PR attend sans rien lancer ni remettre à 0. L'agent `rebase` rebase sur `origin/<base>` sans autosquash et pousse en `--force-with-lease` sur le commit d'où il est parti ; un conflit ambigu, il abandonne. Ses tentatives repartent à 0 dès que la PR n'est plus en conflit. Une PR approuvée par un humain (`reviewDecision` à `APPROVED`) qui a encore des commits `fixup!`/`amend!`/`squash!` passe, une fois ses étapes de revue faites, par l'étape `squash` : pas d'agent, `autosquash` dans `watcher.js` fait dans le worktree de surveillance `git rebase -i --autosquash --no-update-refs` sur le merge-base avec `origin/<base>` (la base ne bouge pas, le code non plus : un arbre différent de celui du head, commit de merge par exemple, est refusé sans rien pousser), puis le même push `--force-with-lease` sur le head. Si le rebase s'arrête sur un conflit, il l'abandonne et lance l'agent `squash`, qui doit retrouver le même arbre. Avant l'approbation, les fixups restent : le relecteur garde ses « changements depuis ma dernière revue ». Un refus (arbre différent, push rejeté, après quoi le worktree revient sur le head) compte comme une tentative. Deux tentatives, remises à 0 quand il n'y a plus de fixup. Son push change le head : un merge armé sur la PR est désarmé. Ton checkout de la branche, à jour avant ce push, ne compte pas comme du travail non poussé (les anciennes positions de `origin/<branche>` sont exclues). Les tentatives Jenkins et Sonar repartent à 0 quand le check est vert ou quand un nouveau commit arrive sans qu'un onglet d'agent correcteur de la PR (rebase, jenkins, sonar, pr-review) soit ouvert : c'est ton push. Un commit apparu pendant que cet onglet existe est celui de l'agent, le budget reste.
+`decide()` dans `watch.js`. Une PR en conflit avec sa base (`mergeable` à `CONFLICTING`) passe avant tout : GitHub n'y lance aucune CI. Tant que GitHub répond `UNKNOWN` (juste après un push sur la base), la PR attend sans rien lancer ni remettre à 0. L'agent `rebase` rebase sur `origin/<base>` sans autosquash et pousse en `--force-with-lease` sur le commit d'où il est parti ; un conflit ambigu, il abandonne. Ses tentatives repartent à 0 dès que la PR n'est plus en conflit. Une PR approuvée par un humain (`reviewDecision` à `APPROVED`) qui a encore des commits `fixup!`/`amend!`/`squash!` passe, une fois ses étapes de revue faites, par l'étape `squash` : pas d'agent, `autosquash` dans `watcher.js` fait dans le worktree de surveillance `git rebase -i --autosquash --no-update-refs` sur le merge-base avec `origin/<base>` (la base ne bouge pas, le code non plus : un arbre différent de celui du head, commit de merge par exemple, est refusé sans rien pousser), puis le même push `--force-with-lease` sur le head. Si le rebase s'arrête sur un conflit, il l'abandonne et lance l'agent `squash`, qui doit retrouver le même arbre. Avant l'approbation, les fixups restent : le relecteur garde ses « changements depuis ma dernière revue ». Un refus (arbre différent, push rejeté, après quoi le worktree revient sur le head) compte comme une tentative. Deux tentatives, remises à 0 quand il n'y a plus de fixup. Son push change le head : un merge armé sur la PR est désarmé. Ton checkout de la branche, à jour avant ce push, ne compte pas comme du travail non poussé (les anciennes positions de `origin/<branche>` sont exclues). Les tentatives Jenkins et Sonar repartent à 0 quand le check est vert ou quand un nouveau commit arrive sans qu'un onglet d'agent correcteur de la PR (rebase, jenkins, sonar, squash, pr-review) soit ouvert : c'est ton push. Un commit apparu pendant que cet onglet existe est celui de l'agent, le budget reste.
 
 ```mermaid
 flowchart TD
@@ -96,7 +96,7 @@ L'étape de revue est la première, dans l'ordre `pr-review`, `qa`, `pr-demo`, `
 flowchart TD
   S["étape choisie"] --> G{"surveillance coupée, 3 agents de surveillance pris, ou karadoc pris pour pr-demo et qa ?"}
   G -->|oui| W["en attente, ou à toi si Sonar noté à toi"]
-  G -->|non| P["tentative comptée pour jenkins et sonar, onglet noté"]
+  G -->|non| P["tentative comptée pour rebase, jenkins, sonar et squash, onglet noté"]
   P --> C{"clone local trouvé ?"}
   C -->|non| Lnc["pas de clone local, tentative rendue"]
   C -->|oui| F["git fetch origin branche"]
@@ -114,7 +114,7 @@ flowchart TD
 
 Une erreur git pendant la préparation donne « erreur », tentative rendue. Le worktree est `~/dev/agents-worktree/<repo>/<branche>-watch`. L'onglet s'appelle `⟳ #<n> <étape>` ; il s'ouvre dans le space déjà ouvert sur ce dossier, sinon dans un nouveau space, sans prendre le focus. Le prompt (`promptFor`) : jenkins lit le log avec `jk log` puis corrige et pousse, ou relance avec `jk run rerun` ; sonar corrige toutes les issues et hotspots ; puis `/pr-review <url> --fix`, `/testing-api-pull-requests <url>` arrêté au rapport, `/pr-demo <url> --narrate` en français et `/pr-risk <url>`. Les pushes passent par `git push origin HEAD:refs/heads/<branche>`. Une fois son marqueur posté et son agent arrêté, l'onglet `pr-risk` se ferme au tour suivant (surveillance allumée), et son space avec s'il était son seul onglet ; de même quand la PR a été mergée ou fermée entre-temps. Jamais l'onglet affiché à l'écran, ni un onglet où tu as ouvert un autre pane. La PR d'un onglet se retrouve par son numéro et le dossier de son space (`…/agents-worktree/<repo>/<branche>-watch`). Les autres étapes gardent leur onglet : `pr-review --fix` pousse après son marqueur.
 
-Pas d'autre ménage : à part l'onglet `pr-risk`, la surveillance ne ferme aucun onglet et ne supprime aucun worktree. C'est à toi de fermer les autres onglets `⟳`. Le seul toast est celui de « à toi » sur Jenkins ou Sonar après 2 tentatives (une fois par check, jusqu'au retour au vert ou à ton push).
+Pas d'autre ménage : à part l'onglet `pr-risk`, la surveillance ne ferme aucun onglet et ne supprime aucun worktree. C'est à toi de fermer les autres onglets `⟳`. Le seul toast est celui de « à toi » après 2 tentatives de rebase, Jenkins, Sonar ou squash (une fois par étape, jusqu'au retour au vert, à ton push, à la fin du conflit ou des fixups).
 
 ## Le registre `shared("pr-watch")`
 
@@ -129,6 +129,7 @@ Pas d'autre ménage : à part l'onglet `pr-risk`, la surveillance ne ferme aucun
   durations: { "agent:qa": [ms, …], "ci:jenkins": [ms, …] }, // 10 dernières durées par étape
   sonarRepos: ["owner/repo"],         // repos où Sonar a déjà rapporté : ailleurs, case sonar en pointillé
   error: null,        // erreur du tour entier (gh search, gh api user)
+  journalOn: false,   // `on` vu par le dernier tour, pour journaliser l'interrupteur
   prs: {
     "owner/repo#N": {
       url, title, head,                  // dernier commit de tête vu
@@ -150,7 +151,7 @@ Pas d'autre ménage : à part l'onglet `pr-risk`, la surveillance ne ferme aucun
 
 status-jc réécrit tout le registre en fin de tour, sauf `on` et `paused` qu'il relit juste avant d'écrire pour ne pas écraser un clic fait pendant le tour. `prs` est reconstruit à chaque tour avec les seules PR trouvées par la recherche. Le panneau PR lit le registre, n'écrit que `on` (interrupteur) et `paused` (bouton ⏸ / ▶), et demande un tour par `shared("pr-watch-now")`.
 
-La bande, les durées et l'estimation viennent de `pipeline.js`. Une durée d'agent va de son lancement au tour qui le voit s'arrêter (une review seulement avec son marqueur) ; celle de Jenkins ou Sonar du premier tour qui le voit tourner au premier qui le voit fini sur le même commit, ou les horodatages du check-run de Sonar. L'estimation est la médiane des 10 dernières durées, à partir de 3, et ajoute un passage de CI après un `pr-review` à faire (ses fixups relancent la CI). Le panneau trie les lignes par étiquette : à toi, erreur, pas de clone local, agent en cours, en attente, brouillon, en pause, ok. Un clic sur une ligne va à l'agent de `launched.tab` s'il existe, sinon ouvre la PR.
+La bande, les durées et l'estimation viennent de `pipeline.js`. Une durée d'agent va de son lancement au tour qui le voit s'arrêter (une review seulement avec son marqueur) ; celle de Jenkins ou Sonar du premier tour qui le voit tourner au premier qui le voit fini sur le même commit, ou les horodatages du check-run de Sonar (sans Jenkins, ceux des checks GitHub Actions, sous `ci:jenkins`). L'estimation est la médiane des 10 dernières durées, à partir de 3, et ajoute un passage de CI après un `pr-review` à faire (ses fixups relancent la CI). Le panneau trie les lignes par étiquette : à toi, erreur, pas de clone local, agent en cours, en attente, brouillon, en pause, ok. Sa pastille « Brouillons (N) » masque les brouillons, sauf ceux à toi, en erreur ou sans clone local ; ce choix vit dans `shared("pr-watch-view")`, que status-jc ne réécrit pas. Un clic sur une ligne va à l'agent de `launched.tab` s'il existe, sinon ouvre la PR.
 
 `shared("pr-watch-lease")` vaut `{ at, id }` pendant un tour, `null` sinon.
 
@@ -189,14 +190,14 @@ Deux copies de `status-jc` : la demande passe à `opening` avec l'id de la copie
 
 ## Journal
 
-Chaque tour de surveillance et chaque merge armé ajoutent leurs lignes à `~/Library/Logs/herdr-watch.log` (`AAAA-MM-JJ HH:MM  owner/repo#N  texte`, `-` à la place de la PR pour l'interrupteur), que le panneau Journal (`mods/journal/`) affiche. Au plus une ligne par PR et par tour, et seulement surveillance active : un agent lancé (`agent <étape> lancé`, même quand deux s'enchaînent sous « agent en cours »), sinon un changement d'étiquette (`<étiquette> : <pourquoi>`, ce qui dit aussi la fin d'un agent), sinon le toast du tour. Une PR nouvelle écrit son état, une PR qui sort de la recherche `sortie de la surveillance`. L'interrupteur est écrit au tour suivant, en comparant `on` au `journalOn` gardé dans le registre (jusqu'à 5 min de retard, un aller-retour rapide est perdu). Le merge écrit `fusionnée` ou `merge refusé : <erreur>`. Une écriture ratée part dans la console du mod, le tour continue. Après chaque écriture, le nombre de lignes du fichier (`wc -l`) part dans `shared("journal-lines")` pour la pastille du bouton Journal. Le fichier n'est jamais tronqué.
+Chaque tour de surveillance et chaque merge armé ajoutent leurs lignes à `~/Library/Logs/herdr-watch.log` (`AAAA-MM-JJ HH:MM  owner/repo#N  texte`, `-` à la place de la PR pour l'interrupteur), que le panneau Journal (`mods/journal/`) affiche. Au plus une ligne par PR et par tour, et seulement surveillance active : un agent lancé (`agent <étape> lancé`, même quand deux s'enchaînent sous « agent en cours »), sinon un changement d'étiquette (`<étiquette> : <pourquoi>`, ce qui dit aussi la fin d'un agent), sinon le toast du tour. Une PR nouvelle écrit son état, une PR qui sort de la recherche `sortie de la surveillance`. L'interrupteur est écrit au tour suivant, en comparant `on` au `journalOn` gardé dans le registre (jusqu'à 2 min de retard, un aller-retour rapide est perdu). Le merge écrit `fusionnée` ou `merge refusé : <erreur>`. Une écriture ratée part dans la console du mod, le tour continue. Après chaque écriture, le nombre de lignes du fichier (`wc -l`) part dans `shared("journal-lines")` pour la pastille du bouton Journal. Le fichier n'est jamais tronqué.
 
 ## Fichiers et tests
 
 | Fichier | Rôle |
 |---|---|
 | `mod.json` | Origine du clone (`workspace-status` 0.1.15). |
-| `main.js` | La vue : barre d'état, minuteurs des ports (5 s), de la surveillance (60 s puis 2 min, et ↻ relevé toutes les 5 s) du merge armé (1 min) des ouvertures et des squashs (5 s), écriture du registre. |
+| `main.js` | La vue : barre d'état, minuteurs des ports (5 s), de la surveillance (60 s puis 2 min, et ↻ relevé toutes les 5 s), du merge armé (1 min), des ouvertures et des squashs (5 s), écriture du registre. |
 | `ports.js` | Fonctions pures des ports : lecture de lsof et ps, space d'un listener, santé, quoi interroger. |
 | `watch.js` | Fonctions pures de la surveillance : signaux d'une PR, `decide`, prompts, lecture de git. Sans import Herdr. |
 | `pipeline.js` | Fonctions pures de la bande d'étapes : cases, mesures de durée, médiane, estimation, worktree de ⌨. Sans import Herdr. |

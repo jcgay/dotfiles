@@ -11,7 +11,7 @@ Une seule chose : l'avatar d'un space devient l'icône JetBrains du dépôt (`.i
 - Sans icône, la lettre colorée d'origine reste.
 - Seuls les spaces locaux ont une icône : un space sur une autre machine garde sa lettre.
 - Les lignes de worktree rangées sous leur dépôt (`├─`, `└─`) n'ont pas d'avatar, icône ou pas : elles montrent le glyphe de branche, comme l'original.
-- Une icône ajoutée ou changée apparaît au prochain passage git du space une fois le cache d'une minute expiré. En pratique entre une et deux minutes, et seulement quand la fenêtre est active (à vérifier : le rythme exact dépend du `FALLBACK` de 60 s et des autres déclencheurs du mod).
+- Une icône ajoutée ou changée apparaît au prochain passage git du space une fois le cache d'une minute expiré. En pratique entre une et deux minutes : le passage de secours (`FALLBACK`, 60 s) n'a lieu que fenêtre active, mais la fin d'une commande ou d'un tour d'agent dans le dépôt en déclenche un aussi.
 
 ## Comment l'avatar est choisi
 
