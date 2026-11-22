@@ -66,7 +66,7 @@ export default class Journal extends View {
       // A line that asks me to act stands out while unread, in the status bar's alert color.
       .child(div().flex_1().min_w(0).text_color(i >= fresh ? t.dim : urgent(e.text) ? t.blocked : t.foreground).child(e.text));
     // Unread lines first, then the marker, then the read ones greyed.
-    const marker = h_flex().gap(8).py(4).items_center().text_size(10.5).text_color(t.dim)
+    const marker = h_flex().gap(8).py(4).items_center().text_size(11).text_color(t.dim)
       .child(div().flex_1().h(1).bg(t.border)).child("lu").child(div().flex_1().h(1).bg(t.border));
     const rows = this.entries.flatMap((e, i) => (i === fresh ? [marker, row(e, i)] : [row(e, i)]));
     const body = v_flex().gap(1)

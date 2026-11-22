@@ -166,13 +166,14 @@ export default class PullRequest extends View {
       : state === "ko" ? div().size(7).rounded(4).flex_none().bg(color ?? t.ansi1)
       : state === "idle" ? div().size(7).rounded(4).flex_none().border_1().border_color(color ?? t.dim)
       : div().size(7).rounded(4).flex_none().border_1().border_color(t.working).loop("opacity", { from: 0.3, to: 1, period: 1200 });
-    const chip = (text, color) => div().px(6).py(1).rounded(4).border_1().border_color(color).text_size(10.5).text_color(color).child(text);
+    // Type roles, shared with the Journal panel: 15 PR title, 13 panel title and base, 12 rows, 11 metadata and labels, 10 band cells.
+    const chip = (text, color) => div().px(6).py(1).rounded(4).border_1().border_color(color).text_size(11).text_color(color).child(text);
     // Asks status-jc for a watch round now (the header's ↻).
     const askRound = () => setShared("pr-watch-now", { at: Date.now() });
     const button = (id, text, onClick, primary) => div().id(id).h(28).px(12).flex().items_center().rounded(7).cursor_pointer().text_size(12)
       .bg(primary ? t.solid : t.raised).text_color(primary ? t.solid_foreground : t.foreground).hover((s) => s.opacity(0.85))
       .on_click((_e, cx) => onClick(cx)).child(text);
-    const section = (title) => div().pt(10).pb(4).text_size(10.5).font_semibold().text_color(t.dim).child(title.toUpperCase());
+    const section = (title) => div().pt(10).pb(4).text_size(11).font_semibold().text_color(t.dim).child(title.toUpperCase());
 
     const state = pr && (pr.isDraft ? ["Brouillon", t.muted] : pr.state === "MERGED" ? ["Mergée", t.ansi5] : pr.state === "CLOSED" ? ["Fermée", t.ansi1] : ["Ouverte", t.done]);
     const review = pr && ({ APPROVED: ["Approuvée", t.done], CHANGES_REQUESTED: ["Changements demandés", t.blocked], REVIEW_REQUIRED: ["Revue attendue", t.muted] }[pr.reviewDecision]);
@@ -260,7 +261,7 @@ export default class PullRequest extends View {
         .when(this.deployed.length > 0, (e) => e.child(table([deployedRow])))
         .when(!this.loading, (e) => e.child(h_flex().pt(12).child(button("pr-create", "Créer la PR", (cx) => this.act(cx, "Création", ["gh", "pr", "create", "--web"], { cwd: where.cwd, on: where.on })))))
       : v_flex()
-        .child(div().id("pr-open").text_size(14).font_semibold().cursor_pointer().hover((s) => s.opacity(0.8))
+        .child(div().id("pr-open").text_size(15).font_semibold().cursor_pointer().hover((s) => s.opacity(0.8))
           .tooltip("Ouvrir la PR sur GitHub").on_click(() => exec("open", [pr.url])).child(pr.title))
         .child(h_flex().gap(6).items_center().flex_wrap().pt(6)
           .child(div().text_color(t.muted).child(`#${pr.number}`))
@@ -291,7 +292,7 @@ export default class PullRequest extends View {
     const paused = reg?.paused ?? [];
     // A row's small button; its click must not reach the row, whose own click opens the PR or its agent.
     const rowButton = (id, tip, onClick) => h_flex().id(id).min_w(24).h(24).px(3).gap(2).flex_none().items_center().justify_center().rounded(5)
-      .text_size(15).text_color(t.dim).cursor_pointer().hover((s) => s.bg(t.hover).text_color(t.foreground))
+      .text_color(t.dim).cursor_pointer().hover((s) => s.bg(t.hover).text_color(t.foreground))
       .tooltip(tip).accessibility_label(tip).on_click((_e, cx) => { cx.stop_propagation(); onClick(cx); });
     const pause = (k) => rowButton(`pause-${k}`, paused.includes(k) ? "Reprendre la surveillance de cette PR" : "Mettre cette PR en pause", () => {
         // A pause touched by hand is the user's now: the opening no longer lifts it on close.
@@ -437,7 +438,7 @@ export default class PullRequest extends View {
       : h_flex().h(42).flex_none().px(14).gap(8).items_center().border_b(1).border_color(t.border)
         .child(div().font_semibold().child("Surveillance des PR")).child(div().flex_1())
         .child(div().text_size(11).text_color(t.dim).child(nextRound(reg, Boolean(shared("pr-watch-now")), Date.now())))
-        .child(h_flex().id("watch-now").w(24).h(24).items_center().justify_center().rounded(5).text_size(15).text_color(t.dim).cursor_pointer().hover((s) => s.bg(t.hover).text_color(t.foreground))
+        .child(h_flex().id("watch-now").w(24).h(24).items_center().justify_center().rounded(5).text_color(t.dim).cursor_pointer().hover((s) => s.bg(t.hover).text_color(t.foreground))
           .tooltip("Faire un tour maintenant").accessibility_label("Faire un tour maintenant").on_click(askRound).child(svg("mods/pr/refresh.svg").size(13)))
         .child(h_flex().id("pr-help").w(20).h(20).items_center().justify_center().rounded(10).border_1().border_color(t.border).text_size(11).cursor_pointer()
           .text_color(this.helpOpen ? t.foreground : t.dim).hover((s) => s.bg(t.hover)).tooltip(this.helpOpen ? "Masquer l'aide" : "Aide").accessibility_label(this.helpOpen ? "Masquer l'aide" : "Aide")
