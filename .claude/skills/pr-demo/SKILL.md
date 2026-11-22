@@ -9,10 +9,12 @@ Run the real application at the PR head, capture what the change does, and
 post it as a comment on the PR. A demo shows. It does not judge: no bug
 hunting, no code review, no risk verdict.
 
-Argument: `<PR number | PR URL | branch> [--compare] [--narrate]`. Without
+Argument: `<PR number | PR URL | branch> [--compare] [--narrate] [--auto]`. Without
 `--compare`, show the new behavior only. With `--compare`, run the PR base
 too and play the same scenario on both sides. With `--narrate`, a voice and
-captions explain the video step by step (UI and CLI captures).
+captions explain the video step by step (UI and CLI captures). With
+`--auto` (a run nobody watches, such as the PR watch), never wait for the
+user: where this skill says "ask", stop instead and say why.
 
 Write to the user in their language. Write the comment in the language of
 the PR description. A language the user asks for the narration covers the
@@ -26,7 +28,8 @@ None of these is negotiable.
 - **Never guess how to start a project.** The repo documents it in a
   `## Demo` section, or for a build task or script, in its own doc (step 2).
   Otherwise you stop.
-- **No start before the user agrees with the scenario** (step 3).
+- **No start before the user agrees with the scenario** (step 3), except
+  with `--auto` or for an API capture sent only to the app this skill starts.
 - **Never touch what you did not start**: the user's checkout, their running
   app, a process on a port. A port in use: stop and ask. Kill nothing.
 - **Never publish an environment error.** A 500, a missing database or a
@@ -48,7 +51,7 @@ None of these is negotiable.
   empty `-R` makes `gh` act on the repo of the current directory.
 - Find the local clone of `<owner>/<repo>`: the current directory if
   `gh repo view --json nameWithOwner --jq .nameWithOwner` prints `<owner>/<repo>`, else
-  ask the user for its path. Its root `<root>` is `git -C <clone> rev-parse --show-toplevel`.
+  ask the user for its path (`--auto`: stop). Its root `<root>` is `git -C <clone> rev-parse --show-toplevel`.
   Never create a worktree in another repository.
 - A merged or closed PR can still be demoed at its `headRefOid`.
 - Every changed file is build, CI, dependency, test or doc, and none changes
@@ -71,10 +74,11 @@ Follow the files it points to. The section gives:
 A CLI capture of a build task or a script (a Gradle task, a repo tool)
 when the `## Demo` section covers only the app: use the command the repo
 documents for that task (the README next to it, or its doc in the diff).
-Name that file in the scenario. The user's agreement at step 3 covers it.
+Name that file in the scenario. The user's agreement at step 3 covers it
+(`--auto`: naming it is enough).
 A command you work out yourself is still a guess.
 
-No section: stop. Offer to work it out with the user: what you found on how
+No section: stop (`--auto`: say so and end there). Otherwise offer to work it out with the user: what you found on how
 the app runs (local stack, a deployed or shared environment it can lean on),
 the options, and these six items. Then offer to write the section into
 `<root>/AGENTS.md`. Never start from a README guess.
@@ -103,6 +107,11 @@ Show the scenario in 10 lines or fewer: the capture type, the commit
 `--narrate`, also the sentence said over each step (`references/narrate.md`);
 an API capture has no video: say `--narrate` does nothing there. Then
 wait. Change it as the user says. Start nothing before they agree.
+
+With `--auto`, or for an API capture whose requests all go to the app this
+skill starts at step 4 (no video to get right, and the comment shows every
+request), show the scenario and go on to step 4 without waiting. An API
+capture that reaches a shared or deployed environment still waits.
 
 ## 4. Start the app
 

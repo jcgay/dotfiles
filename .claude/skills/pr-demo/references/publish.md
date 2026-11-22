@@ -88,7 +88,8 @@ on its first line or without the signature.
 
 ## Hand the video over (upload failed only)
 
-1. `gh pr view <N> -R <owner>/<repo> --web`.
+1. `gh pr view <N> -R <owner>/<repo> --web`. Not with `--auto`: nobody is
+   in front of the screen, and the comment's drag line names the file.
 2. Print the comment URL and the absolute path of each video file, in one
    piece, so the user can drag it into the comment. With the login expired,
    also tell them to log in again in that profile:
