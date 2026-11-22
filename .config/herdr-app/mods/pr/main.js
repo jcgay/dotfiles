@@ -1,7 +1,7 @@
 import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
 import { spaces, panes, agents, focused, exec, theme, layout, run, shared, setShared, props } from "herdr";
-import { jenkinsBuild, checks, otherChecks, summary, minutes, deploymentsFor, parseContainers, watchBranch, remember, clockText, workLook, rowActions, bandStates, nextRound, isDraft, hiddenDraft, sessionOf } from "./model.js";
+import { moveSel, jenkinsBuild, checks, otherChecks, summary, minutes, deploymentsFor, parseContainers, watchBranch, remember, clockText, workLook, rowActions, bandStates, nextRound, isDraft, hiddenDraft, sessionOf } from "./model.js";
 
 // How many spaces, checkouts and Jenkins builds the caches keep.
 const KEEP = 30;
@@ -62,6 +62,8 @@ export default class PullRequest extends View {
   init(_props, cx) {
     // Herdr gives a block's layout props through props(), not init's argument.
     this.view = props()?.view === "watch" ? "watch" : "pr";
+    // The watch list's keyboard: ⌘⇧U (tabs-jc writes shared("watch-focus")) or a click in the panel gives it the keys.
+    this.handle = cx.focus_handle(); this.sel = null; this.focusAsked = null;
     this.context = null; this.pr = null; this.build = null; this.error = null; this.loading = false; this.note = null; this.checksOpen = false;
     this.confirms = {}; // action id -> time of its first click (squash pushes with --force: a second click confirms)
     this.deployed = []; this.scan = { at: 0, list: null, pending: null };
@@ -275,6 +277,19 @@ export default class PullRequest extends View {
         .child(div().pt(8).text_size(11).text_color(t.dim)
           .child(`${pr.headRefName} → ${pr.baseRefName}${reviewers.length ? ` · revue demandée à ${reviewers.join(", ")}` : ""}`));
 
+    // ⌘⇧U opened the watch (tabs-jc stamps shared("watch-focus")): take the keys, once per stamp and only while fresh.
+    const asked = shared("watch-focus") ?? null;
+    // Consumed only once the panel shows: a render before the layout switches to watch must not use it up.
+    if (this.view === "watch" && shown && asked !== this.focusAsked) {
+      this.focusAsked = asked;
+      if (asked && Date.now() - asked < 3000) cx.timer.after(30, () => this.handle.focus());
+    }
+    const keyboard = this.view === "watch" && shown && this.handle.is_focused();
+    // Closed while it held the keys (⌘⇧U again, the tab button): give them back to the terminal, as Escape does.
+    if (this.view === "watch" && !shown && this.handle.is_focused()) {
+      this.sel = null;
+      cx.timer.after(0, () => { const f = focused(); if (f?.pane) run("pane.focus", { pane: f.pane }); });
+    }
     // The PR watch (status-jc writes it): all PRs, so it shows even without one in this space.
     const reg = shared("pr-watch") ?? null, entries = Object.entries(reg?.prs ?? {});
     // Each label's color, dot and rank: what needs me first, finished PRs last.
@@ -294,12 +309,13 @@ export default class PullRequest extends View {
     const rowButton = (id, tip, onClick) => h_flex().id(id).min_w(24).h(24).px(3).gap(2).flex_none().items_center().justify_center().rounded(5)
       .text_color(t.dim).cursor_pointer().hover((s) => s.bg(t.hover).text_color(t.foreground))
       .tooltip(tip).accessibility_label(tip).on_click((_e, cx) => { cx.stop_propagation(); onClick(cx); });
-    const pause = (k) => rowButton(`pause-${k}`, paused.includes(k) ? "Reprendre la surveillance de cette PR" : "Mettre cette PR en pause", () => {
-        // A pause touched by hand is the user's now: the opening no longer lifts it on close.
-        if (shared("pr-open")?.[k]?.state === "held") { const { [k]: _, ...rest } = shared("pr-open"); setShared("pr-open", rest); }
-        setShared("pr-watch", { on: false, prs: {}, error: null, at: 0, ...reg,
-          paused: paused.includes(k) ? paused.filter((p) => p !== k) : [...paused, k] });
-      })
+    const togglePause = (k) => {
+      // A pause touched by hand is the user's now: the opening no longer lifts it on close.
+      if (shared("pr-open")?.[k]?.state === "held") { const { [k]: _, ...rest } = shared("pr-open"); setShared("pr-open", rest); }
+      setShared("pr-watch", { on: false, prs: {}, error: null, at: 0, ...reg,
+        paused: paused.includes(k) ? paused.filter((p) => p !== k) : [...paused, k] });
+    };
+    const pause = (k) => rowButton(`pause-${k}`, paused.includes(k) ? "Reprendre la surveillance de cette PR (p)" : "Mettre cette PR en pause (p)", () => togglePause(k))
       .child(svg(paused.includes(k) ? "mods/pr/play.svg" : "mods/pr/pause.svg").size(13));
     // "Travailler dessus": status-jc opens a space in the PR's worktree (opener.js), the panel only asks.
     const opens = shared("pr-open") ?? {};
@@ -309,12 +325,11 @@ export default class PullRequest extends View {
       const tabs = new Set(s.tabs.map((x) => x.id));
       return [s.folder, ...panes().filter((p) => tabs.has(p.tab)).map((p) => p.cwd)];
     }).filter(Boolean);
+    // held is kept: the opening still owns the PR's pause, reopening its space must not make it the user's.
+    const askWork = (k) => { if (!pending(k)) setShared("pr-open", { ...(shared("pr-open") ?? {}), [k]: { state: "asked", at: Date.now(), held: opens[k]?.state === "held", folders: opens[k]?.folders } }); };
     const work = (k, w) => {
       const { tip, missing, shown } = workLook(w, local);
-      return rowButton(`work-${k}`, tip, () => {
-        // held is kept: the opening still owns the PR's pause, reopening its space must not make it the user's.
-        if (!pending(k)) setShared("pr-open", { ...(shared("pr-open") ?? {}), [k]: { state: "asked", at: Date.now(), held: opens[k]?.state === "held", folders: opens[k]?.folders } });
-      })
+      return rowButton(`work-${k}`, `${tip} (t)`, () => askWork(k))
         .when(missing, (e) => e.opacity(0.4))
         .when(shown, (e) => e.text_color(t.foreground))
         // ⌨ has no glyph in the panel's font: workspace-chrome's terminal icon instead.
@@ -376,7 +391,9 @@ export default class PullRequest extends View {
       const actions = actionsOf(k, entry);
       // An ok PR folds to its name and band: its title and why come back as soon as its label changes.
       const folded = entry.label === "ok" && !entry.error && !pending(k) && !opens[k]?.error;
-      return v_flex().id(`watch-${k}`).gap(2).rounded(8).px(8).py(7).cursor_pointer().hover((s) => s.bg(t.hover))
+      const picked = keyboard && k === this.sel;
+      return v_flex().id(`watch-${k}`).gap(2).rounded(8).px(8).py(7).cursor_pointer().hover((s) => s.bg(t.hover).border_color(picked ? t.accent : t.hover))
+        .border_1().border_color(picked ? t.accent : t.background).when(picked, (e) => e.bg(t.hover))
         .tooltip(folded && entry.title ? entry.title : entry.launched ? "Aller à l'agent" : "Ouvrir la PR").on_click(() => open(entry))
         .child(h_flex().gap(6).items_center()
           .child(div().text_size(12).font_semibold().child(repo.split("/").pop()))
@@ -396,6 +413,10 @@ export default class PullRequest extends View {
     const hideDrafts = Boolean(shared("pr-watch-view")?.hideDrafts);
     const drafts = entries.filter(([, e]) => isDraft(e)).length;
     const sorted = [...entries].filter(([, e]) => !hiddenDraft(e, hideDrafts)).sort(([, a], [, b]) => rank(a.label) - rank(b.label)); // stable: registry order within a label
+    // shortcut: the selected row is not scrolled into view; with ok PRs folded the list rarely outgrows the panel.
+    this.keys = sorted.map(([k]) => k); this.byKey = Object.fromEntries(sorted);
+    // Nothing is picked until an arrow key picks it: a click that gave the list the keys must not arm p, t or Enter on a row.
+    if (this.sel && !this.keys.includes(this.sel)) this.sel = null;
     const watch = v_flex().gap(2)
       .child(h_flex().gap(10).items_center().flex_wrap().text_size(11).text_color(t.muted)
         .child(h_flex().id("watch-switch").h(24).gap(8).items_center().rounded(6).px(4).text_size(12).text_color(t.foreground).cursor_pointer().hover((s) => s.bg(t.hover))
@@ -445,7 +466,22 @@ export default class PullRequest extends View {
           .text_color(this.helpOpen ? t.foreground : t.dim).hover((s) => s.bg(t.hover)).tooltip(this.helpOpen ? "Masquer l'aide" : "Aide").accessibility_label(this.helpOpen ? "Masquer l'aide" : "Aide")
           .on_click((_e, cx) => { this.helpOpen = !this.helpOpen; cx.notify(); }).child("?"));
     const content = this.view === "pr" ? [body] : [this.helpOpen ? help : null, watch].filter(Boolean);
-    return v_flex().id(this.view).size_full().min_h(0).rounded(10).overflow_hidden().bg(t.background).border_1().border_color(t.border).text_color(t.foreground).text_size(13)
+    // ↑/↓ pick a row, Enter goes to its agent or PR, p pauses or resumes it, t opens its worktree, Escape gives the keys back.
+    const onKey = (e, cx) => {
+      const k = e.keystroke, sel = this.sel, entry = sel && this.byKey?.[sel];
+      // The help sits above the list: an arrow key folds it so the picked row stays in view.
+      if (k === "up" || k === "down") { this.sel = moveSel(this.keys ?? [], sel, k === "up" ? -1 : 1); this.helpOpen = false; }
+      else if (k === "enter" && entry) open(entry);
+      else if (k === "p" && entry) togglePause(sel);
+      else if (k === "t" && entry) askWork(sel);
+      // Back to the focused terminal; release() would free the handle that track_focus still uses.
+      else if (k === "escape") { const f = focused(); if (f?.pane) run("pane.focus", { pane: f.pane }); }
+      else return;
+      cx.stop_propagation(); cx.notify();
+    };
+    // The accent border says the watch holds the keyboard, picked row or not (an empty list has none).
+    return v_flex().id(this.view).size_full().min_h(0).rounded(10).overflow_hidden().bg(t.background).border_1().border_color(keyboard ? t.accent : t.border).text_color(t.foreground).text_size(13)
+      .when(this.view === "watch", (e) => e.track_focus(this.handle).on_key_down(onKey).on_mouse_down("left", () => this.handle.focus()))
       .child(header)
       .child(v_flex().id(`${this.view}-body`).flex_1().min_h(0).overflow_y_scroll().p(14).children(content))
       .when(Boolean(this.note), (e) => e.child(div().px(14).pb(10).text_size(11).text_color(t.muted).child(this.note)));

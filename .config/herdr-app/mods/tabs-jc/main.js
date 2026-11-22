@@ -1,6 +1,6 @@
 import { View, div, svg, image } from "gpui-kit";
 import { h_flex, ScrollHandle } from "gpui-base";
-import { spaces, panes, run, openOverlay, theme, window, shared, layout, settings, nextCommand } from "herdr";
+import { spaces, panes, run, openOverlay, theme, window, shared, setShared, layout, settings, nextCommand } from "herdr";
 
 function find(node, id) {
   if (node?.id === id) return node;
@@ -47,7 +47,11 @@ export default class Tabs extends View {
   togglePanel(id) {
     const root = layout(), panel = find(root, "panel"), body = find(root, "panel-body");
     if (panel && !panel.hidden && body?.active === id) run("layout.hide", { id: "panel" });
-    else { run("layout.select", { stack: "panel-body", child: id }); run("layout.show", { id: "panel" }); }
+    else {
+      run("layout.select", { stack: "panel-body", child: id }); run("layout.show", { id: "panel" });
+      // The watch list takes the keyboard when opened on purpose (button, ⌘⇧U), not when a space switch restores it.
+      if (id === "watch") setShared("watch-focus", Date.now());
+    }
   }
 
   // One tab per wheel notch. A touchpad or smooth-scrolling mouse sends many

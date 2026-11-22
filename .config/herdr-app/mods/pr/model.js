@@ -148,3 +148,12 @@ export function isDraft(entry) {
 export function hiddenDraft(entry, hideDrafts) {
   return hideDrafts && isDraft(entry) && !["à toi", "erreur", "pas de clone local"].includes(entry.label);
 }
+
+// The watch row selected after an arrow key: keys in display order, sel the selected key (or one gone), delta ±1.
+// Nothing selected yet, or the selection gone: the first row. Stops at both ends.
+export function moveSel(keys, sel, delta) {
+  if (keys.length === 0) return null;
+  const i = keys.indexOf(sel);
+  if (i < 0) return keys[0];
+  return keys[Math.min(keys.length - 1, Math.max(0, i + delta))];
+}

@@ -165,3 +165,13 @@ test("sessionOf: the last session launched for a band cell", () => {
   assert.equal(sessionOf(sessions, "appr"), null, "not an agent step");
   assert.equal(sessionOf(undefined, "git"), null, "entry from before sessions were kept");
 });
+
+test("moveSel: arrows walk the rows, stop at the ends, start on the first", async () => {
+  const { moveSel } = await import("./model.js");
+  assert.equal(moveSel([], "a", 1), null);
+  assert.equal(moveSel(["a", "b", "c"], null, 1), "a");
+  assert.equal(moveSel(["a", "b", "c"], "gone", -1), "a");
+  assert.equal(moveSel(["a", "b", "c"], "a", 1), "b");
+  assert.equal(moveSel(["a", "b", "c"], "c", 1), "c");
+  assert.equal(moveSel(["a", "b", "c"], "a", -1), "a");
+});
