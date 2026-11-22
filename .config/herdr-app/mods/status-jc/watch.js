@@ -101,7 +101,7 @@ const KARADOC = ["pr-demo", "qa"]; // start karadoc on fixed ports: one at a tim
 const PUSHES = ["pr-review"]; // review steps that push fixups after their marker: they last until their tab closes
 
 const CLOSES = ["pr-risk", "pr-review", "pr-demo"]; // review steps over once their marker is posted and their agent stopped (pr-review fixes, pr-demo tears down, in the same turn): their tab closes
-const CLOSES_DONE = ["rebase", "squash"]; // git fix steps have no marker: their tab closes once their agent finished (its session stays in the git cell)
+const CLOSES_DONE = ["rebase", "squash", "jenkins", "sonar"]; // fix steps have no marker: their tab closes once their agent finished (its session stays in its band cell)
 
 export const tabName = (number, step) => `⟳ #${number} ${step}`;
 
