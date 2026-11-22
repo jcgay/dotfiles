@@ -368,22 +368,25 @@ export default class PullRequest extends View {
     };
     // Each state has a shape besides its color, readable without the pulse and when two hues look alike:
     // filled (ok, ko), filled and pulsing (run), outlined (wait), filled with a bright ring (me), faint (todo), dashed (skip).
-    const cellOf = (k, entry, label, state) => {
+    // quiet (a paused PR): colored states keep their hue as an outline, so done steps still read ahead of upcoming ones
+    // (a global opacity made done cells darker than upcoming ones) and nothing pulses.
+    const cellOf = (k, entry, label, state, quiet = false) => {
       const cell = div().id(`cell-${k}-${label}`).flex_1().min_w(0).h(17).rounded(3).flex().items_center().justify_center().text_size(10);
       if (!state) return cell;
       const s = sessionOf(entry.sessions, label);
       return cell.child(label)
         .when(Boolean(s), (e) => e.cursor_pointer().hover((x) => x.opacity(0.8)).tooltip(`Rouvrir la session Claude de ${s.step}`)
           .on_click((_e, cx) => { cx.stop_propagation(); resume(k.split("#")[1], s); }))
-        .when(Boolean(fills[state]), (e) => e.bg(fills[state]).text_color(t.background))
-        .when(state === "me", (e) => e.border(2).border_color(t.foreground).font_bold())
+        .when(Boolean(fills[state]) && !quiet, (e) => e.bg(fills[state]).text_color(t.background))
+        .when(Boolean(fills[state]) && quiet, (e) => e.border_1().border_color(fills[state]).text_color(t.muted))
+        .when(state === "me" && !quiet, (e) => e.border(2).border_color(t.foreground).font_bold())
         .when(state === "wait", (e) => e.border_1().border_color(t.working).text_color(t.working))
-        .when(state === "todo", (e) => e.bg(t.raised).text_color(t.muted))
+        .when(state === "todo", (e) => e.bg(t.raised).text_color(quiet ? t.dim : t.muted))
         .when(state === "skip", (e) => e.border_1().border_dashed().border_color(t.border).text_color(t.dim))
-        .when(state === "run", (e) => e.loop("opacity", { from: 0.5, to: 1, period: 1200 }));
+        .when(state === "run" && !quiet, (e) => e.loop("opacity", { from: 0.5, to: 1, period: 1200 }));
     };
-    const band = (k, entry) => h_flex().gap(2).py(3).when(paused.includes(k), (e) => e.opacity(0.45))
-      .children(bandStates(entry.band, merges[k]).map((state, i) => cellOf(k, entry, STEPS[i], state)));
+    const band = (k, entry) => h_flex().gap(2).py(3)
+      .children(bandStates(entry.band, merges[k]).map((state, i) => cellOf(k, entry, STEPS[i], state, paused.includes(k))));
     const row = ([k, entry]) => {
       const [color] = look(entry.label), [repo, number] = k.split("#");
       // The chip carries the status; "dépend de toi" would only repeat « à toi ».
