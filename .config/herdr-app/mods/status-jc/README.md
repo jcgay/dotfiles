@@ -138,6 +138,7 @@ Pas d'autre ménage : à part l'onglet `pr-risk`, la surveillance ne ferme aucun
       seen: { jenkins: false, sonar: false }, // ce check a déjà rapporté sur la PR
       launched: { step, head, tab, at } | null, // étape en cours ou dernière lancée, at : son lancement
       silent: { "<sha>": ["pr-demo"] },       // fermées sans commentaire, commit courant seulement
+      sessions: { "<étape>": { id, folder, at } }, // dernière session Claude de chaque étape, reprise par le panneau pr
       label, why, error,                      // étiquette, ligne d'explication, erreur de la PR
       band: ["ok", "run", …],                 // 9 cases (3 pour un brouillon) : ok run wait ko me todo skip
       ci: { jenkins: { head, since } | null, sonar }, // check vu tourner depuis since, pour sa durée

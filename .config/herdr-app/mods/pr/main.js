@@ -1,7 +1,7 @@
 import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
 import { spaces, panes, agents, focused, exec, theme, layout, run, shared, setShared } from "herdr";
-import { jenkinsBuild, checks, otherChecks, summary, minutes, deploymentsFor, parseContainers, watchBranch, remember, clockText, workLook, rowActions, bandStates, nextRound, isDraft, hiddenDraft } from "./model.js";
+import { jenkinsBuild, checks, otherChecks, summary, minutes, deploymentsFor, parseContainers, watchBranch, remember, clockText, workLook, rowActions, bandStates, nextRound, isDraft, hiddenDraft, sessionOf } from "./model.js";
 
 // How many spaces, checkouts and Jenkins builds the caches keep.
 const KEEP = 30;
@@ -313,17 +313,31 @@ export default class PullRequest extends View {
     // The step band status-jc computed (pipeline.js STEPS): nine slots, a draft fills three.
     const STEPS = ["git", "jenk", "sonar", "rev", "qa", "demo", "risk", "appr", "merge"];
     const fills = { ok: t.done, run: t.working, wait: t.working, ko: t.ansi1, me: t.ansi5 }; // me: violet, t.blocked reads red in some themes
-    const cellOf = (label, state) => {
-      const cell = div().flex_1().h(16).rounded(3).flex().items_center().justify_center().text_size(9);
+    // A cell with a Claude session behind it reopens it: its tab while the agent runs, else a new tab resuming it in its folder.
+    const resume = (number, s) => {
+      // A ↺ tab already resuming it: two claude --resume on one session would mix its transcript.
+      const name = `↺ #${number} ${s.step}`, argv = ["claude", "--resume", s.id];
+      const agent = agents().find((a) => [`⟳ #${number} ${s.step}`, name].includes(a.tab_name));
+      const terminal = agent && panes().find((p) => p.pane === agent.pane)?.terminal;
+      if (terminal) return run("agent.focus", { terminal });
+      const space = spaces().find((x) => !x.machine && x.folder === s.folder);
+      if (space) run("tab.new", { space: space.id, folder: s.folder, name, argv });
+      else run("space.new", { folder: s.folder, tab: name, argv });
+    };
+    const cellOf = (k, entry, label, state) => {
+      const cell = div().id(`cell-${k}-${label}`).flex_1().h(16).rounded(3).flex().items_center().justify_center().text_size(9);
       if (!state) return cell;
+      const s = sessionOf(entry.sessions, label);
       return cell.child(label)
+        .when(Boolean(s), (e) => e.cursor_pointer().hover((x) => x.opacity(0.8)).tooltip(`Rouvrir la session Claude de ${s.step}`)
+          .on_click((_e, cx) => { cx.stop_propagation(); resume(k.split("#")[1], s); }))
         .when(Boolean(fills[state]), (e) => e.bg(fills[state]).text_color(t.background))
         .when(state === "todo", (e) => e.bg(t.raised).text_color(t.dim))
         .when(state === "skip", (e) => e.border_1().border_dashed().border_color(t.border).text_color(t.dim))
         .when(state === "run", (e) => e.loop("opacity", { from: 0.5, to: 1, period: 1200 }));
     };
     const band = (k, entry) => h_flex().gap(2).py(3).when(paused.includes(k), (e) => e.opacity(0.45))
-      .children(bandStates(entry.band, merges[k]).map((state, i) => cellOf(STEPS[i], state)));
+      .children(bandStates(entry.band, merges[k]).map((state, i) => cellOf(k, entry, STEPS[i], state)));
     const row = ([k, entry]) => {
       const [color, state] = look(entry.label), [repo, number] = k.split("#");
       const why = [clockText(entry.clock, Date.now()), entry.why].filter(Boolean).join(" · ");
@@ -375,9 +389,9 @@ export default class PullRequest extends View {
       .child(div().text_color(t.muted).child("En haut, la PR de la branche affichée. En bas, la Surveillance : tes PR ouvertes de softwarevidal touchées depuis 7 jours, "
         + "qu'un tour (toutes les 2 min, ↻ pour tout de suite) fait avancer en lançant un agent pour l'étape suivante."))
       .child(section("Étapes, dans l'ordre"))
-      .child(legend(STEPS.map((s) => [cellOf(s, "todo"), STEP_HELP[s]])))
+      .child(legend(STEPS.map((s) => [cellOf("help", {}, s, "todo"), STEP_HELP[s]])))
       .child(section("Couleurs"))
-      .child(legend(["ok", "run", "wait", "ko", "me", "todo", "skip"].map((s) => [cellOf("rev", s), STATE_HELP[s]])))
+      .child(legend(["ok", "run", "wait", "ko", "me", "todo", "skip"].map((s) => [cellOf(`help-${s}`, {}, "rev", s), STATE_HELP[s]])))
       .child(section("Boutons"))
       .child(legend([
         ["⤵", "replie les commits fixup!/amend!/squash! et pousse en force (git seul, un agent sur conflit)"],
@@ -385,7 +399,7 @@ export default class PullRequest extends View {
         [svg("mods/workspace-chrome/terminal.svg").size(14).text_color(t.dim), "ouvre un space Claude dans le worktree de la PR (une PR prête est mise en pause tant qu'il est ouvert)"],
         ["⏸ ▶", "met en pause ou reprend : rien n'est lancé sur une PR en pause"],
         ["📜 🔁", "console du build Jenkins ; relance d'un build terminé en échec"],
-        ["clic", "sur une ligne : l'agent qui y travaille, sinon la PR sur GitHub"],
+        ["clic", "sur une ligne : l'agent qui y travaille, sinon la PR sur GitHub ; sur une case d'agent : rouvre sa dernière session Claude"],
       ]))
       .child(div().pt(4).text_color(t.dim).child("Survole un statut ou un bouton pour son détail."));
 

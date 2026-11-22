@@ -1,7 +1,7 @@
 // node --test ~/.config/herdr-app/mods/pr/model.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { jenkinsBuild, checks, otherChecks, summary, minutes, parseContainers, deploymentsFor, deployKey, watchBranch, remember, clockText, workLook, rowActions, bandStates, nextRound, isDraft, hiddenDraft } from "./model.js";
+import { jenkinsBuild, checks, otherChecks, summary, minutes, parseContainers, deploymentsFor, deployKey, watchBranch, remember, clockText, workLook, rowActions, bandStates, nextRound, isDraft, hiddenDraft, sessionOf } from "./model.js";
 
 test("jenkins build url", () => {
   assert.deepEqual(jenkinsBuild("https://jenkins.vidal.net/job/team.software/job/github/job/arthur/job/PR-5459/1/display/redirect"),
@@ -153,4 +153,13 @@ test("hiddenDraft: hidden drafts keep the ones that need me", () => {
   assert.equal(hiddenDraft({ draft: true, label: "erreur" }, true), false);
   assert.equal(hiddenDraft({ draft: true, label: "brouillon" }, false), false);
   assert.equal(hiddenDraft({ draft: false, label: "ok" }, true), false);
+});
+
+test("sessionOf: the last session launched for a band cell", () => {
+  const sessions = { rebase: { id: "a", folder: "/w", at: 1 }, squash: { id: "b", folder: "/w", at: 2 }, "pr-demo": { id: "c", folder: "/w", at: 3 } };
+  assert.deepEqual(sessionOf(sessions, "git"), { step: "squash", id: "b", folder: "/w", at: 2 });
+  assert.deepEqual(sessionOf(sessions, "demo"), { step: "pr-demo", id: "c", folder: "/w", at: 3 });
+  assert.equal(sessionOf(sessions, "qa"), null, "never launched");
+  assert.equal(sessionOf(sessions, "appr"), null, "not an agent step");
+  assert.equal(sessionOf(undefined, "git"), null, "entry from before sessions were kept");
 });

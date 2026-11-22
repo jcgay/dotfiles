@@ -122,6 +122,13 @@ export function bandStates(band, merge) {
   return Array.from({ length: 9 }, (_, i) => (i === 8 && last && band.length === 9 ? last : band[i] ?? null));
 }
 
+// The Claude session behind a band cell: the last agent launched for that step (git: rebase or squash). sessions: entry.sessions.
+const CELL_STEPS = { git: ["rebase", "squash"], jenk: ["jenkins"], sonar: ["sonar"], rev: ["pr-review"], qa: ["qa"], demo: ["pr-demo"], risk: ["pr-risk"] };
+export function sessionOf(sessions, cell) {
+  return (CELL_STEPS[cell] ?? []).map((step) => sessions?.[step] && { step, ...sessions[step] }).filter(Boolean)
+    .sort((a, b) => b.at - a.at)[0] ?? null;
+}
+
 // The header's round: running (or asked through ↻), when the next comes, or none yet. every: 5 min before it was written.
 export function nextRound(reg, asked, now) {
   if (reg?.running || asked) return "tour en cours";

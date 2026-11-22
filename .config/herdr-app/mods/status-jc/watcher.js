@@ -1,5 +1,6 @@
 // One round of the PR watch: gh, git and Herdr side effects around the pure decisions of watch.js.
 import { exec, spaces, agents, panes, run, notify, readTextFile, home, shared, setShared } from "herdr";
+import { randomUUID } from "crypto";
 import { watchPath } from "./open.js";
 import { roundLines } from "./journal.js";
 import { appendJournal } from "./journal-file.js";
@@ -150,11 +151,12 @@ export async function autosquash(path, s) {
   return true;
 }
 
-// A background launch: focus false keeps the user where they are.
-export function start(path, name, task) {
+// A background launch: focus false keeps the user where they are. session: the Claude session id, so the PR panel can resume it.
+export function start(path, name, task, session) {
+  const argv = ["claude", "--session-id", session];
   const space = spaces().find((s) => !s.machine && s.folder === path);
-  if (space) run("tab.new", { space: space.id, folder: path, name, argv: ["claude"], task, focus: false });
-  else run("space.new", { folder: path, tab: name, argv: ["claude"], task, focus: false });
+  if (space) run("tab.new", { space: space.id, folder: path, name, argv, task, focus: false });
+  else run("space.new", { folder: path, tab: name, argv, task, focus: false });
 }
 
 // Every watch tab ("⟳ #<n> <step>") that holds its PR, given each watched PR's markers.
@@ -250,8 +252,11 @@ async function roundUnderLease(registry, cache, at) {
               if (squashed === true) entry = { ...entry, launched: null, label: LABELS.waiting, why: `fixups squashés et poussés sur ${s.branch}` };
               else if (squashed instanceof Error) entry = { ...entry, launched: null, label: LABELS.error, error: squashed.message, why: "squash refusé" };
               else {
-                start(wt.path, entry.launched.tab, promptFor(r.launch, s));
+                const id = randomUUID();
+                start(wt.path, entry.launched.tab, promptFor(r.launch, s), id);
                 launched.push(entry.launched.tab);
+                // The last session of each step, for its badge in the PR panel (model.js sessionOf).
+                entry = { ...entry, sessions: { ...entry.sessions, [r.launch]: { id, folder: wt.path, at: Date.now() } } };
               }
             }
           } catch (e) {
