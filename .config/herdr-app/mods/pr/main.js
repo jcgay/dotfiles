@@ -370,26 +370,27 @@ export default class PullRequest extends View {
     const band = (k, entry) => h_flex().gap(2).py(3).when(paused.includes(k), (e) => e.opacity(0.45))
       .children(bandStates(entry.band, merges[k]).map((state, i) => cellOf(k, entry, STEPS[i], state)));
     const row = ([k, entry]) => {
-      const [color, state] = look(entry.label), [repo, number] = k.split("#");
-      const why = [clockText(entry.clock, Date.now()), entry.why].filter(Boolean).join(" · ");
+      const [color] = look(entry.label), [repo, number] = k.split("#");
+      // The chip carries the status; "dépend de toi" would only repeat « à toi ».
+      const why = [entry.clock?.yours ? null : clockText(entry.clock, Date.now()), entry.why].filter(Boolean).join(" · ");
       const actions = actionsOf(k, entry);
-      return h_flex().id(`watch-${k}`).gap(10).items_start().rounded(8).px(8).py(7).cursor_pointer().hover((s) => s.bg(t.hover))
-        .tooltip(entry.launched ? "Aller à l'agent" : "Ouvrir la PR").on_click(() => open(entry))
-        .child(div().pt(5).flex_none().child(dot(state, color)))
-        .child(v_flex().flex_1().min_w(0).gap(2)
-          .child(h_flex().gap(6).items_center()
-            .child(div().text_size(12).font_semibold().child(repo.split("/").pop()))
-            .child(div().text_size(12).text_color(t.dim).child(`#${number}`))
-            .child(div().flex_1())
-            .child(work(k, entry.work)).child(pause(k)).child(chip(entry.label ?? "", color).tooltip(LABEL_HELP[entry.label] ?? "")))
-          .when(Boolean(entry.title), (e) => e.child(div().text_size(12).text_color(t.muted).truncate().child(entry.title)))
-          .when(Array.isArray(entry.band), (e) => e.child(band(k, entry)))
-          .when(Boolean(why), (e) => e.child(div().text_size(11).text_color(t.dim).child(why)))
-          .when(actions.length > 0, (e) => e.child(h_flex().gap(12).flex_wrap().pt(2).children(actions)))
-          .when(Boolean(merges[k]?.refused && merges[k]?.error), (e) => e.child(div().text_size(11).text_color(t.ansi1).child(`merge refusé : ${merges[k].error}`)))
-          .when(Boolean(entry.error), (e) => e.child(div().text_size(11).text_color(t.ansi1).child(entry.error)))
-          .when(pending(k), (e) => e.child(div().text_size(11).text_color(t.dim).child("ouverture…")))
-          .when(Boolean(opens[k]?.error) && !pending(k), (e) => e.child(div().text_size(11).text_color(t.ansi1).child(opens[k].error))));
+      // An ok PR folds to its name and band: its title and why come back as soon as its label changes.
+      const folded = entry.label === "ok" && !entry.error && !pending(k) && !opens[k]?.error;
+      return v_flex().id(`watch-${k}`).gap(2).rounded(8).px(8).py(7).cursor_pointer().hover((s) => s.bg(t.hover))
+        .tooltip(folded && entry.title ? entry.title : entry.launched ? "Aller à l'agent" : "Ouvrir la PR").on_click(() => open(entry))
+        .child(h_flex().gap(6).items_center()
+          .child(div().text_size(12).font_semibold().child(repo.split("/").pop()))
+          .child(div().text_size(12).text_color(t.dim).child(`#${number}`))
+          .child(div().flex_1())
+          .child(work(k, entry.work)).child(pause(k)).child(chip(entry.label ?? "", color).tooltip(LABEL_HELP[entry.label] ?? "")))
+        .when(Boolean(entry.title) && !folded, (e) => e.child(div().text_size(12).text_color(t.muted).truncate().child(entry.title)))
+        .when(Array.isArray(entry.band), (e) => e.child(band(k, entry)))
+        .when(Boolean(why) && !folded, (e) => e.child(div().text_size(11).text_color(t.dim).child(why)))
+        .when(actions.length > 0, (e) => e.child(h_flex().gap(12).flex_wrap().pt(2).children(actions)))
+        .when(Boolean(merges[k]?.refused && merges[k]?.error), (e) => e.child(div().text_size(11).text_color(t.ansi1).child(`merge refusé : ${merges[k].error}`)))
+        .when(Boolean(entry.error), (e) => e.child(div().text_size(11).text_color(t.ansi1).child(entry.error)))
+        .when(pending(k), (e) => e.child(div().text_size(11).text_color(t.dim).child("ouverture…")))
+        .when(Boolean(opens[k]?.error) && !pending(k), (e) => e.child(div().text_size(11).text_color(t.ansi1).child(opens[k].error)));
     };
     // The view's own registry: status-jc rewrites pr-watch every round and would drop it.
     const hideDrafts = Boolean(shared("pr-watch-view")?.hideDrafts);

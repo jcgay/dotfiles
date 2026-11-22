@@ -109,7 +109,9 @@ export function workLook(work, folders) {
 // The row's ⤵ and ⇥/✕: merge and squash are the PR's requests in shared("pr-merge") and shared("pr-squash").
 export function rowActions(entry, merge, squash) {
   return {
-    squash: entry.fixups > 0 && (!squash || squash.state === "error"),
+    // Only once approved: before, the fixups give the reviewer "changes since my last review" (the watch waits too).
+    // The Pull request panel still squashes at any time.
+    squash: entry.approved === true && entry.fixups > 0 && (!squash || squash.state === "error"),
     // status-jc cancels a merge armed over fixup! commits; after a squash the stale count hides ⇥ until the next round.
     arm: entry.draft === false && entry.head ? (merge ? (merge.refused ? "refused" : "disarm") : entry.fixups > 0 ? null : "arm") : null,
   };
