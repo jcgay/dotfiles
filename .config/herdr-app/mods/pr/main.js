@@ -1,6 +1,6 @@
 import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
-import { spaces, panes, agents, focused, exec, theme, layout, run, shared, setShared } from "herdr";
+import { spaces, panes, agents, focused, exec, theme, layout, run, shared, setShared, props } from "herdr";
 import { jenkinsBuild, checks, otherChecks, summary, minutes, deploymentsFor, parseContainers, watchBranch, remember, clockText, workLook, rowActions, bandStates, nextRound, isDraft, hiddenDraft, sessionOf } from "./model.js";
 
 // How many spaces, checkouts and Jenkins builds the caches keep.
@@ -46,25 +46,29 @@ function location() {
 }
 const key = () => JSON.stringify(location());
 
-// A hidden copy keeps its timers: ask gh and jk only while the panel shows this block.
+// A hidden copy keeps its timers: ask gh and jk only while the panel shows this block (pr or watch, the layout's block id).
 function find(node, id) {
   if (node?.id === id) return node;
   for (const child of node?.children ?? []) { const found = find(child, id); if (found) return found; }
   return null;
 }
-function visible() {
+function visible(view) {
   const root = layout(), panel = find(root, "panel"), body = find(root, "panel-body");
-  return Boolean(panel && !panel.hidden && body?.active === "pr");
+  return Boolean(panel && !panel.hidden && body?.active === view);
 }
 
+// Two panels from one mod (layout prop `view`): "pr", the PR of the shown branch, and "watch", every PR status-jc follows.
 export default class PullRequest extends View {
   init(_props, cx) {
+    // Herdr gives a block's layout props through props(), not init's argument.
+    this.view = props()?.view === "watch" ? "watch" : "pr";
     this.context = null; this.pr = null; this.build = null; this.error = null; this.loading = false; this.note = null; this.checksOpen = false;
     this.deployed = []; this.scan = { at: 0, list: null, pending: null };
     // Last state of each space or pane seen, shown at once when it comes back while a refresh runs;
     // finished Jenkins builds, which never change; the repo name of each checkout.
     this.seen = new Map(); this.builds = new Map(); this.remotes = new Map(); this.turns = new Map();
-    cx.timer.every(60000, (cx) => { if (visible()) this.refresh(cx); });
+    // The watch view only reads shared(): no gh or jk.
+    cx.timer.every(60000, (cx) => { if (this.view === "pr" && visible("pr")) this.refresh(cx); });
   }
 
   // Every container of the shared Docker hosts, through the wrappers in ~/.local/bin. One scan
@@ -144,15 +148,17 @@ export default class PullRequest extends View {
       const r = await exec(args[0], args.slice(1), opts).catch((e) => ({ code: 1, stderr: String(e) }));
       this.note = r.code === 0 ? null : `${label} : ${(r.stderr || r.stdout).trim().split("\n")[0]}`;
       if (r.code === 0) done?.();
-      this.refresh(cx); cx.notify();
+      // The watch copy never asks gh, jk or Docker: its rows come from status-jc.
+      if (this.view === "pr") this.refresh(cx);
+      cx.notify();
     });
     cx.notify();
   }
 
   render(cx) {
     // Opening the panel, or another space or pane while it is open, asks again.
-    const shown = visible();
-    if (shown && (!this.shown || key() !== this.context)) this.refresh(cx);
+    const shown = visible(this.view);
+    if (this.view === "pr" && shown && (!this.shown || key() !== this.context)) this.refresh(cx);
     this.shown = shown;
     const t = theme(), pr = this.pr, b = this.build, where = location();
     const dot = (state, color) => state === "ok" ? div().size(7).rounded(4).flex_none().bg(color ?? t.done)
@@ -371,7 +377,6 @@ export default class PullRequest extends View {
     const drafts = entries.filter(([, e]) => isDraft(e)).length;
     const sorted = [...entries].filter(([, e]) => !hiddenDraft(e, hideDrafts)).sort(([, a], [, b]) => rank(a.label) - rank(b.label)); // stable: registry order within a label
     const watch = v_flex().gap(2)
-      .child(section("Surveillance"))
       .child(h_flex().gap(10).items_center().flex_wrap().text_size(11).text_color(t.muted)
         .child(h_flex().id("watch-switch").h(24).gap(8).items_center().rounded(6).px(4).text_size(12).text_color(t.foreground).cursor_pointer().hover((s) => s.bg(t.hover))
           .on_click(() => setShared("pr-watch", { on: false, prs: {}, error: null, at: 0, ...reg, on: !reg?.on }))
@@ -382,11 +387,7 @@ export default class PullRequest extends View {
           .hover((s) => s.bg(t.hover)).tooltip(hideDrafts ? "Afficher les brouillons" : "Masquer les brouillons")
           .on_click(() => setShared("pr-watch-view", { ...(shared("pr-watch-view") ?? {}), hideDrafts: !hideDrafts }))
           .when(hideDrafts, (c) => c.opacity(0.45).line_through())
-          .child(`Brouillons (${drafts})`)))
-        .child(div().flex_1())
-        .child(div().text_color(t.dim).child(nextRound(reg, Boolean(shared("pr-watch-now")), Date.now())))
-        .child(h_flex().id("watch-now").w(24).h(24).items_center().justify_center().rounded(5).text_size(15).cursor_pointer().hover((s) => s.bg(t.hover).text_color(t.foreground))
-          .tooltip("Faire un tour maintenant").on_click(askRound).child("↻")))
+          .child(`Brouillons (${drafts})`))))
       .when(Boolean(reg?.error), (e) => e.child(div().text_size(11).text_color(t.ansi1).child(reg.error)))
       .child(v_flex().gap(1).pt(4).children(sorted.map(row)));
 
@@ -394,8 +395,8 @@ export default class PullRequest extends View {
     const legend = (items) => v_flex().gap(4).children(items.map(([mark, text]) => h_flex().gap(8).items_start()
       .child(div().w(44).flex_none().child(mark)).child(div().flex_1().min_w(0).text_color(t.muted).child(text))));
     const help = v_flex().gap(4).mb(10).p(10).rounded(8).bg(t.raised).text_size(11)
-      .child(div().text_color(t.muted).child("En haut, la PR de la branche affichée. En bas, la Surveillance : tes PR ouvertes de softwarevidal touchées depuis 7 jours, "
-        + "qu'un tour (toutes les 2 min, ↻ pour tout de suite) fait avancer en lançant un agent pour l'étape suivante."))
+      .child(div().text_color(t.muted).child("Tes PR ouvertes de softwarevidal touchées depuis 7 jours, "
+        + "qu'un tour (toutes les 2 min, ↻ pour tout de suite) fait avancer en lançant un agent pour l'étape suivante. La PR de la branche affichée a son propre panneau, Pull request."))
       .child(section("Étapes, dans l'ordre"))
       .child(legend(STEPS.map((s) => [cellOf("help", {}, s, "todo"), STEP_HELP[s]])))
       .child(section("Couleurs"))
@@ -407,20 +408,28 @@ export default class PullRequest extends View {
         ["⇥", "arme le merge : rebase and merge dès que tous les checks sont verts ; ✕ désarme"],
         [svg("mods/workspace-chrome/terminal.svg").size(14).text_color(t.dim), "ouvre un space Claude dans le worktree de la PR (une PR prête est mise en pause tant qu'il est ouvert)"],
         ["⏸ ▶", "met en pause ou reprend : rien n'est lancé sur une PR en pause"],
-        ["📜 🔁", "console du build Jenkins ; relance d'un build terminé en échec"],
         ["clic", "sur une ligne : l'agent qui y travaille, sinon la PR sur GitHub ; sur une case d'agent : rouvre sa dernière session Claude"],
       ]))
       .child(div().pt(4).text_color(t.dim).child("Survole un statut ou un bouton pour son détail."));
 
-    return v_flex().id("pr").size_full().min_h(0).rounded(10).overflow_hidden().bg(t.background).border_1().border_color(t.border).text_color(t.foreground).text_size(13)
-      .child(h_flex().h(42).flex_none().px(14).gap(8).items_center().border_b(1).border_color(t.border)
+    // One refresh per panel: Rafraîchir asks gh again for the shown branch, ↻ asks status-jc for a watch round.
+    const header = this.view === "pr"
+      ? h_flex().h(42).flex_none().px(14).gap(8).items_center().border_b(1).border_color(t.border)
         .child(div().font_semibold().child("Pull request")).child(div().flex_1())
         .when(this.loading, (e) => e.child(div().text_size(11).text_color(t.dim).child("…")))
+        .child(div().id("pr-refresh").text_size(11).text_color(t.dim).cursor_pointer().hover((s) => s.text_color(t.foreground)).on_click((_e, cx) => { this.refresh(cx, true); cx.notify(); }).child("Rafraîchir"))
+      : h_flex().h(42).flex_none().px(14).gap(8).items_center().border_b(1).border_color(t.border)
+        .child(div().font_semibold().child("Surveillance des PR")).child(div().flex_1())
+        .child(div().text_size(11).text_color(t.dim).child(nextRound(reg, Boolean(shared("pr-watch-now")), Date.now())))
+        .child(h_flex().id("watch-now").w(24).h(24).items_center().justify_center().rounded(5).text_size(15).text_color(t.dim).cursor_pointer().hover((s) => s.bg(t.hover).text_color(t.foreground))
+          .tooltip("Faire un tour maintenant").on_click(askRound).child("↻"))
         .child(h_flex().id("pr-help").w(20).h(20).items_center().justify_center().rounded(10).border_1().border_color(t.border).text_size(11).cursor_pointer()
           .text_color(this.helpOpen ? t.foreground : t.dim).hover((s) => s.bg(t.hover)).tooltip(this.helpOpen ? "Masquer l'aide" : "Aide")
-          .on_click((_e, cx) => { this.helpOpen = !this.helpOpen; cx.notify(); }).child("?"))
-        .child(div().id("pr-refresh").text_size(11).text_color(t.dim).cursor_pointer().hover((s) => s.text_color(t.foreground)).on_click((_e, cx) => { this.refresh(cx, true); cx.notify(); }).child("Rafraîchir")))
-      .child(v_flex().id("pr-body").flex_1().min_h(0).overflow_y_scroll().p(14).when(Boolean(this.helpOpen), (e) => e.child(help)).child(body).child(watch))
+          .on_click((_e, cx) => { this.helpOpen = !this.helpOpen; cx.notify(); }).child("?"));
+    const content = this.view === "pr" ? [body] : [this.helpOpen ? help : null, watch].filter(Boolean);
+    return v_flex().id(this.view).size_full().min_h(0).rounded(10).overflow_hidden().bg(t.background).border_1().border_color(t.border).text_color(t.foreground).text_size(13)
+      .child(header)
+      .child(v_flex().id(`${this.view}-body`).flex_1().min_h(0).overflow_y_scroll().p(14).children(content))
       .when(Boolean(this.note), (e) => e.child(div().px(14).pb(10).text_size(11).text_color(t.muted).child(this.note)));
   }
 }

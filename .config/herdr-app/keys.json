@@ -59,7 +59,8 @@
     "ctrl-8": "space.select:8",
     "ctrl-9": "space.select:9",
     "cmd-shift-j": "mod.open:start-work",
-    "cmd-shift-r": "tabs-jc.panel:pr"
+    "cmd-shift-r": "tabs-jc.panel:pr",
+    "cmd-shift-u": "tabs-jc.panel:watch"
   },
   "terminal": {
     "cmd-f": "terminal.search",
