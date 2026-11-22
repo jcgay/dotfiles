@@ -548,15 +548,16 @@ test("checkoutsOf: folders with the branch checked out, not detached nor prunabl
   assert.deepEqual(checkoutsOf("", "x"), []);
 });
 
-test("a finished pr-risk or pr-review tab closes, its space when alone", () => {
+test("a finished pr-risk, pr-review or pr-demo tab closes, its space when alone", () => {
   const tab = (id, name, over = {}) => ({ id, name, status: "done", active: false, panes: 1, ...over });
   const space = (id, tabs, active = false) => ({ id, active, tabs, folder: "/x/agents-worktree/arthur/b-watch" });
-  const marked = (n) => (n === 1 ? new Set(["pr-risk", "pr-review"]) : n === 2 ? new Set() : n === 3 ? null : undefined);
+  const marked = (n) => (n === 1 ? new Set(["pr-risk", "pr-review", "pr-demo"]) : n === 2 ? new Set() : n === 3 ? null : undefined);
   assert.deepEqual(closing([space("s1", [tab("t1", "⟳ #1 pr-risk")])], marked), [{ cmd: "space.close", args: { id: "s1", confirmed: true } }]);
   assert.deepEqual(closing([space("s1", [tab("t1", "⟳ #1 pr-risk"), tab("t2", "⟳ #1 pr-review", { status: "working" })])], marked),
     [{ cmd: "tab.close", args: { id: "t1", confirmed: true } }]);
   assert.deepEqual(closing([space("s1", [tab("t1", "⟳ #4 pr-risk")])], marked), [{ cmd: "space.close", args: { id: "s1", confirmed: true } }], "PR gone from the round");
   assert.deepEqual(closing([space("s1", [tab("t1", "⟳ #1 pr-review")])], marked), [{ cmd: "space.close", args: { id: "s1", confirmed: true } }], "pr-review done fixing");
+  assert.deepEqual(closing([space("s1", [tab("t1", "⟳ #1 pr-demo")])], marked), [{ cmd: "space.close", args: { id: "s1", confirmed: true } }], "pr-demo posted and torn down");
   for (const sp of [
     space("s1", [tab("t1", "⟳ #1 pr-risk", { status: "working" })]), // still working
     space("s1", [tab("t1", "⟳ #2 pr-risk")]), // no marker yet
@@ -564,6 +565,8 @@ test("a finished pr-risk or pr-review tab closes, its space when alone", () => {
     space("s1", [tab("t1", "⟳ #1 pr-risk", { active: true })], true), // I am looking at it
     space("s1", [tab("t1", "⟳ #1 pr-risk", { panes: 2 })]), // I split it
     space("s1", [tab("t1", "⟳ #1 pr-review", { status: "working" })]), // pr-review still fixing after its marker
+    space("s1", [tab("t1", "⟳ #1 pr-demo", { status: "working" })]), // pr-demo still tearing down after its marker
+    space("s1", [tab("t1", "⟳ #2 pr-demo")]), // pr-demo stopped without posting: its tab says why
   ]) assert.deepEqual(closing([sp], marked), []);
   const seen = [];
   closing([space("s1", [tab("t1", "⟳ #1 pr-risk")])], (n, folder) => { seen.push([n, folder]); return null; });

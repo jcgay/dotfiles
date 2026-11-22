@@ -100,7 +100,7 @@ export const REVIEW = ["pr-review", "qa", "pr-demo", "pr-risk"]; // pr-review --
 const KARADOC = ["pr-demo", "qa"]; // start karadoc on fixed ports: one at a time
 const PUSHES = ["pr-review"]; // review steps that push fixups after their marker: they last until their tab closes
 
-const CLOSES = ["pr-risk", "pr-review"]; // review steps over once their marker is posted and their agent stopped (pr-review fixes in the same turn): their tab closes
+const CLOSES = ["pr-risk", "pr-review", "pr-demo"]; // review steps over once their marker is posted and their agent stopped (pr-review fixes, pr-demo tears down, in the same turn): their tab closes
 
 export const tabName = (number, step) => `⟳ #${number} ${step}`;
 
