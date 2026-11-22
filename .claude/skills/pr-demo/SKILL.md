@@ -144,4 +144,4 @@ Follow `references/publish.md`.
 Stop each app you started with the section's stop command, or stop the
 background job you launched. Then `git -C "<root>" worktree remove --force`
 each worktree you created. Check that the ports are free again. Leave the
-capture files: the user still has to drag the video into the comment.
+capture files: they are the only copy when the upload failed.
