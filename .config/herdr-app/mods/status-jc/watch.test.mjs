@@ -570,6 +570,13 @@ test("a finished pr-risk, pr-review or pr-demo tab closes, its space when alone"
   ]) assert.deepEqual(closing([sp], marked), []);
   const seen = [];
   closing([space("s1", [tab("t1", "⟳ #1 pr-risk")])], (n, folder) => { seen.push([n, folder]); return null; });
+  for (const step of ["rebase", "squash"]) {
+    for (const status of ["done", "idle"]) assert.deepEqual(closing([space("s1", [tab("t1", `⟳ #2 ${step}`, { status })])], marked),
+      [{ cmd: "space.close", args: { id: "s1", confirmed: true } }], `${step} ${status}, no marker needed`);
+    for (const status of ["working", "blocked", null]) assert.deepEqual(closing([space("s1", [tab("t1", `⟳ #2 ${step}`, { status })])], marked), [], `${step} ${status}`);
+    assert.deepEqual(closing([space("s1", [tab("t1", `⟳ #2 ${step}`, { active: true })], true)], marked), [], `${step} I am looking at it`);
+  }
+  assert.deepEqual(closing([space("s1", [tab("t1", "⟳ #2 jenkins")])], marked), [], "other fix steps keep their tab");
   assert.deepEqual(seen, [[1, "/x/agents-worktree/arthur/b-watch"]], "the PR is looked up with its space's folder");
 });
 
