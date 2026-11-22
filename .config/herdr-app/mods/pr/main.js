@@ -251,11 +251,13 @@ export default class PullRequest extends View {
       .child(h_flex().gap(8).items_center()
         .child(dot(squashing ? "running" : !fixes ? "ok" : approved ? "ko" : "idle", fixes && approved && !squashing ? t.blocked : null))
         .child(div().flex_1().min_w(0).truncate().child(squashing ? "squash en cours…" : !fixes ? "rien à squasher"
-          : `${fixes} commit${fixes > 1 ? "s" : ""} fixup! à squasher${!approved && auto ? " · auto après approbation" : ""}`))
+          // The merge button waits for the squash (canArm): say it here, or it just looks missing.
+          : `${fixes} commit${fixes > 1 ? "s" : ""} fixup! à squasher${!approved && auto ? " · auto après approbation" : ""}${!pr.isDraft && !armed ? " · merge après le squash" : ""}`))
         .when(fixes > 0 && !squashing, (r) => r.child(guarded("pr-squash", "Squasher", "Confirmer le push forcé",
           () => setShared("pr-squash", { ...(shared("pr-squash") ?? {}), [mergeKey]: { state: "asked", at: Date.now() } })))))
       .when(Boolean(squash?.error), (e) => e.child(div().text_size(11).text_color(t.ansi1).child(squash.error)))];
-    const canArm = Boolean(mergeKey) && pr.state === "OPEN" && !pr.isDraft && !armed;
+    // status-jc disarms a merge armed over fixup! commits at once (merge.js): squash first, as the watch row does.
+    const canArm = Boolean(mergeKey) && pr.state === "OPEN" && !pr.isDraft && !armed && fixes === 0;
     const reviewers = (pr?.reviewRequests ?? []).map((r) => r.login ?? r.name ?? r.slug);
     const body = !where.branch ? div().text_color(t.dim).child("Pas de branche git ici.")
       : this.error ? div().text_color(t.ansi1).child(this.error)
