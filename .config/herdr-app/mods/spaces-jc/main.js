@@ -476,7 +476,7 @@ export default class Spaces extends View {
       .text_color(t.dim)
       .when(Boolean(where), (el) => el.child(div().min_w(0).truncate().child(where)))
       .when(g.ahead > 0, (el) => el.child(div().flex_none().text_color(t.ansi2).child(`\u2191${g.ahead}`)))
-      .when(g.behind > 0, (el) => el.child(div().flex_none().text_color(t.ansi1).child(`\u2193${g.behind}`)));
+      .when(g.behind > 0, (el) => el.child(div().flex_none().text_color(t.muted).child(`\u2193${g.behind}`)));
   }
 
   row({ w, i, g, tree }, t) {

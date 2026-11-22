@@ -326,7 +326,7 @@ export default class PullRequest extends View {
     };
     // The step band status-jc computed (pipeline.js STEPS): nine slots, a draft fills three.
     const STEPS = ["git", "jenk", "sonar", "rev", "qa", "demo", "risk", "appr", "merge"];
-    const fills = { ok: t.done, run: t.working, wait: t.working, ko: t.ansi1, me: t.ansi5 }; // me: violet, t.blocked reads red in some themes
+    const fills = { ok: t.done, run: t.working, ko: t.ansi1, me: t.ansi5 }; // me: violet, t.blocked reads red in some themes
     // A cell with a Claude session behind it reopens it: its tab while the agent runs, else a new tab resuming it in its folder.
     const resume = (number, s) => {
       // A ↺ tab already resuming it: two claude --resume on one session would mix its transcript.
@@ -338,15 +338,19 @@ export default class PullRequest extends View {
       if (space) run("tab.new", { space: space.id, folder: s.folder, name, argv });
       else run("space.new", { folder: s.folder, tab: name, argv });
     };
+    // Each state has a shape besides its color, readable without the pulse and when two hues look alike:
+    // filled (ok, ko), filled and pulsing (run), outlined (wait), filled with a bright ring (me), faint (todo), dashed (skip).
     const cellOf = (k, entry, label, state) => {
-      const cell = div().id(`cell-${k}-${label}`).flex_1().h(16).rounded(3).flex().items_center().justify_center().text_size(9);
+      const cell = div().id(`cell-${k}-${label}`).flex_1().min_w(0).h(17).rounded(3).flex().items_center().justify_center().text_size(10);
       if (!state) return cell;
       const s = sessionOf(entry.sessions, label);
       return cell.child(label)
         .when(Boolean(s), (e) => e.cursor_pointer().hover((x) => x.opacity(0.8)).tooltip(`Rouvrir la session Claude de ${s.step}`)
           .on_click((_e, cx) => { cx.stop_propagation(); resume(k.split("#")[1], s); }))
         .when(Boolean(fills[state]), (e) => e.bg(fills[state]).text_color(t.background))
-        .when(state === "todo", (e) => e.bg(t.raised).text_color(t.dim))
+        .when(state === "me", (e) => e.border(2).border_color(t.foreground).font_bold())
+        .when(state === "wait", (e) => e.border_1().border_color(t.working).text_color(t.working))
+        .when(state === "todo", (e) => e.bg(t.raised).text_color(t.muted))
         .when(state === "skip", (e) => e.border_1().border_dashed().border_color(t.border).text_color(t.dim))
         .when(state === "run", (e) => e.loop("opacity", { from: 0.5, to: 1, period: 1200 }));
     };
