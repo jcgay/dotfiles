@@ -1,5 +1,5 @@
 // One round of the PR watch: gh, git and Herdr side effects around the pure decisions of watch.js.
-import { exec, spaces, agents, panes, run, notify, readTextFile, home, shared, setShared } from "herdr";
+import { exec, spaces, agents, panes, run, notify, home, shared, setShared } from "herdr";
 import { randomUUID } from "crypto";
 import { watchPath } from "./open.js";
 import { roundLines } from "./journal.js";
@@ -72,20 +72,30 @@ async function knownClone(repo, clones) {
 async function cloneOf(repo, clones) {
   const clone = await knownClone(repo, clones);
   // Without the marker in its report template, a QA would be relaunched on every head.
-  const report = (dir) => readTextFile(`${clone}/${dir}/skills/testing-api-pull-requests/references/report.md`);
+  // Read on the default branch as last fetched, never the checked-out one: the clone may sit on a PR that adds the
+  // Jenkinsfile or the "## Demo" section, and the repo has neither until it is merged. origin/HEAD is unset in some clones.
+  const git = (...args) => exec("git", ["-C", clone, ...args]);
+  let base = null;
+  for (const ref of ["origin/HEAD", "origin/main", "origin/master"]) {
+    if (clone !== null && (await git("rev-parse", "--verify", "-q", `${ref}^{commit}`)).code === 0) { base = ref; break; }
+  }
+  const read = async (path) => {
+    if (base === null) return null;
+    const r = await git("show", `${base}:${path}`);
+    return r.code === 0 ? r.stdout : null;
+  };
+  const has = async (path) => base !== null && (await git("cat-file", "-e", `${base}:${path}`)).code === 0;
+  const report = (dir) => read(`${dir}/skills/testing-api-pull-requests/references/report.md`);
   const hasQa = clone !== null && /^<!-- testing-api-pull-requests -->$/m.test((await report(".agents")) ?? (await report(".claude")) ?? "");
   // pr-demo stops without a "## Demo" section telling how to start the app. No clone: kept, so its launch says "pas de clone local".
-  // shortcut: read on the clone's checked-out branch, like hasCi; a PR adding the section gets no demo until the clone has it
-  const demo = async (file) => /^## Demo\s*$/m.test((await readTextFile(`${clone}/${file}`)) ?? "");
+  const demo = async (file) => /^## Demo\s*$/m.test((await read(file)) ?? "");
   const hasDemo = clone === null || (await demo("AGENTS.md")) || (await demo("CLAUDE.md"));
-  // Signals of a CI on the clone's checked-out branch: a PR adding the first one is seen without CI.
-  const has = async (path) => clone !== null && (await exec("test", ["-e", `${clone}/${path}`])).code === 0;
-  const dir = async (path) => clone !== null && (await exec("test", ["-d", `${clone}/${path}`])).code === 0;
+  // A PR adding the first CI is seen without CI.
   const hasCi = (await has("Jenkinsfile")) || (await has(".github/workflows"));
   // karadoc is arthur's module: only repos that hold it run it on its fixed ports
   // ⌨'s worktree, read before this round's launches: one created now shows at the next round.
   const listed = clone === null ? null : await exec("git", ["-C", clone, "worktree", "list", "--porcelain"]);
-  return { clone, hasQa, hasDemo, hasCi, hasKaradoc: await dir("karadoc"), worktrees: listed?.code === 0 ? listed.stdout : "" };
+  return { clone, hasQa, hasDemo, hasCi, hasKaradoc: await has("karadoc"), worktrees: listed?.code === 0 ? listed.stdout : "" };
 }
 
 // The watch's own worktree for branch, detached on origin/<branch>; dirty when an agent left work in it, busy (the

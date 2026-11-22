@@ -35,7 +35,7 @@ Un tour prend un bail `shared("pr-watch-lease")` : si une autre copie du mod en 
 
 - `gh search prs --author=@me --state=open --owner=softwarevidal --updated=>=<aujourd'hui - 7 j>` : une PR sans activité depuis 7 jours sort de la liste (et du panneau) ;
 - pour chaque PR, `gh pr view --json ...` (checks, commentaires, reviews) et `gh api .../commits/<sha>/check-runs` (Sonar) ;
-- pour chaque dépôt, son clone local (dossiers des spaces locaux et de leurs panes, `~/dev/agents-worktree/<repo>/*`, `/Volumes/sourcecode/<repo>`, reconnu par son remote `origin`), s'il a une CI (`Jenkinsfile` ou `.github/workflows/` dans le checkout principal), une section `## Demo` dans `AGENTS.md` ou `CLAUDE.md`, et le skill QA (`testing-api-pull-requests` dont `references/report.md` porte le marqueur, sous `.agents/` ou `.claude/`).
+- pour chaque dépôt, son clone local (dossiers des spaces locaux et de leurs panes, `~/dev/agents-worktree/<repo>/*`, `/Volumes/sourcecode/<repo>`, reconnu par son remote `origin`), s'il a une CI (`Jenkinsfile` ou `.github/workflows/`), une section `## Demo` dans `AGENTS.md` ou `CLAUDE.md`, le skill QA (`testing-api-pull-requests` dont `references/report.md` porte le marqueur, sous `.agents/` ou `.claude/`) et un dossier `karadoc/`. Tout est lu avec git sur la branche par défaut au dernier fetch (`origin/HEAD`, sinon `origin/main`, sinon `origin/master`), jamais sur la branche checkout : le clone peut être sur une PR qui ajoute le premier `Jenkinsfile`, et le dépôt n'a pas de CI tant qu'elle n'est pas mergée.
 
 Jenkins = un check dont l'URL est un build Jenkins (un contexte `ko` l'emporte s'il y en a plusieurs). Sonar = le check-run `SonarCloud Code Analysis` ou `SonarQube Code Analysis` : `ko` si sa conclusion est `failure` ou si son résumé annonce au moins une nouvelle issue ou un hotspot. Un check Jenkins ou Sonar déjà vu sur un ancien commit et absent du nouveau compte comme « en cours ». Les marqueurs (`<!-- pr-risk -->`, `<!-- pr-review -->`, `<!-- pr-demo -->`, `<!-- testing-api-pull-requests -->`) ne comptent qu'en tête de tes propres commentaires ou reviews.
 
@@ -86,7 +86,7 @@ flowchart TD
   N -->|"non, pas brouillon"| Lok["ok"]
 ```
 
-L'étape de revue est la première, dans l'ordre `pr-review`, `qa`, `pr-demo`, `pr-risk`, qui n'a pas son marqueur sur la PR et n'a pas été fermée sans commentaire sur ce commit. `pr-demo` seulement si `AGENTS.md` ou `CLAUDE.md` à la racine du clone a une section `## Demo` (le skill s'arrête sans elle), `qa` seulement si le clone a le skill avec son marqueur. Un brouillon n'a jamais de revue, même avec un check en échec : il reste « brouillon ».
+L'étape de revue est la première, dans l'ordre `pr-review`, `qa`, `pr-demo`, `pr-risk`, qui n'a pas son marqueur sur la PR et n'a pas été fermée sans commentaire sur ce commit. `pr-demo` seulement si `AGENTS.md` ou `CLAUDE.md` de la branche par défaut a une section `## Demo` (le skill s'arrête sans elle), `qa` seulement si le clone a le skill avec son marqueur. Un brouillon n'a jamais de revue, même avec un check en échec : il reste « brouillon ».
 
 « L'agent lancé tient encore » : une étape de correction (rebase, jenkins, sonar) tant que son agent est `working` ou `blocked` ; `pr-review` tant que son onglet existe (il pose son marqueur avant de corriger) ; les autres étapes de revue tant que leur onglet existe sans leur marqueur. Une étape de revue dont l'onglet est fermé sans marqueur est notée « fermée sans commentaire » pour ce commit : elle ne repart pas, la suivante peut partir, et un nouveau commit la relance.
 
