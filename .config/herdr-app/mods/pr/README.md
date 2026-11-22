@@ -20,6 +20,7 @@ Titre de la PR                      ← clic : la PR sur GitHub
 │ Squash   │ ● 2 commits fixup! à squasher · auto…     ⤵  │ ← PR ouverte ; « rien à squasher » sinon
 │ Merge    │ armé · CI en cours                         ✕  │ ← seulement une fois armé
 └──────────┴───────────────────────────────────────────────┘
+[Prête pour review]                   ← brouillon ouvert : gh pr ready
 [Merger quand tout est vert]          ← PR ouverte, pas brouillon, pas armée
 feat/x → master · revue demandée à alice
 SURVEILLANCE
@@ -35,6 +36,7 @@ SURVEILLANCE
 - **Brouillons (N)** dans le bandeau masque les brouillons (en pause compris, sauf ceux « à toi », « erreur » ou « pas de clone local ») et les réaffiche ; le choix est gardé dans `shared("pr-watch-view")`, que `status-jc` ne réécrit pas.
 - **Bande d'étapes**, calculée par `status-jc` : vert fait, orange clignotant en cours (agent, CI, merge armé), orange fixe en attente d'une approbation humaine, rouge en échec que la surveillance corrige, violet à toi, gris à venir, pointillé jamais fait dans ce repo (pas de CI, de Sonar, de qa ou de `## Demo`). Un brouillon n'a que git, jenk et sonar ; une PR en pause a sa bande pâlie. Un clic sur une case d'agent (git, jenk, sonar, rev, qa, demo, risk) rouvre sa dernière session Claude : l'onglet `⟳` tant que l'agent tourne, sinon un onglet `↺ #N <étape>` qui lance `claude --resume` dans le worktree où il a tourné (`status-jc` lance chaque agent avec `--session-id` et garde l'id dans `entry.sessions`).
 - La ligne du dessous commence par l'étape en cours et sa durée, puis l'estimation « prête à approuver dans ~X » (médiane des passages précédents, rien avant 3 mesures), ou « dépend de toi ».
+- **⇪** (brouillon) passe la PR prête pour review (`gh pr ready`), comme le bouton **Prête pour review** du haut, puis demande un tour : ses reviews partent sans attendre les 2 min.
 - **⤵** (PR avec des `fixup!`) et **⇥** (PR prête ; ✕ une fois armée) font la même chose que Squash et « Merger quand tout est vert » du haut, sans ouvrir le space. **⌨** est pâli quand son worktree n'existe pas encore, a une pastille quand un space le montre déjà.
 
 - La ligne **Build** n'existe que si un check de la PR pointe vers un build Jenkins. 📜 ouvre la console, 🔁 relance (`jk run rerun`) et n'apparaît que sur un build terminé qui n'a pas réussi. Hors VPN : « Jenkins injoignable (VPN ?) ».

@@ -138,11 +138,12 @@ export default class PullRequest extends View {
     });
   }
 
-  act(cx, label, args, opts) {
+  act(cx, label, args, opts, done) {
     this.note = `${label}…`;
     cx.spawn(async (cx) => {
       const r = await exec(args[0], args.slice(1), opts).catch((e) => ({ code: 1, stderr: String(e) }));
       this.note = r.code === 0 ? null : `${label} : ${(r.stderr || r.stdout).trim().split("\n")[0]}`;
+      if (r.code === 0) done?.();
       this.refresh(cx); cx.notify();
     });
     cx.notify();
@@ -159,6 +160,8 @@ export default class PullRequest extends View {
       : state === "idle" ? div().size(7).rounded(4).flex_none().border_1().border_color(color ?? t.dim)
       : div().size(7).rounded(4).flex_none().border_1().border_color(t.working).loop("opacity", { from: 0.3, to: 1, period: 1200 });
     const chip = (text, color) => div().px(6).py(1).rounded(4).border_1().border_color(color).text_size(10.5).text_color(color).child(text);
+    // Asks status-jc for a watch round now (the header's ↻).
+    const askRound = () => setShared("pr-watch-now", { at: Date.now() });
     const button = (id, text, onClick, primary) => div().id(id).h(28).px(12).flex().items_center().rounded(7).cursor_pointer().text_size(12)
       .bg(primary ? t.solid : t.raised).text_color(primary ? t.solid_foreground : t.foreground).hover((s) => s.opacity(0.85))
       .on_click((_e, cx) => onClick(cx)).child(text);
@@ -246,6 +249,8 @@ export default class PullRequest extends View {
           .child(chip(...state)).when(Boolean(review), (e) => e.child(chip(...review)))
           .child(div().text_size(11).text_color(t.ansi2).child(`+${pr.additions}`)).child(div().text_size(11).text_color(t.ansi1).child(`−${pr.deletions}`)))
         .child(table([buildRow, deployedRow, checksRow, squashRow, mergeRow]))
+        .when(pr.state === "OPEN" && pr.isDraft, (e) => e.child(h_flex().pt(12).child(button("pr-ready", "Prête pour review",
+          (cx) => this.act(cx, "Passage en revue", ["gh", "pr", "ready", pr.url], { timeout: 30000 }, askRound)))))
         .when(canArm, (e) => e.child(h_flex().pt(12).child(button("pr-arm", "Merger quand tout est vert",
           () => setShared("pr-merge", { ...(shared("pr-merge") ?? {}), [mergeKey]: { head: pr.headRefOid, at: Date.now(), why: null, error: null } })))))
         .child(div().pt(8).text_size(11).text_color(t.dim)
@@ -296,6 +301,9 @@ export default class PullRequest extends View {
         // ⌨ has no glyph in the panel's font: workspace-chrome's terminal icon instead.
         .child(svg("mods/workspace-chrome/terminal.svg").size(14).text_color(shown ? t.foreground : t.dim)).when(shown, (e) => e.child(div().size(4).rounded(2).bg(t.done)));
     };
+    // ⇪ marks a draft ready for review, like the top's button; the round it asks starts its reviews without waiting.
+    const readyIt = (entry) => isDraft(entry) && rowButton(`ready-${entry.url}`, "Passer prête pour review",
+      (cx) => this.act(cx, "Passage en revue", ["gh", "pr", "ready", entry.url], { timeout: 30000 }, askRound)).child("⇪");
     // ⤵ and ⇥ write the same requests as the top of the panel: status-jc does the squash and the merge.
     const merges = shared("pr-merge") ?? {}, squashes = shared("pr-squash") ?? {};
     const squashIt = (k, entry) => rowActions(entry, merges[k], squashes[k]).squash
@@ -341,7 +349,7 @@ export default class PullRequest extends View {
     const row = ([k, entry]) => {
       const [color, state] = look(entry.label), [repo, number] = k.split("#");
       const why = [clockText(entry.clock, Date.now()), entry.why].filter(Boolean).join(" · ");
-      const squash = squashIt(k, entry), merge = arm(k, entry);
+      const squash = squashIt(k, entry), merge = arm(k, entry), ready = readyIt(entry);
       return h_flex().id(`watch-${k}`).gap(10).items_start().rounded(8).px(8).py(7).cursor_pointer().hover((s) => s.bg(t.hover))
         .tooltip(entry.launched ? "Aller à l'agent" : "Ouvrir la PR").on_click(() => open(entry))
         .child(div().pt(5).flex_none().child(dot(state, color)))
@@ -349,7 +357,7 @@ export default class PullRequest extends View {
           .child(h_flex().gap(6).items_center()
             .child(div().text_size(12).font_semibold().child(repo.split("/").pop()))
             .child(div().text_size(12).text_color(t.dim).child(`#${number}`))
-            .child(div().flex_1()).when(Boolean(squash), (e) => e.child(squash)).when(Boolean(merge), (e) => e.child(merge))
+            .child(div().flex_1()).when(Boolean(ready), (e) => e.child(ready)).when(Boolean(squash), (e) => e.child(squash)).when(Boolean(merge), (e) => e.child(merge))
             .child(work(k, entry.work)).child(pause(k)).child(chip(entry.label ?? "", color).tooltip(LABEL_HELP[entry.label] ?? "")))
           .when(Boolean(entry.title), (e) => e.child(div().text_size(12).text_color(t.muted).truncate().child(entry.title)))
           .when(Array.isArray(entry.band), (e) => e.child(band(k, entry)))
@@ -378,7 +386,7 @@ export default class PullRequest extends View {
         .child(div().flex_1())
         .child(div().text_color(t.dim).child(nextRound(reg, Boolean(shared("pr-watch-now")), Date.now())))
         .child(h_flex().id("watch-now").w(24).h(24).items_center().justify_center().rounded(5).text_size(15).cursor_pointer().hover((s) => s.bg(t.hover).text_color(t.foreground))
-          .tooltip("Faire un tour maintenant").on_click(() => setShared("pr-watch-now", { at: Date.now() })).child("↻")))
+          .tooltip("Faire un tour maintenant").on_click(askRound).child("↻")))
       .when(Boolean(reg?.error), (e) => e.child(div().text_size(11).text_color(t.ansi1).child(reg.error)))
       .child(v_flex().gap(1).pt(4).children(sorted.map(row)));
 
@@ -394,6 +402,7 @@ export default class PullRequest extends View {
       .child(legend(["ok", "run", "wait", "ko", "me", "todo", "skip"].map((s) => [cellOf(`help-${s}`, {}, "rev", s), STATE_HELP[s]])))
       .child(section("Boutons"))
       .child(legend([
+        ["⇪", "passe un brouillon prêt pour review (gh pr ready) et lance un tour"],
         ["⤵", "replie les commits fixup!/amend!/squash! et pousse en force (git seul, un agent sur conflit)"],
         ["⇥", "arme le merge : rebase and merge dès que tous les checks sont verts ; ✕ désarme"],
         [svg("mods/workspace-chrome/terminal.svg").size(14).text_color(t.dim), "ouvre un space Claude dans le worktree de la PR (une PR prête est mise en pause tant qu'il est ouvert)"],
