@@ -144,7 +144,7 @@ Pas d'autre ménage : la surveillance ne supprime aucun worktree, et les onglets
       band: ["ok", "run", …],                 // 9 cases (3 pour un brouillon) : ok run wait ko me todo skip
       ci: { jenkins: { head, since } | null, sonar }, // check vu tourner depuis since, pour sa durée
       clock: { step, since, readyAt } | { yours: true } | null, // étape en cours, prête à approuver vers
-      fixups, draft,                          // pour Squasher et Merger quand tout est vert du panneau
+      fixups, draft, approved,                // pour Squasher (une fois approuvée) et Merger quand tout est vert du panneau
       work: { folder, exists } | null,        // dossier qu'ouvrirait ⌨ (null : pas de clone)
     },
   },
