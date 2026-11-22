@@ -388,7 +388,7 @@ test("promptFor review steps run their skill", () => {
   assert.ok(review.startsWith(`/pr-review ${PR.url} --fix`));
   assert.doesNotMatch(review, /git push/, "fix.md owns the push and its checks");
   const demo = promptFor("pr-demo", PR);
-  assert.ok(demo.startsWith(`/pr-demo ${PR.url} --narrate`));
+  assert.ok(demo.startsWith(`/pr-demo ${PR.url} --narrate --auto`));
   assert.match(demo, /en français/);
   const qa = promptFor("qa", PR);
   assert.ok(qa.startsWith(`/testing-api-pull-requests ${PR.url}`));

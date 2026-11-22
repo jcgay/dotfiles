@@ -343,7 +343,7 @@ export function promptFor(step, s) {
     case "pr-review":
       return `/pr-review ${s.url} --fix\n\n${folder}`;
     case "pr-demo":
-      return `/pr-demo ${s.url} --narrate\n\nNarration et légendes en français, quelle que soit la langue de la description.`;
+      return `/pr-demo ${s.url} --narrate --auto\n\nNarration et légendes en français, quelle que soit la langue de la description.`;
     case "qa":
       return `/testing-api-pull-requests ${s.url}\n\nArrête-toi une fois le rapport posté (étape 7) : aucune correction, aucun push.`;
     default:
