@@ -149,6 +149,16 @@
                       }
                     },
                     {
+                      "id": "watch",
+                      "type": "block",
+                      "content": {
+                        "mod": "pr",
+                        "props": {
+                          "view": "watch"
+                        }
+                      }
+                    },
+                    {
                       "id": "journal",
                       "type": "block",
                       "content": {

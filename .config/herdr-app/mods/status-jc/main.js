@@ -194,7 +194,7 @@ export default class WorkspaceStatus extends View {
         .when(needs > 0, el => el.child(div().text_color(t.blocked).child(`· ${needs} needs you`))))
       .when(mine > 0, el => el.child(h_flex().id("yours").gap(6).items_center().text_color(t.blocked).cursor_pointer().hover((s) => s.opacity(0.8))
         .tooltip("Ouvrir la surveillance des PR")
-        .on_click(() => { run("layout.select", { stack: "panel-body", child: "pr" }); run("layout.show", { id: "panel" }); })
+        .on_click(() => { run("layout.select", { stack: "panel-body", child: "watch" }); run("layout.show", { id: "panel" }); })
         .child(div().size(6).rounded(3).bg(t.blocked)).child(`${mine} PR à toi`)))
       .child(div().flex_1())
       .when(shown.length > 0, el => el.child(h_flex().gap(12).items_center().children(shown.map(port))))

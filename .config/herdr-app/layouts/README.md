@@ -27,6 +27,7 @@ root (row)
     │           ├── files ─── files
     │           ├── changes ─ changes
     │           ├── pr ────── pr          (absent de main)
+    │           ├── watch ─── pr, view: watch (absent de main)
     │           └── journal ─ journal     (absent de main)
     └── status (28 px) ────── status-jc   (main : workspace-status)
 ```

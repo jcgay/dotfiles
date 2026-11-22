@@ -1,14 +1,14 @@
 # Mod `pr` : le panneau Pull request
 
-Notre mod (pas un clone). Il remplit le bloc `pr` du panneau latéral du layout `jc`, ouvert par le bouton PR de `tabs-jc`. Il a deux parties :
+Notre mod (pas un clone). Il remplit deux blocs du panneau latéral du layout `jc`, choisis par sa prop `view` :
 
-- en haut, la PR de la branche affichée, son build Jenkins, où elle est déployée et ses checks ;
-- en bas, la **Surveillance** : la liste des PR que `status-jc` suit, avec l'interrupteur, le bouton ⌨ « Travailler dessus » et le bouton pause. ⌨ ouvre un espace Claude dans le worktree de la PR : celui de la branche pour un brouillon, le `-watch` pour une PR prête, qui est alors mise en pause jusqu'à la fermeture de cet espace ; « ouverture… » puis l'éventuelle erreur s'affichent sous la ligne. Le panneau ne fait que l'afficher et écrire l'interrupteur, les pauses et les demandes d'ouverture (`shared("pr-open")`) ; toute la logique est dans [`status-jc`](../status-jc/README.md).
+- `pr` (bouton Pull request de `tabs-jc`, `⌘⇧R`) : la PR de la branche affichée, son build Jenkins, où elle est déployée et ses checks ;
+- `watch` (`view: watch`, bouton Surveillance des PR, `⌘⇧U`) : la **Surveillance**, la liste des PR que `status-jc` suit, avec l'interrupteur, le bouton ⌨ « Travailler dessus » et le bouton pause. ⌨ ouvre un espace Claude dans le worktree de la PR : celui de la branche pour un brouillon, le `-watch` pour une PR prête, qui est alors mise en pause jusqu'à la fermeture de cet espace ; « ouverture… » puis l'éventuelle erreur s'affichent sous la ligne. Le panneau ne fait que l'afficher et écrire l'interrupteur, les pauses et les demandes d'ouverture (`shared("pr-open")`) ; toute la logique est dans [`status-jc`](../status-jc/README.md).
 
 ## Ce que tu vois
 
 ```
-Pull request                               …  ?  Rafraîchir
+Pull request                                  …  Rafraîchir
 ────────────────────────────────────────────────────────────
 Titre de la PR                      ← clic : la PR sur GitHub
 #482 [Ouverte] [Revue attendue] +120 −34
@@ -23,16 +23,21 @@ Titre de la PR                      ← clic : la PR sur GitHub
 [Prête pour review]                   ← brouillon ouvert : gh pr ready
 [Merger quand tout est vert]          ← PR ouverte, pas brouillon, pas armée
 feat/x → master · revue demandée à alice
-SURVEILLANCE
-● Surveillance active  Agents 2/3  karadoc libre   tour dans 1 min ↻
+```
+
+```
+Surveillance des PR                     tour dans 1 min  ↻  ?
+────────────────────────────────────────────────────────────
+● Surveillance active  Agents 2/3  karadoc libre
 ● arthur #5471                          ⤵ ⇥ ⌨ ⏸ [agent en cours]
   Ajoute l'export PDF des ordonnances
   [git][jenk][sonar][rev][qa][demo][risk][appr][merge]   ← la bande d'étapes
   qa depuis 12 min · prête à approuver dans ~35 min · agent qa lancé sur 1a2b3c4d
 ```
 
-- **Bandeau** : l'interrupteur, les agents de surveillance occupés sur 3, l'onglet qui tient karadoc, le temps avant le prochain tour (toutes les 2 min) ; ↻ en demande un tout de suite.
-- **?** dans l'en-tête déplie une aide : ce que montrent les deux parties, les neuf étapes dans l'ordre, les couleurs et les boutons. Chaque statut a aussi son infobulle.
+- **En-tête** de la Surveillance : le temps avant le prochain tour (toutes les 2 min) ; ↻ en demande un tout de suite. C'est son seul rafraîchissement : elle ne fait que lire le registre de `status-jc`, sans appel gh. **Rafraîchir**, dans l'en-tête de Pull request, relit la PR de la branche.
+- **Bandeau** : l'interrupteur, les agents de surveillance occupés sur 3, l'onglet qui tient karadoc.
+- **?** dans l'en-tête de la Surveillance déplie une aide : les neuf étapes dans l'ordre, les couleurs et les boutons. Chaque statut a aussi son infobulle.
 - **Brouillons (N)** dans le bandeau masque les brouillons (en pause compris, sauf ceux « à toi », « erreur » ou « pas de clone local ») et les réaffiche ; le choix est gardé dans `shared("pr-watch-view")`, que `status-jc` ne réécrit pas.
 - **Bande d'étapes**, calculée par `status-jc` : vert fait, orange clignotant en cours (agent, CI, merge armé), orange fixe en attente d'une approbation humaine, rouge en échec que la surveillance corrige, violet à toi, gris à venir, pointillé jamais fait dans ce repo (pas de CI, de Sonar, de qa ou de `## Demo`). Un brouillon n'a que git, jenk et sonar ; une PR en pause a sa bande pâlie. Un clic sur une case d'agent (git, jenk, sonar, rev, qa, demo, risk) rouvre sa dernière session Claude : l'onglet `⟳` tant que l'agent tourne, sinon un onglet `↺ #N <étape>` qui lance `claude --resume` dans le worktree où il a tourné (`status-jc` lance chaque agent avec `--session-id` et garde l'id dans `entry.sessions`).
 - La ligne du dessous commence par l'étape en cours et sa durée, puis l'estimation « prête à approuver dans ~X » (médiane des passages précédents, rien avant 3 mesures), ou « dépend de toi ».
@@ -102,7 +107,8 @@ Tests : `node --test ~/.config/herdr-app/mods/pr/*.test.mjs`. Vérification du m
 
 ## À savoir
 
-- Un mod caché garde ses timers : `visible()` vérifie que le panneau est ouvert sur `pr` avant chaque appel à gh ou jk.
+- Un mod caché garde ses timers : `visible()` vérifie que le panneau est ouvert sur le bloc de cette copie avant chaque appel à gh ou jk, et la copie `watch` n'en fait jamais.
+- Deux copies du mod tournent (`pr` et `watch`) : chacune a ses caches, la seconde ne s'en sert pas.
 - Après un `await`, il faut le `cx` de la tâche (`cx.spawn`), pas celui du rendu ou du clic, qui n'est plus valide.
 - Les caches (espaces vus, builds finis, dépôts) gardent 30 entrées, pour qu'un Herdr ouvert des jours ne grossisse pas.
 - `model.js` n'importe rien de Herdr, sinon Node ne peut pas le tester.
