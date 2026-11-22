@@ -19,7 +19,7 @@ const STEP_HELP = {
   demo: "/pr-demo : une démo postée sur la PR (si AGENTS.md ou CLAUDE.md a une section ## Demo)",
   risk: "/pr-risk : le risque de la PR et s'il faut une revue humaine",
   appr: "ton approbation sur GitHub, puis le squash des fixup!",
-  merge: "le merge armé (⇥) : rebase and merge dès que tout est vert",
+  merge: "le merge armé (« Merger quand tout est vert ») : rebase and merge dès que tout est vert",
 };
 const STATE_HELP = {
   ok: "fait", run: "en cours : un agent, la CI ou le merge armé", wait: "attend une approbation humaine",
@@ -33,7 +33,7 @@ const LABEL_HELP = {
   "agent en cours": "un agent travaille sur la PR ; clic pour aller à son onglet",
   "en attente": "rien à lancer pour l'instant : CI en cours, GitHub qui calcule, agents tous pris…",
   brouillon: "brouillon : seuls git, la CI et Sonar sont surveillés, pas de revue",
-  "en pause": "en pause : rien n'est lancé (▶ pour reprendre)",
+  "en pause": "en pause : rien n'est lancé (le bouton lecture reprend)",
   ok: "la surveillance a tout fait : reste ton approbation ou le merge",
 };
 
@@ -63,6 +63,7 @@ export default class PullRequest extends View {
     // Herdr gives a block's layout props through props(), not init's argument.
     this.view = props()?.view === "watch" ? "watch" : "pr";
     this.context = null; this.pr = null; this.build = null; this.error = null; this.loading = false; this.note = null; this.checksOpen = false;
+    this.confirms = {}; // action id -> time of its first click (squash pushes with --force: a second click confirms)
     this.deployed = []; this.scan = { at: 0, list: null, pending: null };
     // Last state of each space or pane seen, shown at once when it comes back while a refresh runs;
     // finished Jenkins builds, which never change; the repo name of each checkout.
@@ -190,8 +191,19 @@ export default class PullRequest extends View {
       : v_flex().gap(3).children(this.deployed.map((url, i) => link(`deployed-${i}`, url)))];
     // A small glyph button inside a clickable line: its own click must not reach the line.
     const icon = (id, glyph, tip, onClick) => h_flex().id(id).w(20).h(20).flex_none().items_center().justify_center().rounded(4)
-      .text_size(11).cursor_pointer().hover((s) => s.bg(t.hover)).tooltip(tip)
+      .text_size(11).cursor_pointer().hover((s) => s.bg(t.hover)).tooltip(tip).accessibility_label(tip)
       .on_click((_e, cx) => { cx.stop_propagation(); onClick(cx); }).child(glyph);
+    // An action named by its verb, shown only where it applies; its click must not reach a clickable line.
+    // A 20 px box with a hover fill: bare 11 px text left a 14 px target, and a low click opened the row instead.
+    const action = (id, text, onClick, color) => h_flex().id(id).flex_none().h(20).px(4).items_center().rounded(4).text_size(11)
+      .text_color(color ?? t.accent).cursor_pointer().hover((s) => s.bg(t.hover))
+      .on_click((_e, cx) => { cx.stop_propagation(); onClick(cx); cx.notify(); }).child(text);
+    // A force push asks a second click within 4 s; a stale "Confirmer" only arms it again.
+    const CONFIRM_MS = 4000;
+    const guarded = (id, text, confirm, onConfirm) => Date.now() - (this.confirms[id] ?? 0) < CONFIRM_MS
+      ? action(id, confirm, (cx) => { delete this.confirms[id]; onConfirm(cx); }, t.blocked)
+      // The repaint at the end of the window puts the label back, or a stale "Confirmer" would only arm it again.
+      : action(id, text, (cx) => { this.confirms[id] = Date.now(); cx.timer.after(CONFIRM_MS + 50, (cx) => cx.notify()); });
     const buildRow = b && ["Build", b.unreachable ? div().text_color(t.dim).child("Jenkins injoignable (VPN ?)")
       : v_flex().gap(3)
         .child(h_flex().id("build-link").gap(8).items_center()
@@ -201,8 +213,8 @@ export default class PullRequest extends View {
           .child(div().flex_none().text_size(11).text_color(t.dim).child(running
             ? `${minutes(Date.now() - Date.parse(b.startTime))} / ~${minutes(b.estimatedDurationMs)}`
             : minutes(b.durationMs)))
-          .when(Boolean(b.url), (r) => r.child(icon("pr-jenkins", "📜", "Log Jenkins", () => exec("open", [`${b.url}console`]))))
-          .when(!running && b.result !== "SUCCESS", (r) => r.child(icon("pr-rerun", "🔁", "Relancer",
+          .when(Boolean(b.url), (r) => r.child(icon("pr-jenkins", svg("mods/workspace-chrome/file-text.svg").size(13), "Log Jenkins", () => exec("open", [`${b.url}console`]))))
+          .when(!running && b.result !== "SUCCESS", (r) => r.child(icon("pr-rerun", svg("mods/pr/rerun.svg").size(13), "Relancer le build",
             (cx) => this.act(cx, "Relance", ["jk", "run", "rerun", b.jobPath, String(b.number)], { timeout: 30000 })))))
         .when(Boolean(b.tests?.total), (e) => e.child(div().text_size(11).text_color(b.tests.failed ? t.ansi1 : t.muted)
           .child(`${b.tests.total} tests · ${b.tests.failed} en échec · ${b.tests.skipped} ignorés`)))];
@@ -224,7 +236,7 @@ export default class PullRequest extends View {
     const mergeRow = armed && ["Merge", v_flex().gap(3)
       .child(h_flex().gap(8).items_center()
         .child(div().flex_1().min_w(0).truncate().child(armed.refused ? "merge refusé" : `armé${armed.why ? ` · ${armed.why}` : ""}`))
-        .child(icon("pr-disarm", "✕", armed.refused ? "Effacer" : "Désarmer", disarm)))
+        .child(action("pr-disarm", armed.refused ? "Effacer" : "Désarmer", disarm)))
       .when(Boolean(armed.error), (e) => e.child(div().text_size(11).text_color(t.ansi1).child(armed.error)))];
     // Squash: status-jc (mods/status-jc/squasher.js) folds the fixup! commits on a click; its watch does it alone once approved.
     // The regex is watch.js's FIXUP: Herdr refuses imports from another mod's folder.
@@ -237,7 +249,7 @@ export default class PullRequest extends View {
         .child(dot(squashing ? "running" : !fixes ? "ok" : approved ? "ko" : "idle", fixes && approved && !squashing ? t.blocked : null))
         .child(div().flex_1().min_w(0).truncate().child(squashing ? "squash en cours…" : !fixes ? "rien à squasher"
           : `${fixes} commit${fixes > 1 ? "s" : ""} fixup! à squasher${!approved && auto ? " · auto après approbation" : ""}`))
-        .when(fixes > 0 && !squashing, (r) => r.child(icon("pr-squash", "⤵", "Squasher et pousser (push forcé)",
+        .when(fixes > 0 && !squashing, (r) => r.child(guarded("pr-squash", "Squasher", "Confirmer le push forcé",
           () => setShared("pr-squash", { ...(shared("pr-squash") ?? {}), [mergeKey]: { state: "asked", at: Date.now() } })))))
       .when(Boolean(squash?.error), (e) => e.child(div().text_size(11).text_color(t.ansi1).child(squash.error)))];
     const canArm = Boolean(mergeKey) && pr.state === "OPEN" && !pr.isDraft && !armed;
@@ -280,14 +292,14 @@ export default class PullRequest extends View {
     // A row's small button; its click must not reach the row, whose own click opens the PR or its agent.
     const rowButton = (id, tip, onClick) => h_flex().id(id).min_w(24).h(24).px(3).gap(2).flex_none().items_center().justify_center().rounded(5)
       .text_size(15).text_color(t.dim).cursor_pointer().hover((s) => s.bg(t.hover).text_color(t.foreground))
-      .tooltip(tip).on_click((_e, cx) => { cx.stop_propagation(); onClick(cx); });
-    const pause = (k) => rowButton(`pause-${k}`, paused.includes(k) ? "Reprendre" : "Mettre en pause", () => {
+      .tooltip(tip).accessibility_label(tip).on_click((_e, cx) => { cx.stop_propagation(); onClick(cx); });
+    const pause = (k) => rowButton(`pause-${k}`, paused.includes(k) ? "Reprendre la surveillance de cette PR" : "Mettre cette PR en pause", () => {
         // A pause touched by hand is the user's now: the opening no longer lifts it on close.
         if (shared("pr-open")?.[k]?.state === "held") { const { [k]: _, ...rest } = shared("pr-open"); setShared("pr-open", rest); }
         setShared("pr-watch", { on: false, prs: {}, error: null, at: 0, ...reg,
           paused: paused.includes(k) ? paused.filter((p) => p !== k) : [...paused, k] });
       })
-      .child(paused.includes(k) ? "▶" : "⏸");
+      .child(svg(paused.includes(k) ? "mods/pr/play.svg" : "mods/pr/pause.svg").size(13));
     // "Travailler dessus": status-jc opens a space in the PR's worktree (opener.js), the panel only asks.
     const opens = shared("pr-open") ?? {};
     const pending = (k) => ["asked", "opening"].includes(opens[k]?.state);
@@ -307,22 +319,22 @@ export default class PullRequest extends View {
         // ⌨ has no glyph in the panel's font: workspace-chrome's terminal icon instead.
         .child(svg("mods/workspace-chrome/terminal.svg").size(14).text_color(shown ? t.foreground : t.dim)).when(shown, (e) => e.child(div().size(4).rounded(2).bg(t.done)));
     };
-    // ⇪ marks a draft ready for review, like the top's button; the round it asks starts its reviews without waiting.
-    const readyIt = (entry) => isDraft(entry) && rowButton(`ready-${entry.url}`, "Passer prête pour review",
-      (cx) => this.act(cx, "Passage en revue", ["gh", "pr", "ready", entry.url], { timeout: 30000 }, askRound)).child("⇪");
-    // ⤵ and ⇥ write the same requests as the top of the panel: status-jc does the squash and the merge.
+    // The row's actions, as verbs under it when they apply: the same requests as the Pull request panel; status-jc does the squash and the merge.
+    // Ready for review: the round it asks starts the reviews without waiting.
     const merges = shared("pr-merge") ?? {}, squashes = shared("pr-squash") ?? {};
-    const squashIt = (k, entry) => rowActions(entry, merges[k], squashes[k]).squash
-      && rowButton(`squash-${k}`, `Squasher ${entry.fixups} fixup! et pousser (push forcé)`,
-        () => setShared("pr-squash", { ...(shared("pr-squash") ?? {}), [k]: { state: "asked", at: Date.now() } })).child("⤵");
-    const arm = (k, entry) => {
-      const action = rowActions(entry, merges[k], squashes[k]).arm;
+    const actionsOf = (k, entry) => {
+      const can = rowActions(entry, merges[k], squashes[k]);
       const disarm = () => { const { [k]: _, ...rest } = shared("pr-merge") ?? {}; setShared("pr-merge", rest); };
-      return action === "arm" ? rowButton(`arm-${k}`, "Merger quand tout est vert",
-          () => setShared("pr-merge", { ...(shared("pr-merge") ?? {}), [k]: { head: entry.head, at: Date.now(), why: null, error: null } })).child("⇥")
-        : action === "disarm" ? rowButton(`arm-${k}`, "Désarmer le merge", disarm).child("✕")
-        : action === "refused" ? rowButton(`arm-${k}`, `Merge refusé : ${merges[k].error ?? "?"} (effacer)`, disarm).text_color(t.ansi1).child("✕")
-        : null;
+      return [
+        isDraft(entry) && action(`ready-${k}`, "Passer prête pour review",
+          (cx) => this.act(cx, "Passage en revue", ["gh", "pr", "ready", entry.url], { timeout: 30000 }, askRound)),
+        can.squash && guarded(`squash-${k}`, `Squasher ${entry.fixups} fixup!`, "Confirmer le push forcé",
+          () => setShared("pr-squash", { ...(shared("pr-squash") ?? {}), [k]: { state: "asked", at: Date.now() } })),
+        can.arm === "arm" && action(`arm-${k}`, "Merger quand tout est vert",
+          () => setShared("pr-merge", { ...(shared("pr-merge") ?? {}), [k]: { head: entry.head, at: Date.now(), why: null, error: null } })),
+        can.arm === "disarm" && action(`arm-${k}`, "Désarmer le merge", disarm),
+        can.arm === "refused" && action(`arm-${k}`, `Effacer le refus du merge`, disarm, t.ansi1),
+      ].filter(Boolean);
     };
     // The step band status-jc computed (pipeline.js STEPS): nine slots, a draft fills three.
     const STEPS = ["git", "jenk", "sonar", "rev", "qa", "demo", "risk", "appr", "merge"];
@@ -359,7 +371,7 @@ export default class PullRequest extends View {
     const row = ([k, entry]) => {
       const [color, state] = look(entry.label), [repo, number] = k.split("#");
       const why = [clockText(entry.clock, Date.now()), entry.why].filter(Boolean).join(" · ");
-      const squash = squashIt(k, entry), merge = arm(k, entry), ready = readyIt(entry);
+      const actions = actionsOf(k, entry);
       return h_flex().id(`watch-${k}`).gap(10).items_start().rounded(8).px(8).py(7).cursor_pointer().hover((s) => s.bg(t.hover))
         .tooltip(entry.launched ? "Aller à l'agent" : "Ouvrir la PR").on_click(() => open(entry))
         .child(div().pt(5).flex_none().child(dot(state, color)))
@@ -367,11 +379,13 @@ export default class PullRequest extends View {
           .child(h_flex().gap(6).items_center()
             .child(div().text_size(12).font_semibold().child(repo.split("/").pop()))
             .child(div().text_size(12).text_color(t.dim).child(`#${number}`))
-            .child(div().flex_1()).when(Boolean(ready), (e) => e.child(ready)).when(Boolean(squash), (e) => e.child(squash)).when(Boolean(merge), (e) => e.child(merge))
+            .child(div().flex_1())
             .child(work(k, entry.work)).child(pause(k)).child(chip(entry.label ?? "", color).tooltip(LABEL_HELP[entry.label] ?? "")))
           .when(Boolean(entry.title), (e) => e.child(div().text_size(12).text_color(t.muted).truncate().child(entry.title)))
           .when(Array.isArray(entry.band), (e) => e.child(band(k, entry)))
           .when(Boolean(why), (e) => e.child(div().text_size(11).text_color(t.dim).child(why)))
+          .when(actions.length > 0, (e) => e.child(h_flex().gap(12).flex_wrap().pt(2).children(actions)))
+          .when(Boolean(merges[k]?.refused && merges[k]?.error), (e) => e.child(div().text_size(11).text_color(t.ansi1).child(`merge refusé : ${merges[k].error}`)))
           .when(Boolean(entry.error), (e) => e.child(div().text_size(11).text_color(t.ansi1).child(entry.error)))
           .when(pending(k), (e) => e.child(div().text_size(11).text_color(t.dim).child("ouverture…")))
           .when(Boolean(opens[k]?.error) && !pending(k), (e) => e.child(div().text_size(11).text_color(t.ansi1).child(opens[k].error))));
@@ -390,8 +404,8 @@ export default class PullRequest extends View {
         .when(drafts > 0, (e) => e.child(h_flex().id("watch-drafts").h(22).px(8).items_center().rounded(11).border_1().border_color(t.border).cursor_pointer()
           .hover((s) => s.bg(t.hover)).tooltip(hideDrafts ? "Afficher les brouillons" : "Masquer les brouillons")
           .on_click(() => setShared("pr-watch-view", { ...(shared("pr-watch-view") ?? {}), hideDrafts: !hideDrafts }))
-          .when(hideDrafts, (c) => c.opacity(0.45).line_through())
-          .child(`Brouillons (${drafts})`))))
+          .when(hideDrafts, (c) => c.text_color(t.dim))
+          .child(hideDrafts ? `Brouillons masqués (${drafts})` : `Brouillons (${drafts})`))))
       .when(Boolean(reg?.error), (e) => e.child(div().text_size(11).text_color(t.ansi1).child(reg.error)))
       .child(v_flex().gap(1).pt(4).children(sorted.map(row)));
 
@@ -400,18 +414,16 @@ export default class PullRequest extends View {
       .child(div().w(44).flex_none().child(mark)).child(div().flex_1().min_w(0).text_color(t.muted).child(text))));
     const help = v_flex().gap(4).mb(10).p(10).rounded(8).bg(t.raised).text_size(11)
       .child(div().text_color(t.muted).child("Tes PR ouvertes de softwarevidal touchées depuis 7 jours, "
-        + "qu'un tour (toutes les 2 min, ↻ pour tout de suite) fait avancer en lançant un agent pour l'étape suivante. La PR de la branche affichée a son propre panneau, Pull request."))
+        + "qu'un tour (toutes les 2 min, le bouton rafraîchir de l'en-tête pour tout de suite) fait avancer en lançant un agent pour l'étape suivante. La PR de la branche affichée a son propre panneau, Pull request."))
       .child(section("Étapes, dans l'ordre"))
       .child(legend(STEPS.map((s) => [cellOf("help", {}, s, "todo"), STEP_HELP[s]])))
       .child(section("Couleurs"))
       .child(legend(["ok", "run", "wait", "ko", "me", "todo", "skip"].map((s) => [cellOf(`help-${s}`, {}, "rev", s), STATE_HELP[s]])))
       .child(section("Boutons"))
       .child(legend([
-        ["⇪", "passe un brouillon prêt pour review (gh pr ready) et lance un tour"],
-        ["⤵", "replie les commits fixup!/amend!/squash! et pousse en force (git seul, un agent sur conflit)"],
-        ["⇥", "arme le merge : rebase and merge dès que tous les checks sont verts ; ✕ désarme"],
+        ["actions", "sous une PR quand elles servent : passer prête pour review (et lancer un tour), squasher les fixup! (push forcé : un second clic confirme), merger quand tout est vert (rebase and merge dès que tous les checks passent) ou désarmer"],
         [svg("mods/workspace-chrome/terminal.svg").size(14).text_color(t.dim), "ouvre un space Claude dans le worktree de la PR (une PR prête est mise en pause tant qu'il est ouvert)"],
-        ["⏸ ▶", "met en pause ou reprend : rien n'est lancé sur une PR en pause"],
+        [h_flex().gap(4).child(svg("mods/pr/pause.svg").size(13).text_color(t.dim)).child(svg("mods/pr/play.svg").size(13).text_color(t.dim)), "met en pause ou reprend : rien n'est lancé sur une PR en pause"],
         ["clic", "sur une ligne : l'agent qui y travaille, sinon la PR sur GitHub ; sur une case d'agent : rouvre sa dernière session Claude"],
       ]))
       .child(div().pt(4).text_color(t.dim).child("Survole un statut ou un bouton pour son détail."));
@@ -426,9 +438,9 @@ export default class PullRequest extends View {
         .child(div().font_semibold().child("Surveillance des PR")).child(div().flex_1())
         .child(div().text_size(11).text_color(t.dim).child(nextRound(reg, Boolean(shared("pr-watch-now")), Date.now())))
         .child(h_flex().id("watch-now").w(24).h(24).items_center().justify_center().rounded(5).text_size(15).text_color(t.dim).cursor_pointer().hover((s) => s.bg(t.hover).text_color(t.foreground))
-          .tooltip("Faire un tour maintenant").on_click(askRound).child("↻"))
+          .tooltip("Faire un tour maintenant").accessibility_label("Faire un tour maintenant").on_click(askRound).child(svg("mods/pr/refresh.svg").size(13)))
         .child(h_flex().id("pr-help").w(20).h(20).items_center().justify_center().rounded(10).border_1().border_color(t.border).text_size(11).cursor_pointer()
-          .text_color(this.helpOpen ? t.foreground : t.dim).hover((s) => s.bg(t.hover)).tooltip(this.helpOpen ? "Masquer l'aide" : "Aide")
+          .text_color(this.helpOpen ? t.foreground : t.dim).hover((s) => s.bg(t.hover)).tooltip(this.helpOpen ? "Masquer l'aide" : "Aide").accessibility_label(this.helpOpen ? "Masquer l'aide" : "Aide")
           .on_click((_e, cx) => { this.helpOpen = !this.helpOpen; cx.notify(); }).child("?"));
     const content = this.view === "pr" ? [body] : [this.helpOpen ? help : null, watch].filter(Boolean);
     return v_flex().id(this.view).size_full().min_h(0).rounded(10).overflow_hidden().bg(t.background).border_1().border_color(t.border).text_color(t.foreground).text_size(13)
