@@ -633,3 +633,12 @@ test("squash prompt keeps the code and leases the push on the head", () => {
   assert.match(p, /git diff --quiet h1 HEAD/);
   assert.match(p, /--force-with-lease=b:h1 origin HEAD:refs\/heads\/b/);
 });
+
+test("waitingOnMe: « à toi » PRs and refused merges, once each", async () => {
+  const { waitingOnMe } = await import("./watch.js");
+  const prs = { "o/r#1": { label: LABELS.yours }, "o/r#2": { label: LABELS.ok }, "o/r#3": { label: LABELS.yours } };
+  const merges = { "o/r#3": { refused: true }, "o/r#4": { refused: true }, "o/r#5": { refused: false } };
+  assert.deepEqual(waitingOnMe({ ...prs, "o/r#4": { label: LABELS.waiting } }, merges).sort(), ["o/r#1", "o/r#3", "o/r#4"]);
+  assert.deepEqual(waitingOnMe(prs, merges).sort(), ["o/r#1", "o/r#3"], "a refused merge of a PR the watch no longer lists");
+  assert.deepEqual(waitingOnMe(undefined, undefined), []);
+});

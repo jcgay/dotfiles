@@ -61,3 +61,15 @@ test("formatLine writes local time, the key and a one-line text", () => {
   assert.equal(formatLine(new Date(2026, 0, 2, 13, 45), null, "surveillance coupée"), "2026-01-02 13:45  -  surveillance coupée");
   assert.equal(formatLine(new Date(2026, 10, 18, 3, 7), K, "merge refusé : a\r\nb\rc"), "2026-11-18 03:07  o/r#1  merge refusé : a b c");
 });
+
+test("urgentLines: numbers the urgent lines of a write, keeps the newest", async () => {
+  const { urgentLines, urgent } = await import("./journal.js");
+  assert.equal(urgent("à toi : Jenkins encore en échec"), true);
+  assert.equal(urgent("merge refusé : conflit"), true);
+  assert.equal(urgent("agent qa lancé"), false);
+  const entries = [{ text: "agent qa lancé" }, { text: "à toi : x" }, { text: "erreur : gh" }];
+  assert.deepEqual(urgentLines([3], entries, 10), [3, 9, 10]);
+  // A file recreated shorter: older numbers past its start are dropped.
+  assert.deepEqual(urgentLines([40], [{ text: "à toi" }], 1), [1]);
+  assert.deepEqual(urgentLines([1, 2], [{ text: "à toi" }], 3, 2), [2, 3]);
+});

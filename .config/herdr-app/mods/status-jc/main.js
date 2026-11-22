@@ -3,6 +3,7 @@ import { h_flex } from "gpui-base";
 import { spaces, agents, panes, terminals, theme, run, window, keys, exec, home, shared, setShared, setBadge } from "herdr";
 import { parseListeners, parseParents, parseCwds, spaceOf, health, stillMapped, healthPlan } from "./ports.js";
 import { round } from "./watcher.js";
+import { waitingOnMe } from "./watch.js";
 import { mergeRound } from "./merger.js";
 import { openRound } from "./opener.js";
 import { squashRound } from "./squasher.js";
@@ -172,8 +173,10 @@ export default class WorkspaceStatus extends View {
     if (cx && space?.id !== this.space) { this.space = space?.id; this.refresh(cx); }
     const list = agents();
     const needs = list.filter(a => a.status === "blocked").length;
-    // The Dock icon shows the same count; setBadge only when it changes (it is not kept across restarts).
-    const badge = needs > 0 ? String(needs) : null;
+    // PRs the watch gave up on, or whose armed merge GitHub refused: only the PR panel listed them.
+    const mine = waitingOnMe(shared(WATCH)?.prs, shared("pr-merge")).length;
+    // The Dock icon shows both counts; setBadge only when it changes (it is not kept across restarts).
+    const badge = needs + mine > 0 ? String(needs + mine) : null;
     if (badge !== this.badge) { this.badge = badge; setBadge(badge); }
     const shown = this.ports.filter((p) => p.space === space?.id);
     const label = (icon, text) => h_flex().gap(6).items_center().child(svg(`mods/workspace-chrome/${icon}.svg`).size(13)).child(text);
@@ -184,10 +187,15 @@ export default class WorkspaceStatus extends View {
         ? div().size(6).rounded(3).bg(t.done)
         : div().size(6).rounded(3).border_1().border_color(t.working).loop("opacity", { from: 0.3, to: 1, period: 1200 }));
     return h_flex().size_full().px(14).gap(16).items_center().bg(t.chrome).border_t(1).border_color(t.border).text_size(11.8).text_color(t.muted)
-      .child(label(space?.machine ? "server" : "monitor", space?.machine ?? "This computer"))
+      // This computer is the usual case: only a remote space names its machine.
+      .when(Boolean(space?.machine), el => el.child(label("server", space.machine)))
       .when(Boolean(space?.branch), el => el.child(label("branch", space.branch)))
       .child(h_flex().gap(6).items_center().child(div().size(6).rounded(3).bg(t.dim)).child(`${list.length} agents`)
         .when(needs > 0, el => el.child(div().text_color(t.blocked).child(`· ${needs} needs you`))))
+      .when(mine > 0, el => el.child(h_flex().id("yours").gap(6).items_center().text_color(t.blocked).cursor_pointer().hover((s) => s.opacity(0.8))
+        .tooltip("Ouvrir la surveillance des PR")
+        .on_click(() => { run("layout.select", { stack: "panel-body", child: "pr" }); run("layout.show", { id: "panel" }); })
+        .child(div().size(6).rounded(3).bg(t.blocked)).child(`${mine} PR à toi`)))
       .child(div().flex_1())
       .when(shown.length > 0, el => el.child(h_flex().gap(12).items_center().children(shown.map(port))))
       .child(div().id("palette").text_color(t.dim).on_click(() => run("app.palette")).child(this.hint(t)));

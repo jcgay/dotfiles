@@ -5,7 +5,7 @@ Clone du mod `tabs` de Herdr (version 0.1.15, voir `cloned_from` dans `mod.json`
 ## Ce que le clone ajoute
 
 - Un bouton « Pull request » à droite des tabs, après Files et Changes. Il ouvre le panneau latéral sur le mod `pr` ; recliquer le referme.
-- Un bouton « Journal » (`journal.svg`) juste après, sur le mod `journal`, même mécanique. Sa pastille compte les lignes non lues : `shared("journal-lines")` moins `shared("journal-read")`, la même règle que `unread()` de `mods/journal/model.js`, recopiée. Au-delà de 99 elle affiche « 99+ », et l'infobulle devient « Journal : N non lues ».
+- Un bouton « Journal » (`journal.svg`) juste après, sur le mod `journal`, même mécanique. Sa pastille, en rouge (`t.blocked`), compte les lignes non lues qui demandent d'agir : les numéros de `shared("journal-urgent")` après le marqueur `shared("journal-read")` (tous si le fichier est plus court que le marqueur, la règle de `unread()` de `mods/journal/model.js`). Au-delà de 99 elle affiche « 99+ ». Des non-lues sans rien à traiter donnent un simple point. L'infobulle dit les deux nombres (« Journal : 1 à traiter sur 9 non lues »). Les lignes écrites avant `journal-urgent` ne comptent pas.
 - Les boutons du panneau n'affichent plus que leur icône (le libellé passe en infobulle et en `accessibility_label`) : trois libellés prenaient trop de place dans la barre.
 - Les icônes de fenêtre Windows (`win-*.svg`) pointent vers `mods/tabs-jc/` au lieu de `mods/tabs/`.
 

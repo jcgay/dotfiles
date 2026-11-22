@@ -31,3 +31,14 @@ export function formatLine(date, key, text) {
   const day = `${date.getFullYear()}-${two(date.getMonth() + 1)}-${two(date.getDate())}`;
   return `${day} ${two(date.getHours())}:${two(date.getMinutes())}  ${key ?? "-"}  ${text.replace(/\s*[\r\n]+\s*/g, " ")}`;
 }
+
+// A line that asks me to act: the watch gave up (« à toi »), GitHub could not be read, or a merge was refused.
+export const urgent = (text) => /^(à toi|erreur|merge refusé)(?![\p{L}\p{N}])/u.test(text ?? "");
+
+// The urgent line numbers (1-based) after appending entries that brought the file to `total` lines,
+// added to the previous ones, the newest `keep` only: the Journal button counts those past the read marker.
+export function urgentLines(previous, entries, total, keep = 200) {
+  const first = total - entries.length + 1;
+  const added = entries.flatMap((e, i) => (urgent(e.text) ? [first + i] : []));
+  return [...(previous ?? []).filter((n) => n < first), ...added].slice(-keep);
+}
