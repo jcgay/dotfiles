@@ -59,9 +59,11 @@ export default class Journal extends View {
     const button = (id, text, onClick) => div().id(id).h(26).px(10).flex().items_center().rounded(7).cursor_pointer().text_size(12)
       .bg(t.raised).text_color(t.foreground).hover((s) => s.opacity(0.85)).on_click((_e, cx) => onClick(cx)).child(text);
     const fresh = unread(this.total, shared(READ));
+    // One time column width for the whole list: "10:01" and "10:05", or a dated "21/11 18:02", must not shift where the PR column starts.
+    const timeW = this.entries.some((e) => when(e, day).length > 5) ? 64 : 34;
     const row = (e, i) => h_flex().id(`entry-${i}`).gap(8).px(4).py(3).items_start().rounded(6).text_size(12)
       .when(Boolean(e.url), (r) => r.cursor_pointer().hover((s) => s.bg(t.hover)).tooltip("Ouvrir la PR").on_click(() => exec("open", [e.url])))
-      .child(div().flex_none().text_size(11).pt(1).text_color(t.dim).child(when(e, day)))
+      .child(div().flex_none().w(timeW).text_size(11).pt(1).text_color(t.dim).child(when(e, day)))
       .when(Boolean(e.key), (r) => r.child(div().flex_none().font_semibold().child(`${e.repo.split("/").pop()}#${e.number}`)))
       // A line that asks me to act stands out while unread, in the status bar's alert color.
       .child(div().flex_1().min_w(0).text_color(i >= fresh ? t.dim : urgent(e.text) ? t.blocked : t.foreground).child(e.text));
