@@ -1,7 +1,7 @@
 import { View, div } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
 import { exec, home, layout, run, theme, shared, setShared } from "herdr";
-import { PAGE, JOURNAL_FILE, parseTail, when, unread } from "./model.js";
+import { PAGE, JOURNAL_FILE, parseTail, when, unread, urgent } from "./model.js";
 
 const READ = "journal-read", LINES = "journal-lines"; // marker set here, line count published by status-jc
 
@@ -63,7 +63,8 @@ export default class Journal extends View {
       .when(Boolean(e.url), (r) => r.cursor_pointer().hover((s) => s.bg(t.hover)).tooltip("Ouvrir la PR").on_click(() => exec("open", [e.url])))
       .child(div().flex_none().text_size(11).pt(1).text_color(t.dim).child(when(e, day)))
       .when(Boolean(e.key), (r) => r.child(div().flex_none().font_semibold().child(`${e.repo.split("/").pop()}#${e.number}`)))
-      .child(div().flex_1().min_w(0).text_color(i < fresh ? t.foreground : t.dim).child(e.text));
+      // A line that asks me to act stands out while unread, in the status bar's alert color.
+      .child(div().flex_1().min_w(0).text_color(i >= fresh ? t.dim : urgent(e.text) ? t.blocked : t.foreground).child(e.text));
     // Unread lines first, then the marker, then the read ones greyed.
     const marker = h_flex().gap(8).py(4).items_center().text_size(10.5).text_color(t.dim)
       .child(div().flex_1().h(1).bg(t.border)).child("lu").child(div().flex_1().h(1).bg(t.border));

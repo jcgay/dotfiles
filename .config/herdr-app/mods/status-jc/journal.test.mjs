@@ -73,3 +73,60 @@ test("urgentLines: numbers the urgent lines of a write, keeps the newest", async
   assert.deepEqual(urgentLines([40], [{ text: "à toi" }], 1), [1]);
   assert.deepEqual(urgentLines([1, 2], [{ text: "à toi" }], 3, 2), [2, 3]);
 });
+
+test("roundLines: a PR flapping between two labels is written once each, an urgent line always", () => {
+  const draft = { label: "brouillon", why: "CI verte", head: "a" }, busy = { label: "agent en cours", why: "un autre onglet", head: "a" };
+  const on = { on: true, journalOn: true };
+  let reg = { ...on, prs: { [K]: { ...draft } } };
+  const step = (next) => {
+    const after = { on: true, prs: { [K]: { ...next, logged: reg.prs[K].logged } } };
+    const out = roundLines(reg, after, new Map());
+    reg = { ...on, prs: after.prs };
+    return out.map((l) => l.text);
+  };
+  assert.deepEqual(step(busy), ["agent en cours : un autre onglet"]);
+  assert.deepEqual(step(draft), ["brouillon : CI verte"]);
+  assert.deepEqual(step(busy), []);
+  assert.deepEqual(step(draft), []);
+  assert.deepEqual(step({ label: "à toi", why: "x", head: "a" }), ["à toi : x"]);
+  assert.deepEqual(step(draft), ["brouillon : CI verte"]);
+  assert.deepEqual(step({ label: "à toi", why: "x", head: "a" }), ["à toi : x"]);
+});
+
+test("roundLines: a real return to a label (new push, agent launched in between) is written", () => {
+  const ok = { label: "ok", why: "CI verte", head: "a" }, ci = { label: "en attente", why: "CI en cours", head: "b" };
+  const on = { on: true, journalOn: true };
+  let reg = { ...on, prs: { [K]: { ...ok } } };
+  const step = (next) => {
+    const after = { on: true, prs: { [K]: { ...next, logged: reg.prs[K].logged } } };
+    const out = roundLines(reg, after, new Map());
+    reg = { ...on, prs: after.prs };
+    return out.map((l) => l.text);
+  };
+  assert.deepEqual(step(ci), ["en attente : CI en cours"]);
+  assert.deepEqual(step({ ...ok, head: "b" }), ["ok : CI verte"]);
+  assert.deepEqual(step({ ...ok, head: "b", launched: { step: "pr-review", head: "b" } }), ["agent pr-review lancé"]);
+  assert.deepEqual(step({ ...ci, label: "agent en cours", launched: { step: "pr-review", head: "b" } }), ["agent en cours : CI en cours"]);
+  assert.deepEqual(step({ ...ok, head: "b", launched: { step: "pr-review", head: "b" } }), ["ok : CI verte"]);
+});
+
+test("roundLines: the return from a pause is written", () => {
+  const ok = { label: "ok", why: "CI verte", head: "a" }, pause = { label: "en pause", why: "en pause ; CI verte", head: "a" };
+  const on = { on: true, journalOn: true };
+  let reg = { ...on, prs: { [K]: { ...ok } } };
+  const step = (next) => {
+    const after = { on: true, prs: { [K]: { ...next, logged: reg.prs[K].logged } } };
+    const out = roundLines(reg, after, new Map());
+    reg = { ...on, prs: after.prs };
+    return out.map((l) => l.text);
+  };
+  assert.deepEqual(step(pause), ["en pause ; CI verte"]);
+  assert.deepEqual(step(ok), ["ok : CI verte"]);
+  assert.deepEqual(step(pause), ["en pause ; CI verte"]);
+  assert.deepEqual(step(ok), ["ok : CI verte"]);
+});
+
+test("roundLines: a why that starts with the label does not repeat it", () => {
+  const out = roundLines({ on: true, journalOn: true, prs: {} }, { on: true, prs: { [K]: { label: "en pause", why: "en pause ; CI verte" } } }, new Map());
+  assert.deepEqual(out.map((l) => l.text), ["en pause ; CI verte"]);
+});

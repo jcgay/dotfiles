@@ -13,12 +13,12 @@ Pull request                                  …  Rafraîchir
 Titre de la PR                      ← clic : la PR sur GitHub
 #482 [Ouverte] [Revue attendue] +120 −34
 ┌──────────┬───────────────────────────────────────────────┐
-│ Build    │ ● #57 échec          9 min  📜 🔁             │ ← clic sur la ligne : le build
+│ Build    │ ● #57 échec          9 min  [log] [relance]   │ ← clic sur la ligne : le build
 │          │ 412 tests · 3 en échec · 2 ignorés           │
 │ Déployée │ merlin-feat-x.dockersw.vidal.net             │ ← « nulle part » si rien, « … » pendant la recherche
 │ Checks   │ ● 1 en échec · 2 ✓                        ›  │ ← clic : déplie la liste
-│ Squash   │ ● 2 commits fixup! à squasher · auto…     ⤵  │ ← PR ouverte ; « rien à squasher » sinon
-│ Merge    │ armé · CI en cours                         ✕  │ ← seulement une fois armé
+│ Squash   │ ● 2 commits fixup! à squasher · auto… Squasher │ ← PR ouverte ; « rien à squasher » sinon
+│ Merge    │ armé · CI en cours                  Désarmer  │ ← seulement une fois armé
 └──────────┴───────────────────────────────────────────────┘
 [Prête pour review]                   ← brouillon ouvert : gh pr ready
 [Merger quand tout est vert]          ← PR ouverte, pas brouillon, pas armée
@@ -26,29 +26,30 @@ feat/x → master · revue demandée à alice
 ```
 
 ```
-Surveillance des PR                     tour dans 1 min  ↻  ?
+Surveillance des PR               tour dans 1 min  [rafraîchir]  ?
 ────────────────────────────────────────────────────────────
 ● Surveillance active  Agents 2/3  karadoc libre
-● arthur #5471                          ⤵ ⇥ ⌨ ⏸ [agent en cours]
+● arthur #5471                       [terminal] [pause] [agent en cours]
   Ajoute l'export PDF des ordonnances
   [git][jenk][sonar][rev][qa][demo][risk][appr][merge]   ← la bande d'étapes
   qa depuis 12 min · prête à approuver dans ~35 min · agent qa lancé sur 1a2b3c4d
+  Squasher 2 fixup!   Merger quand tout est vert         ← les actions qui s'appliquent
 ```
 
-- **En-tête** de la Surveillance : le temps avant le prochain tour (toutes les 2 min) ; ↻ en demande un tout de suite. C'est son seul rafraîchissement : elle ne fait que lire le registre de `status-jc`, sans appel gh. **Rafraîchir**, dans l'en-tête de Pull request, relit la PR de la branche.
+- **En-tête** de la Surveillance : le temps avant le prochain tour (toutes les 2 min) ; le bouton rafraîchir en demande un tout de suite. C'est son seul rafraîchissement : elle ne fait que lire le registre de `status-jc`, sans appel gh. **Rafraîchir**, dans l'en-tête de Pull request, relit la PR de la branche.
 - **Bandeau** : l'interrupteur, les agents de surveillance occupés sur 3, l'onglet qui tient karadoc.
 - **?** dans l'en-tête de la Surveillance déplie une aide : les neuf étapes dans l'ordre, les couleurs et les boutons. Chaque statut a aussi son infobulle.
-- **Brouillons (N)** dans le bandeau masque les brouillons (en pause compris, sauf ceux « à toi », « erreur » ou « pas de clone local ») et les réaffiche ; le choix est gardé dans `shared("pr-watch-view")`, que `status-jc` ne réécrit pas.
+- **Brouillons (N)** dans le bandeau masque les brouillons (il devient « Brouillons masqués (N) ») (en pause compris, sauf ceux « à toi », « erreur » ou « pas de clone local ») et les réaffiche ; le choix est gardé dans `shared("pr-watch-view")`, que `status-jc` ne réécrit pas.
 - **Bande d'étapes**, calculée par `status-jc` : vert fait, orange clignotant en cours (agent, CI, merge armé), orange fixe en attente d'une approbation humaine, rouge en échec que la surveillance corrige, violet à toi, gris à venir, pointillé jamais fait dans ce repo (pas de CI, de Sonar, de qa ou de `## Demo`). Un brouillon n'a que git, jenk et sonar ; une PR en pause a sa bande pâlie. Un clic sur une case d'agent (git, jenk, sonar, rev, qa, demo, risk) rouvre sa dernière session Claude : l'onglet `⟳` tant que l'agent tourne, sinon un onglet `↺ #N <étape>` qui lance `claude --resume` dans le worktree où il a tourné (`status-jc` lance chaque agent avec `--session-id` et garde l'id dans `entry.sessions`).
 - La ligne du dessous commence par l'étape en cours et sa durée, puis l'estimation « prête à approuver dans ~X » (médiane des passages précédents, rien avant 3 mesures), ou « dépend de toi ».
-- **⇪** (brouillon) passe la PR prête pour review (`gh pr ready`), comme le bouton **Prête pour review** du haut, puis demande un tour : ses reviews partent sans attendre les 2 min.
-- **⤵** (PR avec des `fixup!`) et **⇥** (PR prête ; ✕ une fois armée) font la même chose que Squash et « Merger quand tout est vert » du haut, sans ouvrir le space. **⌨** est pâli quand son worktree n'existe pas encore, a une pastille quand un space le montre déjà.
+- **Actions**, en toutes lettres sous la ligne, seulement quand elles s'appliquent : **Passer prête pour review** (brouillon : `gh pr ready`, comme le bouton **Prête pour review** de Pull request, puis un tour : ses reviews partent sans attendre les 2 min), **Squasher N fixup!** (un premier clic la change en « Confirmer le push forcé » pendant 4 s, un second la lance), **Merger quand tout est vert**, **Désarmer le merge**, ou **Effacer le refus du merge** sous l'erreur de GitHub.
+- Les icônes à droite du nom : **terminal** (« Travailler dessus », voir plus haut) et **pause / lecture**. Le terminal est pâli quand son worktree n'existe pas encore, a une pastille quand un space le montre déjà.
 
-- La ligne **Build** n'existe que si un check de la PR pointe vers un build Jenkins. 📜 ouvre la console, 🔁 relance (`jk run rerun`) et n'apparaît que sur un build terminé qui n'a pas réussi. Hors VPN : « Jenkins injoignable (VPN ?) ».
+- La ligne **Build** n'existe que si un check de la PR pointe vers un build Jenkins. l'icône de document ouvre la console, la flèche circulaire relance (`jk run rerun`) et n'apparaît que sur un build terminé qui n'a pas réussi. Hors VPN : « Jenkins injoignable (VPN ?) ».
 - **Checks** ne compte pas le check du build affiché dans Build, sauf hors VPN (Build ne connaît alors pas son résultat) ; un autre job Jenkins y reste. La ligne disparaît s'il ne reste aucun check. Dépliée ou repliée, elle le reste d'un espace à l'autre.
 - Sans PR : « Pas de PR pour `<branche>` », la ligne Déployée si un conteneur a été trouvé, et le bouton **Créer la PR** (`gh pr create --web`).
-- **Merger quand tout est vert** arme un « rebase and merge » de la PR sur son commit de tête : `status-jc` la fusionne dans la minute qui suit le passage au vert de tous ses checks, même panneau fermé (détail dans son [README](../status-jc/README.md#merge-armé)). La ligne **Merge** dit ce qu'on attend et l'erreur éventuelle de gh ; ✕ désarme. Un merge refusé par GitHub y reste affiché (« merge refusé » et l'erreur) jusqu'au ✕. Un nouveau commit ou un commit `fixup!`/`amend!`/`squash!` désarme avec un toast.
-- **Squash** compte les commits `fixup!`/`amend!`/`squash!` de la PR. ⤵ demande à `status-jc` de les replier et de pousser en force (git seul, un agent seulement sur conflit) ; « squash en cours… » puis l'erreur éventuelle s'affichent sur la ligne (détail dans son [README](../status-jc/README.md#squash-à-la-demande)). Sans clic, la surveillance le fait seule une fois la PR approuvée (« auto après approbation » tant qu'elle ne l'est pas).
+- **Merger quand tout est vert** arme un « rebase and merge » de la PR sur son commit de tête : `status-jc` la fusionne dans la minute qui suit le passage au vert de tous ses checks, même panneau fermé (détail dans son [README](../status-jc/README.md#merge-armé)). La ligne **Merge** dit ce qu'on attend et l'erreur éventuelle de gh ; **Désarmer** le désarme. Un merge refusé par GitHub y reste affiché (« merge refusé » et l'erreur) jusqu'à **Effacer**. Un nouveau commit ou un commit `fixup!`/`amend!`/`squash!` désarme avec un toast.
+- **Squash** compte les commits `fixup!`/`amend!`/`squash!` de la PR. **Squasher** (confirmé par un second clic dans les 4 s) demande à `status-jc` de les replier et de pousser en force (git seul, un agent seulement sur conflit) ; « squash en cours… » puis l'erreur éventuelle s'affichent sur la ligne (détail dans son [README](../status-jc/README.md#squash-à-la-demande)). Sans clic, la surveillance le fait seule une fois la PR approuvée (« auto après approbation » tant qu'elle ne l'est pas).
 - Une action (relance, création) affiche sa progression puis son erreur éventuelle en bas du panneau.
 
 ## D'où viennent les données
@@ -99,7 +100,7 @@ flowchart TD
 | Fichier | Rôle |
 |---|---|
 | `main.js` | La vue : récupération (gh, jk, Docker), caches, rendu des deux parties. |
-| `model.js` | Fonctions pures testées : URL Jenkins → job, checks de gh, résumé, durées, parsing Docker, correspondance des déploiements, branche d'un worktree de surveillance, cache borné, et ce que montre la Surveillance (texte du temps, aspect de ⌨, boutons ⤵ et ⇥, cases de la bande, prochain tour). |
+| `model.js` | Fonctions pures testées : URL Jenkins → job, checks de gh, résumé, durées, parsing Docker, correspondance des déploiements, branche d'un worktree de surveillance, cache borné, et ce que montre la Surveillance (texte du temps, aspect de ⌨, actions Squasher et Merger, cases de la bande, prochain tour). |
 | `model.test.mjs` | Tests de `model.js`. |
 | `mod.json` | `place: none` : le mod n'est posé que par le layout. |
 

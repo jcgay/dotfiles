@@ -43,3 +43,11 @@ test("no marker yet: every line is unread", () => {
 test("a file shorter than the marker (recreated) is all unread", () => {
   assert.equal(unread(3, 40), 3);
 });
+
+test("urgent: à toi, erreur and merge refusé lines only", async () => {
+  const { urgent } = await import("./model.js");
+  assert.equal(urgent("à toi : Jenkins encore en échec"), true);
+  assert.equal(urgent("merge refusé : conflit"), true);
+  assert.equal(urgent("erreurs"), false);
+  assert.equal(urgent("agent qa lancé"), false);
+});

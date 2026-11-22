@@ -30,3 +30,6 @@ export function unread(lines, read) {
   const total = lines ?? 0;
   return read === undefined || read === null || read > total ? total : total - read;
 }
+
+// A line that asks me to act; same rule as urgent() in status-jc/journal.js (a mod cannot import another's files).
+export const urgent = (text) => /^(à toi|erreur|merge refusé)(?![\p{L}\p{N}])/u.test(text ?? "");

@@ -163,7 +163,7 @@ export default class WorkspaceStatus extends View {
     const b = keys().find((k) => k.section === "global" && k.action === "app.palette");
     const parts = b && b.keys.endsWith("--") ? [...b.keys.slice(0, -2).split("-"), "-"] : b?.keys.split("-");
     const key = parts && parts.map((p) => mod[p.toLowerCase()] ?? p.toUpperCase()).join("");
-    return key ? `${key}  commands` : "commands";
+    return key ? `${key}  commandes` : "commandes";
   }
 
   render(cx) {
@@ -191,7 +191,7 @@ export default class WorkspaceStatus extends View {
       .when(Boolean(space?.machine), el => el.child(label("server", space.machine)))
       .when(Boolean(space?.branch), el => el.child(label("branch", space.branch)))
       .child(h_flex().gap(6).items_center().child(div().size(6).rounded(3).bg(t.dim)).child(`${list.length} agents`)
-        .when(needs > 0, el => el.child(div().text_color(t.blocked).child(`· ${needs} needs you`))))
+        .when(needs > 0, el => el.child(div().text_color(t.blocked).child(`· ${needs} t'attend${needs > 1 ? "ent" : ""}`))))
       .when(mine > 0, el => el.child(h_flex().id("yours").gap(6).items_center().text_color(t.blocked).cursor_pointer().hover((s) => s.opacity(0.8))
         .tooltip("Ouvrir la surveillance des PR")
         .on_click(() => { run("layout.select", { stack: "panel-body", child: "watch" }); run("layout.show", { id: "panel" }); })
