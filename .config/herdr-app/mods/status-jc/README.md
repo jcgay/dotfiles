@@ -12,7 +12,7 @@ De gauche à droite :
 
 - le nom de la machine pour un space distant (rien pour ce Mac), la branche du space ;
 - `N agents`, et `· N t'attend(ent)` pour les agents `blocked`. Ce nombre part aussi en pastille sur l'icône du Dock (`setBadge`, rappelé seulement quand il change) ;
-- `N PR à toi`, en rouge, quand la surveillance a abandonné des PR (étiquette « à toi ») ou qu'un merge armé d'une PR surveillée a été refusé (`waitingOnMe` dans `watch.js`). Un clic ouvre le panneau Surveillance des PR. Ce nombre s'ajoute à celui des agents dans la pastille du Dock ;
+- `N PR à toi`, en rouge, quand la surveillance a abandonné des PR (étiquette « à toi ») ou qu'un merge armé d'une PR surveillée a été refusé (`waitingOnMe` dans `watch.js`). Un clic ouvre le panneau Surveillance des PR, qui prend le clavier (`shared("watch-focus")`, comme `⌘⇧U`). Ce nombre s'ajoute à celui des agents dans la pastille du Dock ;
 - les ports du space affiché, triés : point vert plein = répond, cercle qui clignote = démarre. Un clic ouvre `http://localhost:<port>/` ;
 - le raccourci de la palette tel qu'il est vraiment lié dans `keys.json` (`commandes` seul s'il n'y en a pas). Un clic l'ouvre.
 

@@ -50,7 +50,7 @@ Les terminaux tournent dans **herdr-core** (`hc`), pas dans la fenêtre : fermer
 | `⌘P` | Picker : aller à un tab, un space ou un agent (ceux qui t'attendent en premier ; `⌃D` ferme le tab sélectionné) |
 | `⌘⇧J` | **start-work** : démarrer un ticket Jira / une issue, ou reprendre une PR, dans un worktree avec Claude (§4) |
 | `⌘⇧R` | Ouvrir / fermer le **panneau Pull request** (§4) |
-| `⌘⇧U` | Ouvrir / fermer le **panneau Surveillance des PR** (§4) |
+| `⌘⇧U` | Ouvrir / fermer le **panneau Surveillance des PR** (§4) ; ouvert, il prend le clavier : ↑/↓, Entrée (agent ou PR), `p` (pause), `t` (worktree), Échap |
 | `⌘/` | Aide de Herdr |
 | `⌘,` | Réglages (thème, machines, alertes) |
 
