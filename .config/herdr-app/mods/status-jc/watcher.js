@@ -210,17 +210,6 @@ async function roundUnderLease(registry, cache, at) {
   }
 
   const all = await Promise.all(found.map((pr) => signals(pr, cache.me, registry.prs[`${pr.repository.nameWithOwner}#${pr.number}`])));
-  if (registry.on) {
-    // A watch space's folder is …/agents-worktree/<repo name>/<branch>-watch: tab names carry no repo. A PR whose signals
-    // failed has no markers (null: its tabs stay); one missing from the round (undefined) is merged or closed.
-    const markersOf = (n, folder) => {
-      const s = all.find((x) => x.number === n && folder.includes(`/agents-worktree/${x.repo.split("/")[1]}/`));
-      return s && (s.markers ?? null);
-    };
-    for (const { cmd, args } of closing(spaces().filter((sp) => !sp.machine), markersOf)) {
-      try { run(cmd, args); } catch { /* already gone */ }
-    }
-  }
   // Rebuilt each round from this round's repos: a repo with no open PR left drops out.
   const names = [...new Set(all.map((s) => s.repo))];
   const repos = new Map(await Promise.all(names.map(async (repo) => [repo, await cloneOf(repo, cache.clones ?? new Map())])));
@@ -284,6 +273,19 @@ async function roundUnderLease(registry, cache, at) {
     } catch (e) {
       // One broken PR keeps the others' launch records.
       prs[s.key] = pruned({ ...before, label: LABELS.error, why: "la surveillance a planté sur cette PR", error: e?.message ?? String(e) });
+    }
+  }
+  // After the PRs: decide() must still see the tab of a fix agent that pushed then stopped, or it takes that push for
+  // mine and resets the attempts budget.
+  if (registry.on) {
+    // A watch space's folder is …/agents-worktree/<repo name>/<branch>-watch: tab names carry no repo. A PR whose signals
+    // failed has no markers (null: its tabs stay); one missing from the round (undefined) is merged or closed.
+    const markersOf = (n, folder) => {
+      const s = all.find((x) => x.number === n && folder.includes(`/agents-worktree/${x.repo.split("/")[1]}/`));
+      return s && (s.markers ?? null);
+    };
+    for (const { cmd, args } of closing(spaces().filter((sp) => !sp.machine), markersOf)) {
+      try { run(cmd, args); } catch { /* already gone */ }
     }
   }
   await appendJournal(roundLines(registry, { on: registry.on, prs }, toasts));
