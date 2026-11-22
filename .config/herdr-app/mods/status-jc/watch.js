@@ -359,3 +359,11 @@ export function promptFor(step, s) {
 export function repoOfRemote(url) {
   return /github\.com[:/]([^/\s]+\/[^/\s]+?)(?:\.git)?\/?\s*$/.exec(url ?? "")?.[1] ?? null;
 }
+
+// The PRs waiting on me: labelled « à toi » by the watch, or a watched PR whose armed merge GitHub refused. Keys "owner/repo#N".
+// A refused merge outside the watch (merged by hand, not my PR) has no row to clear it from: not counted.
+export function waitingOnMe(prs, merges) {
+  const keys = new Set(Object.entries(prs ?? {}).filter(([, e]) => e?.label === LABELS.yours).map(([k]) => k));
+  for (const [k, m] of Object.entries(merges ?? {})) if (m?.refused && k in (prs ?? {})) keys.add(k);
+  return [...keys];
+}

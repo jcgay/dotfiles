@@ -146,19 +146,26 @@ export default class Tabs extends View {
     const enabled = shared("workspace.panels") ?? ["files", "changes"];
     this.syncPanel(space, panel, body, [...enabled, "pr", "journal"]);
     // Icon only: three labels took a lot of the tab bar.
-    const panelButton = (id, icon, label, badge = 0) => {
+    // badge: a count (urgent, in the alert color) or a bare dot (something new, nothing to act on).
+    const panelButton = (id, icon, label, badge = 0, dot = false) => {
       const on = panel && !panel.hidden && body?.active === id;
       return h_flex().id(`panel-${id}`).relative().tooltip(label).accessibility_label(label).size(26).flex_none().items_center().justify_center().rounded(6)
         .bg(on ? t.selected : t.chrome).text_color(on ? t.foreground : t.muted)
         .hover(s => s.bg(t.hover)).on_mouse_down("left", stop)
         .on_click(() => this.togglePanel(id)).child(svg(icon).size(14))
         .when(badge > 0, el => el.child(div().absolute().top(-2).right(-3).min_w(14).h(14).px(3).rounded(7).flex().items_center().justify_center()
-          .bg(t.accent).text_color(t.background).text_size(9).font_semibold().child(badge > 99 ? "99+" : String(badge))));
+          .bg(t.blocked).text_color(t.background).text_size(9).font_semibold().child(badge > 99 ? "99+" : String(badge))))
+        .when(badge === 0 && dot, el => el.child(div().absolute().top(2).right(2).size(6).rounded(3).bg(t.accent)));
     };
     // Unread journal lines: status-jc publishes the file's line count, the Journal panel the read marker.
     // Same rule as unread() in mods/journal/model.js: a file shorter than the marker was recreated, all unread.
     const lines = shared("journal-lines") ?? 0, read = shared("journal-read");
     const unreadLines = read == null || read > lines ? lines : lines - read;
+    // status-jc also publishes the numbers of the lines that ask me to act (à toi, erreur, merge refusé): only those get a count.
+    const since = read == null || read > lines ? 0 : read;
+    const urgent = (shared("journal-urgent") ?? []).filter((n) => n > since && n <= lines).length;
+    const journalTip = urgent > 0 ? `Journal : ${urgent} à traiter sur ${unreadLines} non lue${unreadLines > 1 ? "s" : ""}`
+      : unreadLines > 0 ? `Journal : ${unreadLines} non lue${unreadLines > 1 ? "s" : ""}, rien à traiter` : "Journal";
     return h_flex().size_full().min_w(0).px(10).pl(lightsPadding).gap(3).items_center().bg(t.chrome).border_b(1).border_color(t.border)
       .on_mouse_up("left", () => { this.pressed = null; })
       .on_scroll_wheel(e => this.wheel(e))
@@ -169,7 +176,7 @@ export default class Tabs extends View {
       .when(enabled.includes("files"), el => el.child(panelButton("files", "mods/files/file.svg", "Files")))
       .when(enabled.includes("changes"), el => el.child(panelButton("changes", "mods/changes/changes.svg", "Changes")))
       .child(panelButton("pr", "mods/tabs-jc/pull-request.svg", "Pull request")) // not in workspace.panels: Settings knows only Files and Changes
-      .child(panelButton("journal", "mods/tabs-jc/journal.svg", unreadLines > 0 ? `Journal : ${unreadLines} non lue${unreadLines > 1 ? "s" : ""}` : "Journal", unreadLines))
+      .child(panelButton("journal", "mods/tabs-jc/journal.svg", journalTip, urgent, unreadLines > 0))
       .when(w?.buttons, el => el.child(button("minimize", w.platform === "windows" ? svg("mods/tabs-jc/win-min.svg").size(16) : "−", () => run("window.minimize")))
         .child(button("maximize", w.platform === "windows" ? svg(`mods/tabs-jc/${w.maximized ? "win-restore" : "win-max"}.svg`).size(16) : "□", () => run("window.maximize")))
         .child(button("close-window", w.platform === "windows" ? svg("mods/tabs-jc/win-close.svg").size(16) : svg("mods/pane/close.svg").size(13), () => run("window.close"))));

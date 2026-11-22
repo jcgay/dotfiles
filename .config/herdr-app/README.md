@@ -28,14 +28,14 @@ Les terminaux tournent dans **herdr-core** (`hc`), pas dans la fenêtre : fermer
 │ Agents      │                                           │ Changes / │
 │             │                                           │ PR / Jal) │
 ├─────────────┴───────────────────────────────────────────┴───────────┤
-│ machine · branche · N agents · N needs you      :8080 ●   ⌘⇧P cmds  │
+│ branche · N agents · N needs you · N PR à toi   :8080 ●   ⌘⇧P cmds  │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
 - **Sidebar** (`⌘B` pour la replier) : les spaces (`spaces-jc`, avec l'icône JetBrains du dépôt quand il en a une), puis les agents de tous les spaces. Glisser un space le réordonne.
 - **Barre d'onglets** (`tabs-jc`) : double-clic sur un tab pour le renommer, glisser pour le déplacer, `+` ouvre le menu « nouveau » (terminal, agent, space).
 - **Panneau latéral** : les quatre boutons à droite des tabs l'ouvrent sur Files, Changes, Pull request ou Journal ; recliquer le referme. Il est mémorisé **par space**.
-- **Barre d'état** (`status-jc`) : machine, branche, nombre d'agents et combien t'attendent, puis les **ports** ouverts par les programmes du space (point vert = répond, clignotant = démarre ; clic = ouvre `http://localhost:<port>/`). Le raccourci de droite ouvre la palette. Le nombre d'agents qui t'attendent s'affiche aussi en pastille sur l'icône du Dock.
+- **Barre d'état** (`status-jc`) : la machine pour un space distant, la branche, le nombre d'agents et combien t'attendent, « N PR à toi » (en rouge, clic = ouvre la surveillance) quand la surveillance a abandonné une PR ou qu'un merge armé d'une PR surveillée a été refusé, puis les **ports** ouverts par les programmes du space (point vert = répond, clignotant = démarre ; clic = ouvre `http://localhost:<port>/`). Le raccourci de droite ouvre la palette. Les agents qui t'attendent et les PR à toi s'additionnent en pastille sur l'icône du Dock.
 
 ---
 
@@ -127,7 +127,7 @@ Bouton « Pull request » dans la barre d'onglets (ou `⌘⇧R`) : la PR de la b
 
 ### Panneau Journal
 
-Bouton « Journal » (icône liste) après « Pull request » : ce que la surveillance et le merge armé ont fait, toutes PR confondues, lu dans `~/Library/Logs/herdr-watch.log`. Les 20 dernières lignes, la plus récente en haut ; **Plus** en ajoute 20, **Tout le journal** ouvre le fichier dans `less` dans un nouvel onglet (`/` pour chercher). Un clic sur une ligne ouvre la PR. Les non-lues sont en clair au-dessus d'un trait « lu », la pastille du bouton en donne le nombre, **Tout lu** la remet à zéro. Au plus une ligne par PR et par tour, surveillance active : agent lancé, changement d'état (dont la fin d'un agent), toast, PR fusionnée ou sortie de la surveillance, surveillance activée ou coupée. Détails : `docs/2026-11-18-watch-journal-design.md`.
+Bouton « Journal » (icône liste) après « Pull request » : ce que la surveillance et le merge armé ont fait, toutes PR confondues, lu dans `~/Library/Logs/herdr-watch.log`. Les 20 dernières lignes, la plus récente en haut ; **Plus** en ajoute 20, **Tout le journal** ouvre le fichier dans `less` dans un nouvel onglet (`/` pour chercher). Un clic sur une ligne ouvre la PR. Les non-lues sont en clair au-dessus d'un trait « lu », la pastille du bouton compte les non-lues qui demandent d'agir (« à toi », « erreur », « merge refusé »), un simple point signale les autres, **Tout lu** remet les deux à zéro. Au plus une ligne par PR et par tour, surveillance active : agent lancé, changement d'état (dont la fin d'un agent), toast, PR fusionnée ou sortie de la surveillance, surveillance activée ou coupée. Détails : `docs/2026-11-18-watch-journal-design.md`.
 
 ### spaces-jc, status-jc et tabs-jc
 
