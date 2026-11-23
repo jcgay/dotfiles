@@ -19,6 +19,16 @@ export function parseCommits(stdout) {
   return out;
 }
 
+// "<name>\t<light file>\t<dark file or empty>" per line, files in dir (relative to appHome, for image()).
+export function parseIcons(stdout, dir) {
+  const out = {};
+  for (const l of stdout.split("\n")) {
+    const [name, light, dark] = l.split("\t");
+    if (name && light) out[name] = { light: `${dir}/${light}`, dark: `${dir}/${dark || light}` };
+  }
+  return out;
+}
+
 // ~/dev is a symlink: Herdr reports folders under its real path, so every root is tried.
 export function repoOfFolder(folder, roots, names) {
   for (const root of roots) {

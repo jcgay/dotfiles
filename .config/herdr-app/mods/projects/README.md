@@ -20,11 +20,15 @@ Le dépôt d'un space est celui de son premier terminal, comme Herdr le nomme : 
 
 Si `find` ne trouve aucun dépôt et échoue (`~/dev` absent), la fenêtre affiche « Impossible de lire ~/dev » et la raison, au lieu de « Aucun projet ».
 
+## Les icônes
+
+Chaque ligne montre l'icône JetBrains du dépôt, comme `spaces-jc` : `.idea/icon.svg` (sinon `icon.png`), et `icon_dark.svg` sur un thème sombre (`settings().dark`). `image()` ne lit que sous `~/.config/herdr-app` : un seul `sh` les copie à chaque ouverture dans `mods/projects/.icons/` (ignoré par git), en n'écrivant que ce qui a changé. Le dossier est caché parce que Herdr recharge un mod quand un fichier visible de son dossier change, ce qui relancerait la fenêtre. Un dépôt sans icône garde une case vide, pour aligner les noms.
+
 ## Les dates de commit
 
 Lues à chaque ouverture par un seul `sh` qui lance `git log -1 --format=%ct` dans chaque dépôt (environ 4 s pour 170 dépôts). La liste s'affiche d'abord par récence puis par nom, et se réordonne quand les dates arrivent.
 
 ## Code
 
-- `lib.js` : la partie pure (lister, trier, filtrer, trouver le space ouvert), testée par `lib.test.mjs` (`node --test`).
+- `lib.js` : la partie pure (lister, trier, filtrer, lire les icônes copiées, trouver le space ouvert), testée par `lib.test.mjs` (`node --test`).
 - `main.js` : la fenêtre (saisie, flèches, ouverture).
