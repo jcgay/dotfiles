@@ -2,9 +2,9 @@
 import { exec, spaces, agents, panes, run, notify, home, shared, setShared } from "herdr";
 import { randomUUID } from "crypto";
 import { watchPath } from "./open.js";
-import { roundLines } from "./journal.js";
+import { roundLines, searchLine } from "./journal.js";
 import { appendJournal } from "./journal-file.js";
-import { searchSince, signalsOf, decide, emptyEntry, promptFor, repoOfRemote, undoLaunch, holdingTabs, karadocHeld, karadocHolder, closing, checkoutBases, checkoutsOf, LABELS } from "./watch.js";
+import { readHint, searchSince, signalsOf, decide, emptyEntry, promptFor, repoOfRemote, undoLaunch, holdingTabs, karadocHeld, karadocHolder, closing, checkoutBases, checkoutsOf, LABELS } from "./watch.js";
 import { bandOf, measure, addSamples, clockOf, workOf } from "./pipeline.js";
 
 const MAX_AGENTS = 3;
@@ -218,7 +218,11 @@ async function roundUnderLease(registry, cache, at) {
     found = JSON.parse(await sh("gh", ["search", "prs", "--author=@me", "--state=open", "--owner=softwarevidal",
       `--updated=>=${searchSince(new Date())}`, "--json", "number,repository,updatedAt"]));
   } catch (e) {
-    return { ...registry, error: e.message, at };
+    // The common outage (network, gh logged out) stops here, before any PR: the journal hears of it on its second round.
+    const searchFails = (registry.searchFails ?? 0) + 1;
+    const line = searchLine(searchFails, registry.on, e.message);
+    if (line) await appendJournal([line]);
+    return { ...registry, error: `${e.message} (${readHint(e.message)})`, at, searchFails };
   }
 
   const all = await Promise.all(found.map((pr) => signals(pr, cache.me, registry.prs[`${pr.repository.nameWithOwner}#${pr.number}`])));
@@ -310,6 +314,6 @@ async function roundUnderLease(registry, cache, at) {
   // For the panel's header: the watch agents at the end of the round and the one holding karadoc.
   const busy = [...new Set([...heldTabs(all), ...launched])];
   // journalOn: `on` as this round saw it, so the next round writes a switch made in between.
-  return { ...registry, prs, error: null, at, journalOn: registry.on, durations, sonarRepos: [...sonarRepos],
+  return { ...registry, prs, error: null, searchFails: 0, at, journalOn: registry.on, durations, sonarRepos: [...sonarRepos],
     agents: { busy: busy.length, max: MAX_AGENTS }, karadoc: karadocHolder(busy, karadocPrs, roundPrs) };
 }

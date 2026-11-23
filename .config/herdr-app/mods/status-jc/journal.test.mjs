@@ -1,7 +1,7 @@
 // node --test ~/.config/herdr-app/mods/status-jc/journal.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { roundLines, formatLine } from "./journal.js";
+import { roundLines, formatLine, searchLine } from "./journal.js";
 
 const K = "o/r#1";
 const lines = (beforePr, afterPr, toasts = new Map(), on = { before: true, after: true }) =>
@@ -182,4 +182,12 @@ test("roundLines: one outage line per outage, then the PR still failing gets its
   assert.deepEqual(round(r3, r4), ["erreur : lecture de la PR sur GitHub impossible", "ok : CI verte"]);
   const r5 = { "o/r#1": { ...err(5), logged: r4["o/r#1"].logged }, "o/r#2": { ...ok, logged: r4["o/r#2"].logged } };
   assert.deepEqual(round(r4, r5), [], "its line is written once");
+});
+
+test("searchLine: a failed search is written once, on its second round, watch on", () => {
+  assert.equal(searchLine(1, true, "error connecting to api.github.com"), null, "a blip");
+  assert.deepEqual(searchLine(2, true, "error connecting to api.github.com"),
+    { key: null, text: "erreur : recherche des PR sur GitHub impossible : réseau ou VPN ?" });
+  assert.equal(searchLine(3, true, "x"), null);
+  assert.equal(searchLine(2, false, "x"), null);
 });
