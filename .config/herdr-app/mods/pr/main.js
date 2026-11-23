@@ -465,6 +465,15 @@ export default class PullRequest extends View {
         [h_flex().gap(4).child(svg("mods/pr/pause.svg").size(13).text_color(t.dim)).child(svg("mods/pr/play.svg").size(13).text_color(t.dim)), "met en pause ou reprend : rien n'est lancé sur une PR en pause"],
         ["clic", "sur une ligne : le log Jenkins ou l'analyse Sonar d'une PR « à toi », sinon l'agent qui y travaille, sinon la PR ; sur le numéro : la PR ; sur une case d'agent : rouvre sa dernière session Claude"],
       ]))
+      .child(section("Clavier"))
+      .child(legend([
+        ["⌘⇧U", "ouvre la Surveillance et lui donne le clavier (un clic dans le panneau aussi)"],
+        ["↑ ↓", "choisit une PR"],
+        ["Entrée", "comme un clic sur la ligne : le blocage d'une PR « à toi », sinon l'agent, sinon la PR"],
+        ["p", "met la PR en pause ou la reprend"],
+        ["t", "ouvre son worktree, comme le bouton terminal"],
+        ["Échap", "rend le clavier au terminal"],
+      ]))
       .child(div().pt(4).text_color(t.dim).child("Survole un statut ou un bouton pour son détail."));
 
     // One refresh per panel: Rafraîchir asks gh again for the shown branch, ↻ asks status-jc for a watch round.
