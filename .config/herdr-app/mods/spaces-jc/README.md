@@ -4,7 +4,12 @@ Clone du mod `spaces` de Herdr (version 0.1.16, voir `cloned_from` dans `mod.jso
 
 ## Ce que le clone ajoute
 
-Une seule chose : l'avatar d'un space devient l'icône JetBrains du dépôt (`.idea/icon.svg`, `icon.png`, `icon_dark.svg`) au lieu de la lettre colorée.
+Deux choses :
+
+- un bouton dossier à gauche du `+` de l'en-tête, qui ouvre le mod [`projects`](../projects/README.md) (`⌘⇧O`) ; masquée en mode rail ;
+- l'avatar d'un space devient l'icône JetBrains du dépôt (`.idea/icon.svg`, `icon.png`, `icon_dark.svg`) au lieu de la lettre colorée, détaillé ci-dessous.
+
+## L'icône du dépôt
 
 - Tous les worktrees d'un dépôt prennent l'icône du checkout principal : pas besoin de `.idea` dans chaque worktree.
 - Sur un thème sombre, `icon_dark.svg` s'il existe, sinon l'icône claire.

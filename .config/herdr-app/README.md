@@ -33,7 +33,7 @@ Les terminaux tournent dans **herdr-core** (`hc`), pas dans la fenêtre : fermer
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-- **Sidebar** (`⌘B` pour la replier) : les spaces (`spaces-jc`, avec l'icône JetBrains du dépôt quand il en a une), puis les agents de tous les spaces. Glisser un space le réordonne.
+- **Sidebar** (`⌘B` pour la replier) : les spaces (`spaces-jc`, avec l'icône JetBrains du dépôt quand il en a une ; le bouton dossier de son en-tête ouvre `projects`), puis les agents de tous les spaces. Glisser un space le réordonne.
 - **Barre d'onglets** (`tabs-jc`) : double-clic sur un tab pour le renommer, glisser pour le déplacer, `+` ouvre le menu « nouveau » (terminal, agent, space).
 - **Panneau latéral** : les boutons à droite des tabs l'ouvrent sur Files, Changes, Pull request, Surveillance des PR ou Journal ; recliquer le referme. Il est mémorisé **par space**.
 - **Barre d'état** (`status-jc`) : la machine pour un space distant, la branche, le nombre d'agents et combien t'attendent, « N PR à toi » (en rouge, clic = ouvre la surveillance) quand la surveillance a abandonné une PR ou qu'un merge armé d'une PR surveillée a été refusé, puis les **ports** ouverts par les programmes du space (point vert = répond, clignotant = démarre ; clic = ouvre `http://localhost:<port>/`). Le raccourci de droite ouvre la palette. Les agents qui t'attendent et les PR à toi s'additionnent en pastille sur l'icône du Dock.
