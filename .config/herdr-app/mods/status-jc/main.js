@@ -190,7 +190,7 @@ export default class WorkspaceStatus extends View {
       // This computer is the usual case: only a remote space names its machine.
       .when(Boolean(space?.machine), el => el.child(label("server", space.machine)))
       .when(Boolean(space?.branch), el => el.child(label("branch", space.branch)))
-      .child(h_flex().gap(6).items_center().child(div().size(6).rounded(3).bg(t.dim)).child(`${list.length} agents`)
+      .child(h_flex().gap(6).items_center().child(div().size(6).rounded(3).bg(t.dim)).child(`${list.length} ${list.length === 1 ? "agent" : "agents"}`)
         .when(needs > 0, el => el.child(div().text_color(t.blocked).child(`· ${needs} t'attend${needs > 1 ? "ent" : ""}`))))
       .when(mine > 0, el => el.child(h_flex().id("yours").gap(6).items_center().text_color(t.blocked).cursor_pointer().hover((s) => s.opacity(0.8))
         .tooltip("Ouvrir la surveillance des PR")
