@@ -48,7 +48,12 @@ posts the comment. Do it before writing the body, once per video file.
 The browser profile `~/.cache/pr-demo-github-profile` holds the user's
 GitHub login. Never log in yourself.
 
+Run these from the capture dir, as for the recording: every command writes a
+snapshot to `.playwright-cli/` in the current directory, and left in the
+repo it reads as uncommitted work.
+
 ```bash
+cd "<capture dir>"
 playwright-cli -s=pr-demo-<N> open --persistent --profile ~/.cache/pr-demo-github-profile \
   https://github.com/<owner>/<repo>/pull/<N>
 playwright-cli -s=pr-demo-<N> run-code "async page => { await page.getByRole('button', { name: 'Paste, drop, or click to add files' }).first().click(); }"
