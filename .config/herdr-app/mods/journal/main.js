@@ -66,7 +66,10 @@ export default class Journal extends View {
     const row = (e, i) => h_flex().id(`entry-${i}`).gap(8).px(4).py(3).items_start().rounded(6).text_size(12)
       .when(Boolean(e.url), (r) => r.cursor_pointer().hover((s) => s.bg(t.hover)).tooltip("Ouvrir la PR").on_click(() => exec("open", [e.url])))
       .child(div().flex_none().w(timeW).text_size(11).pt(1).text_color(t.dim).child(when(e, day)))
-      .when(Boolean(e.key), (r) => r.child(div().flex_none().font_semibold().child(`${e.repo.split("/").pop()}#${e.number}`)))
+      // A fixed PR column, so every text starts at the same place: a long repo name is cut, never its number.
+      // A line without a PR (watch switched, GitHub outage) keeps the column empty, so its text lines up too.
+      .child(!e.key ? div().w(130).flex_none() : h_flex().id(`pr-${i}`).w(130).flex_none().min_w(0).font_semibold().tooltip(`${e.repo.split("/").pop()}#${e.number}`)
+        .child(div().min_w(0).truncate().child(e.repo.split("/").pop())).child(div().flex_none().child(`#${e.number}`)))
       // A line that asks me to act stands out while unread, in the status bar's alert color.
       .child(div().flex_1().min_w(0).text_color(i >= fresh ? t.dim : urgent(e.text) ? t.blocked : t.foreground).child(e.text));
     // Unread lines first, then the marker, then the read ones greyed.
