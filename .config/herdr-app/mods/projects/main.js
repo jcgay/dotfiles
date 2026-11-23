@@ -1,10 +1,10 @@
 // projects: pick a repo at the root of ~/dev and open a space on it, or go to the one already open.
 // Design: ~/.config/herdr-app/docs/2026-11-23-projects-picker-design.md
 
-import { View, div } from "gpui-kit";
+import { View, div, image } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input, Scrollbar, ScrollHandle } from "gpui-base";
-import { props, closeOverlay, theme, spaces, panes, exec, home, run, checking } from "herdr";
-import { parseRepos, parseCommits, stamp, markOpened, order, filter, spaceRepo, openSpaceFor } from "./lib.js";
+import { props, closeOverlay, theme, spaces, panes, exec, home, appHome, settings, run, checking } from "herdr";
+import { parseRepos, parseCommits, parseIcons, stamp, markOpened, order, filter, spaceRepo, openSpaceFor } from "./lib.js";
 
 // localStorage: "recent" is { "<repo name>": <ms it was opened> }, "open" the repos open at the last look.
 function load(key, empty) {
@@ -22,6 +22,7 @@ export default class Projects extends View {
     this.error = "";
     this.recent = load("recent", {});
     this.commits = {};
+    this.icons = {}; // name -> { light, dark }: the repo's JetBrains icon, copied under appHome for image()
     this.sel = null; // the chosen repo's name: the list reorders when the commit dates arrive, an index would point elsewhere
     this.input = InputState.new({ placeholder: "Projet de ~/dev" });
     this.input.on("change", (_e, cx) => { this.sel = null; this.scroll.scroll_to_item(0); cx.notify(); });
@@ -48,9 +49,22 @@ export default class Projects extends View {
     save("recent", this.recent);
     save("open", open);
     cx.notify();
+    this.copyIcons(cx);
     const script = 'for d in "$1"/*/.git; do [ -d "$d" ] || continue; n=${d%/.git}; printf "%s %s\\n" "${n##*/}" "$(git -C "$n" log -1 --format=%ct 2>/dev/null)"; done';
     const dates = await exec("sh", ["-c", script, "sh", this.root], { timeout: 30000 }).catch(() => null);
     if (dates) { this.commits = parseCommits(dates.stdout); cx.notify(); }
+  }
+
+  // .idea/icon.svg (else icon.png) and icon_dark.svg of each repo, as spaces-jc shows them. The folder is
+  // hidden: Herdr reloads a mod when a visible file of its folder changes, which would restart the dialog.
+  // Only what changed is written.
+  copyIcons(cx) {
+    const dir = "mods/projects/.icons";
+    const script = 'cd "$1" || exit 0; mkdir -p "$2" || exit; for d in */.idea; do n=${d%/.idea}; l=; for e in svg png; do [ -f "$d/icon.$e" ] && l=$e && break; done; [ -n "$l" ] || continue; cmp -s "$d/icon.$l" "$2/$n.$l" || cp "$d/icon.$l" "$2/$n.$l"; k=; if [ -f "$d/icon_dark.svg" ]; then cmp -s "$d/icon_dark.svg" "$2/$n.dark.svg" || cp "$d/icon_dark.svg" "$2/$n.dark.svg"; k="$n.dark.svg"; fi; printf "%s\\t%s\\t%s\\n" "$n" "$n.$l" "$k"; done';
+    cx.spawn(async (cx) => {
+      const r = await exec("sh", ["-c", script, "sh", `${this.root}/`, `${appHome()}/${dir}`], { timeout: 30000 }).catch(() => null);
+      if (r) { this.icons = parseIcons(r.stdout, dir); cx.notify(); } // cosmetic: no icons on failure
+    });
   }
 
   rows() {
@@ -83,11 +97,12 @@ export default class Projects extends View {
   }
 
   render() {
-    const t = theme(), rows = this.rows(), at = this.at(rows), sp = spaces(), ps = panes();
+    const t = theme(), rows = this.rows(), at = this.at(rows), sp = spaces(), ps = panes(), dark = Boolean(settings().dark);
     const row = (name, i) => h_flex().id(`p-${name}`).h(28).px(10).gap(8).items_center().rounded(6).cursor_pointer()
       .when(i === at, (el) => el.bg(t.selected))
       .when(i !== at, (el) => el.hover((s) => s.bg(t.hover)))
       .on_click(() => this.open(name))
+      .child(this.icons[name] ? image(this.icons[name][dark ? "dark" : "light"]).size(16).flex_none().rounded(4) : div().size(16).flex_none())
       .child(div().flex_1().truncate().child(name))
       .when(Boolean(openSpaceFor(name, this.roots, ps, sp)), (el) => el.child(div().text_size(11).text_color(t.accent).child("ouvert")));
     return v_flex().id("projects").track_focus(this.handle).on_key_down((e, cx) => this.key(e, cx))

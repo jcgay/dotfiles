@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseRepos, parseCommits, repoOfFolder, stamp, markOpened, order, filter, spaceRepo, openSpaceFor } from "./lib.js";
+import { parseRepos, parseCommits, parseIcons, repoOfFolder, stamp, markOpened, order, filter, spaceRepo, openSpaceFor } from "./lib.js";
 
 const roots = ["/Users/jc/dev", "/Volumes/sourcecode"];
 
@@ -11,6 +11,13 @@ test("parseRepos keeps repo names, sorted, without agents-worktree", () => {
 test("parseCommits turns seconds into ms and skips lines without a date", () => {
   assert.deepEqual(parseCommits("arthur 1700000000\nempty \n"), { arthur: 1700000000000 });
   assert.deepEqual(parseCommits("my repo 1700000000\n"), { "my repo": 1700000000000 });
+});
+
+test("parseIcons maps each repo to its copied icons, light for dark when there is no dark one", () => {
+  assert.deepEqual(parseIcons("arthur\tarthur.svg\tarthur.dark.svg\nmy repo\tmy repo.png\t\n\n", "mods/projects/.icons"), {
+    arthur: { light: "mods/projects/.icons/arthur.svg", dark: "mods/projects/.icons/arthur.dark.svg" },
+    "my repo": { light: "mods/projects/.icons/my repo.png", dark: "mods/projects/.icons/my repo.png" },
+  });
 });
 
 test("repoOfFolder matches under either root, never a longer name", () => {
