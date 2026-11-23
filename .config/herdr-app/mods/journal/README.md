@@ -19,6 +19,7 @@ Journal                          surveillance et merge
 - Les 20 dernières lignes, la plus récente en haut, lues avec le nombre de lignes du fichier en un seul passage `awk` (une écriture entre les deux décalerait le marqueur). **Plus** en lit 20 de plus, visible tant que le fichier en a davantage.
 - **Tout le journal** : un nouvel onglet `less +G` sur le fichier, dans le space affiché.
 - « Rien pour l'instant » tant que le fichier n'existe pas (ou n'a aucune ligne lisible). Une lecture en échec affiche l'erreur en rouge en tête du panneau.
+- Pendant une lecture du fichier, « … » s'affiche dans l'en-tête : la liste à l'écran est encore la précédente.
 - Relu à l'ouverture du panneau, et panneau ouvert dès que `shared("journal-lines")` change (`status-jc` le publie après chaque écriture). Pas de surveillance de dossier : `watchFolder` est refusé au-delà de 64 dossiers et `~/Library/Logs` bouge sans arrêt. Seule la dernière lecture lancée compte.
 
 ## Fichiers et tests

@@ -31,12 +31,14 @@ export default class Journal extends View {
     const id = ++this.seq;
     // status-jc publishes the line count after each write: render reads again when it changes.
     this.seen = shared(LINES);
+    this.loading = true; // until the file is read, the list on screen is the previous one: the header says so
     cx.spawn(async (cx) => {
       // One pass, so the count and the lines are the same file: the count first, then the last lines. Exit 3: no file yet.
       const r = await exec("sh", ["-c", '[ -f "$1" ] || exit 3; awk -v n="$2" \'{ a[NR % n] = $0 } END { print NR; for (i = NR > n ? NR - n + 1 : 1; i <= NR; i++) print a[i % n] }\' "$1"',
         "sh", this.file, String(this.count)], { timeout: 5000 })
         .catch((e) => ({ code: -1, stderr: e.message }));
       if (id !== this.seq) return;
+      this.loading = false;
       const absent = r.code === 3;
       this.error = r.code === 0 || absent ? null : (r.stderr ?? "").trim() || "lecture impossible";
       if (r.code === 0 || absent) {
@@ -82,6 +84,7 @@ export default class Journal extends View {
     return v_flex().id("journal").size_full().min_h(0).rounded(10).overflow_hidden().bg(t.background).border_1().border_color(t.border).text_color(t.foreground).text_size(13)
       .child(h_flex().h(42).flex_none().px(14).gap(8).items_center().border_b(1).border_color(t.border)
         .child(div().font_semibold().child("Journal")).child(div().flex_1())
+        .when(Boolean(this.loading), (h) => h.child(div().text_size(11).text_color(t.dim).child("…")))
         .child(fresh > 0
           ? h_flex().gap(8).items_center().child(div().text_size(11).text_color(t.dim).child(`${fresh} non lue${fresh > 1 ? "s" : ""}`))
             .child(button("journal-read", "Tout lu", () => setShared(READ, this.total)))
