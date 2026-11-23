@@ -110,7 +110,7 @@ test("workLook: missing, there, or shown by a space (sub-folders too, not a sibl
   assert.equal(workLook({ folder: null, exists: false }, ["/w"]).shown, false);
 });
 
-test("rowActions: squash an approved PR's fixups unless one runs, arm a ready PR, disarm an armed one", () => {
+test("rowActions: squash a PR's fixups unless one runs, arm a ready PR, disarm an armed one", () => {
   const ready = { draft: false, head: "abc", fixups: 2, approved: true };
   assert.deepEqual(rowActions(ready, null, null), { squash: true, arm: null }, "status-jc cancels a merge armed over fixup! commits");
   assert.equal(rowActions({ ...ready, fixups: 0 }, null, null).arm, "arm");
@@ -119,8 +119,8 @@ test("rowActions: squash an approved PR's fixups unless one runs, arm a ready PR
   assert.equal(rowActions(ready, null, { state: "error" }).squash, true, "a failed squash can be asked again");
   assert.deepEqual(rowActions({ draft: true, head: "abc", fixups: 0 }, null, null), { squash: false, arm: null });
   assert.equal(rowActions({ head: "abc" }, null, null).arm, null, "an entry from before the band has no draft flag");
-  assert.equal(rowActions({ ...ready, approved: false }, null, null).squash, false, "not before approval: the reviewer keeps the fixups");
-  assert.equal(rowActions({ draft: false, head: "abc", fixups: 2 }, null, null).squash, false, "an entry from before approved was published");
+  assert.equal(rowActions({ ...ready, approved: false }, null, null).squash, true, "by hand before approval too: only the watch waits");
+  assert.equal(rowActions({ draft: true, head: "abc", fixups: 2 }, null, null).squash, true, "a draft too, as the Pull request panel");
 });
 
 test("bandStates: nine slots, merge orange once armed, a draft's empty slots stay empty", () => {
