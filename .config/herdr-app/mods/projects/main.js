@@ -81,7 +81,11 @@ export default class Projects extends View {
     save("recent", stamp(load("recent", {}), [name], Date.now()));
     closeOverlay(props().overlay);
     if (id) run("space.select", { id });
-    else run("space.new", { folder: `${this.root}/${name}` });
+    else {
+      // A new space shows at once: the split goes under its shell, in the same folder.
+      run("space.new", { folder: `${this.root}/${name}` });
+      run("pane.split", { direction: "down", argv: ["claude"] });
+    }
   }
 
   key(e, cx) {

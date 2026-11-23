@@ -126,7 +126,7 @@ Les projets Jira du dépôt sont devinés depuis les sujets de commit ; sinon le
 
 ### projects (`⌘⇧O`)
 
-Les dépôts git à la racine de `~/dev` (sans les worktrees ni `agents-worktree`) : d'abord ceux ouverts récemment, puis les autres par date de dernier commit. Taper filtre sur le nom, `↵` ouvre un space sur le dépôt, ou va au space déjà ouvert dessus (marqué « ouvert »).
+Les dépôts git à la racine de `~/dev` (sans les worktrees ni `agents-worktree`) : d'abord ceux ouverts récemment, puis les autres par date de dernier commit. Taper filtre sur le nom, `↵` ouvre un space sur le dépôt (un shell en haut, Claude en dessous), ou va au space déjà ouvert dessus (marqué « ouvert »).
 
 ### Panneau PR
 
