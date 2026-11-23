@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseRepos, parseCommits, parseRecent, repoOfFolder, stamp, order, filter, openSpaceFor } from "./lib.js";
+import { parseRepos, parseCommits, repoOfFolder, stamp, markOpened, order, filter, spaceRepo, openSpaceFor } from "./lib.js";
 
 const roots = ["/Users/jc/dev", "/Volumes/sourcecode"];
 
@@ -10,12 +10,7 @@ test("parseRepos keeps repo names, sorted, without agents-worktree", () => {
 
 test("parseCommits turns seconds into ms and skips lines without a date", () => {
   assert.deepEqual(parseCommits("arthur 1700000000\nempty \n"), { arthur: 1700000000000 });
-});
-
-test("parseRecent reads the folders of view.json, empty when unreadable", () => {
-  assert.deepEqual(parseRecent('{"recent":[{"name":"","folder":"/Volumes/sourcecode/arthur"}]}'), ["/Volumes/sourcecode/arthur"]);
-  assert.deepEqual(parseRecent(""), []);
-  assert.deepEqual(parseRecent("{"), []);
+  assert.deepEqual(parseCommits("my repo 1700000000\n"), { "my repo": 1700000000000 });
 });
 
 test("repoOfFolder matches under either root, never a longer name", () => {
@@ -30,6 +25,7 @@ test("repoOfFolder matches under either root, never a longer name", () => {
 test("order puts recent first, then by last commit, then by name", () => {
   assert.deepEqual(order(["a", "b", "c", "d"], { c: 2, a: 1 }, { b: 5, d: 9 }), ["c", "a", "d", "b"]);
   assert.deepEqual(order(["z", "y", "x"], {}, { x: 1 }), ["x", "y", "z"]);
+  assert.deepEqual(order(["b", "QA_x", "a"], {}, {}), ["a", "b", "QA_x"]);
 });
 
 test("filter is case-insensitive, prefix matches first", () => {
@@ -37,6 +33,7 @@ test("filter is case-insensitive, prefix matches first", () => {
   assert.deepEqual(filter(l, "ART"), ["arthur", "xarthur"]);
   assert.deepEqual(filter(l, ""), l);
   assert.deepEqual(filter(l, "zzz"), []);
+  assert.deepEqual(filter(["arthur-jobs", "arthur"], "Arthur"), ["arthur", "arthur-jobs"]);
 });
 
 test("stamp copies the map with the names set to now", () => {
@@ -45,10 +42,27 @@ test("stamp copies the map with the names set to now", () => {
   assert.deepEqual(before, { a: 1 });
 });
 
+test("markOpened stamps only the repos open now and not open last time", () => {
+  const before = { a: 1, b: 2 };
+  assert.deepEqual(markOpened(before, ["a"], ["a", "b", "c"], 9), { a: 1, b: 9, c: 9 });
+  assert.deepEqual(before, { a: 1, b: 2 });
+  assert.deepEqual(markOpened({ a: 1 }, ["a"], ["a"], 9), { a: 1 });
+});
+
+test("spaceRepo is the repo of the space's first terminal", () => {
+  const names = new Set(["arthur", "blaise"]);
+  const space = { id: "s", tabs: [{ id: "t1" }, { id: "t2" }] };
+  const panes = [{ tab: "t2", cwd: "/Volumes/sourcecode/blaise" }, { tab: "t1", cwd: "/Users/jc/dev/arthur/core" }, { tab: "t1", cwd: "/Volumes/sourcecode/blaise" }];
+  assert.equal(spaceRepo(space, panes, roots, names), "arthur");
+  assert.equal(spaceRepo(space, [{ tab: "t1", cwd: "/Users/jc" }], roots, names), null);
+});
+
 test("openSpaceFor finds a local space with a pane in the repo", () => {
   const panes = [{ tab: "t2", cwd: "/Volumes/sourcecode/arthur/core" }];
   const spaces = [{ id: "s1", tabs: [{ id: "t1" }] }, { id: "s2", tabs: [{ id: "t2" }] }];
   assert.equal(openSpaceFor("arthur", roots, panes, spaces), "s2");
   assert.equal(openSpaceFor("arthur", roots, panes, [spaces[0], { ...spaces[1], machine: "vps" }]), null);
   assert.equal(openSpaceFor("arthur", roots, [{ tab: "t2", cwd: "/Volumes/sourcecode/arthur-prisca" }], spaces), null);
+  // A second pane cd'd into another repo does not make the space that repo's.
+  assert.equal(openSpaceFor("blaise", roots, [...panes, { tab: "t2", cwd: "/Volumes/sourcecode/blaise" }], spaces), null);
 });

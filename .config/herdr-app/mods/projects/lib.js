@@ -13,19 +13,10 @@ export function parseRepos(stdout) {
 export function parseCommits(stdout) {
   const out = {};
   for (const l of lines(stdout)) {
-    const [name, at] = l.split(/\s+/);
-    if (name && /^\d+$/.test(at ?? "")) out[name] = Number(at) * 1000;
+    const m = l.match(/^(.+) (\d+)$/); // the name may hold spaces, the date is the last word
+    if (m) out[m[1]] = Number(m[2]) * 1000;
   }
   return out;
-}
-
-// Herdr's recently closed spaces, from view.json.
-export function parseRecent(json) {
-  try {
-    return (JSON.parse(json)?.recent ?? []).map((r) => r?.folder).filter((f) => typeof f === "string");
-  } catch {
-    return [];
-  }
 }
 
 // ~/dev is a symlink: Herdr reports folders under its real path, so every root is tried.
@@ -44,13 +35,21 @@ export function stamp(recent, names, now) {
   return out;
 }
 
+// The repos open now that were not open the last time the picker looked: they were opened since.
+export function markOpened(recent, wasOpen, nowOpen, now) {
+  const was = new Set(wasOpen);
+  return stamp(recent, nowOpen.filter((n) => !was.has(n)), now);
+}
+
 export function order(names, recent, commits) {
   const by = (a, b) => (b ?? -1) - (a ?? -1);
   return [...names].sort((a, b) => {
     const r = by(recent[a], recent[b]);
     if (r) return r;
     if (recent[a] == null) { const c = by(commits[a], commits[b]); if (c) return c; }
-    return a.localeCompare(b);
+    // Not localeCompare: Herdr's QuickJS compares code points there, uppercase first.
+    const x = a.toLowerCase(), y = b.toLowerCase();
+    return x < y ? -1 : x > y ? 1 : 0;
   });
 }
 
@@ -58,15 +57,18 @@ export function filter(names, query) {
   const q = query.trim().toLowerCase();
   if (!q) return names;
   const hits = names.filter((n) => n.toLowerCase().includes(q));
-  return [...hits.filter((n) => n.toLowerCase().startsWith(q)), ...hits.filter((n) => !n.toLowerCase().startsWith(q))];
+  const rank = (n) => (n.toLowerCase() === q ? 0 : n.toLowerCase().startsWith(q) ? 1 : 2);
+  return [0, 1, 2].flatMap((r) => hits.filter((n) => rank(n) === r));
+}
+
+// A space's repo is where its first terminal is, as Herdr names it: another pane cd'd elsewhere does not count.
+export function spaceRepo(space, panes, roots, names) {
+  const first = panes.find((p) => p.tab === space.tabs[0]?.id && p.cwd);
+  return first ? repoOfFolder(first.cwd, roots, names) : null;
 }
 
 export function openSpaceFor(name, roots, panes, spaces) {
   const names = new Set([name]);
-  for (const s of spaces) {
-    if (s.machine) continue; // only this computer's ~/dev
-    const tabs = new Set(s.tabs.map((t) => t.id));
-    if (panes.some((p) => tabs.has(p.tab) && p.cwd && repoOfFolder(p.cwd, roots, names))) return s.id;
-  }
-  return null;
+  // only this computer's ~/dev
+  return spaces.find((s) => !s.machine && spaceRepo(s, panes, roots, names))?.id ?? null;
 }

@@ -48,6 +48,7 @@ Les terminaux tournent dans **herdr-core** (`hc`), pas dans la fenêtre : fermer
 |---|---|
 | `⌘⇧P` | Palette de commandes (tout ce que Herdr sait faire) |
 | `⌘P` | Picker : aller à un tab, un space ou un agent (ceux qui t'attendent en premier ; `⌃D` ferme le tab sélectionné) |
+| `⌘⇧O` | **projects** : ouvrir un space sur un dépôt de `~/dev` (ou aller à celui déjà ouvert) |
 | `⌘⇧J` | **start-work** : démarrer un ticket Jira / une issue, ou reprendre une PR, dans un worktree avec Claude (§4) |
 | `⌘⇧R` | Ouvrir / fermer le **panneau Pull request** (§4) |
 | `⌘⇧U` | Ouvrir / fermer le **panneau Surveillance des PR** (§4) ; ouvert, il prend le clavier : ↑/↓, Entrée (agent ou PR), `p` (pause), `t` (worktree), Échap |
@@ -109,7 +110,7 @@ Les terminaux tournent dans **herdr-core** (`hc`), pas dans la fenêtre : fermer
 
 ## 4. Nos mods
 
-Chaque mod a son README avec le détail et les arbres de décision : [`start-work`](mods/start-work/README.md), [`pr`](mods/pr/README.md), [`journal`](mods/journal/README.md), [`status-jc`](mods/status-jc/README.md) (dont la surveillance des PR), [`spaces-jc`](mods/spaces-jc/README.md), [`tabs-jc`](mods/tabs-jc/README.md). La structure du layout `jc` est dans [`layouts/README.md`](layouts/README.md).
+Chaque mod a son README avec le détail et les arbres de décision : [`start-work`](mods/start-work/README.md), [`projects`](mods/projects/README.md), [`pr`](mods/pr/README.md), [`journal`](mods/journal/README.md), [`status-jc`](mods/status-jc/README.md) (dont la surveillance des PR), [`spaces-jc`](mods/spaces-jc/README.md), [`tabs-jc`](mods/tabs-jc/README.md). La structure du layout `jc` est dans [`layouts/README.md`](layouts/README.md).
 
 ### start-work (`⌘⇧J`)
 
@@ -122,6 +123,10 @@ Depuis un terminal dans un dépôt :
 5. Une PR (`#5471`) se reprend toujours sur sa propre branche, sans prompt. Une PR venant d'un fork ne marche pas (sa branche n'est pas sur `origin`).
 
 Les projets Jira du dépôt sont devinés depuis les sujets de commit ; sinon les nommer dans `mods/start-work/config.json` : `{"jira": {"arthur": ["MERLIN"]}}`.
+
+### projects (`⌘⇧O`)
+
+Les dépôts git à la racine de `~/dev` (sans les worktrees ni `agents-worktree`) : d'abord ceux ouverts récemment, puis les autres par date de dernier commit. Taper filtre sur le nom, `↵` ouvre un space sur le dépôt, ou va au space déjà ouvert dessus (marqué « ouvert »).
 
 ### Panneau PR
 
