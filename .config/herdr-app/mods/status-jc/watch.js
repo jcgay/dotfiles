@@ -58,6 +58,33 @@ export function markers(comments, me) {
   return found;
 }
 
+// My pr-risk verdict: how many humans it asks for and the head it judged (its 2nd line, null on older comments).
+export function riskOf(comments, me) {
+  const body = (comments ?? []).find((c) => c.author?.login === me && (c.body ?? "").startsWith("<!-- pr-risk -->"))?.body;
+  if (body == null) return null;
+  const humans = /^## PR risk: .* · (\d+) human review/m.exec(body)?.[1];
+  return { humans: humans == null ? null : Number(humans), sha: /^<!-- pr-risk-head: ([0-9a-f]{40}) -->$/m.exec(body)?.[1] ?? null };
+}
+
+// No human review asked, by a verdict on the head's code: it stands for the approval (squash, appr), never for the merge.
+// A human who requested changes still blocks: the fixups are theirs to read.
+export const noHuman = (s) => s.risk?.humans === 0 && s.risk.onHead === true && !s.changesRequested;
+
+// A 0-human verdict on other code is not done: pr-risk runs again, unless a human approved (it then decides nothing).
+// A 1- or 2-human verdict waits for a human anyway: it is not run again.
+export const staleRisk = (s) => s.risk?.humans === 0 && s.risk.onHead === false && !s.approved;
+
+// same: the verdict's commit has the head's tree (true, false, null when gh could not tell). A stale verdict trades its
+// marker for "pr-risk-stale": decide() runs pr-risk again, closing() waits for that agent to stop before closing its tab.
+export function withRiskTree(s, same) {
+  const next = { ...s, risk: { ...s.risk, onHead: same } };
+  if (!staleRisk(next) || !s.markers.has("pr-risk")) return next;
+  const markers = new Set(s.markers);
+  markers.delete("pr-risk");
+  markers.add("pr-risk-stale");
+  return { ...next, markers };
+}
+
 const SONAR = /^Sonar(Cloud|Qube) Code Analysis$/;
 
 // How long the CI checks with timestamps (GitHub Actions…) took on this head, Sonar aside: first start to last end,
@@ -69,6 +96,7 @@ export function ciTook(rollup) {
 }
 
 export function signalsOf(view, checkRuns, me) {
+  const risk = riskOf(view.comments, me);
   const all = checks(view.statusCheckRollup);
   const builds = all.map((c) => ({ c, b: jenkinsBuild(c.url) })).filter((x) => x.b);
   const build = builds.find((x) => x.c.state === "ko") ?? builds[0];
@@ -83,7 +111,7 @@ export function signalsOf(view, checkRuns, me) {
   return {
     key: `${view.repo}#${view.number}`, repo: view.repo, number: view.number, url: view.url, title: view.title,
     branch: view.headRefName, head: view.headRefOid, draft: Boolean(view.isDraft), base: view.baseRefName,
-    approved: view.reviewDecision === "APPROVED", fixups: fixups(view.commits),
+    approved: view.reviewDecision === "APPROVED", changesRequested: view.reviewDecision === "CHANGES_REQUESTED", fixups: fixups(view.commits),
     conflict: { CONFLICTING: true, MERGEABLE: false }[view.mergeable] ?? null, // null: GitHub is still computing it
     jenkins: build && { state: build.c.state, url: build.c.url, ...build.b },
     sonar,
@@ -92,6 +120,7 @@ export function signalsOf(view, checkRuns, me) {
     failing: all.some((c) => c.state === "ko"),
     reported: all.length > 0 || (checkRuns ?? []).length > 0,
     markers: markers([...(view.comments ?? []), ...(view.reviews ?? [])], me),
+    risk: risk && { ...risk, onHead: risk.sha === view.headRefOid ? true : null }, // watcher.js compares the trees otherwise
     error: null,
   };
 }
@@ -147,7 +176,8 @@ export function holdingTabs(tabs, markersOf) {
   }).map((t) => t.name);
 }
 
-// What to close this round ([{ cmd, args }]): the tab of a CLOSES step whose agent stopped and whose PR has its marker or left
+// What to close this round ([{ cmd, args }]): the tab of a CLOSES step whose agent stopped and whose PR has its marker (or its
+// stale marker, agent done or idle) or left
 // the round (merged, closed), or of a CLOSES_DONE step whose agent finished (done or idle: null is not started yet), or its
 // space when that tab is the space's only one. Never the tab I am looking at, nor one
 // I split. args are confirmed: Herdr asks before closing a space, and nobody is there to answer.
@@ -159,7 +189,9 @@ export function closing(spaces, markersOf) {
     if (CLOSES_DONE.includes(m[2])) return ["done", "idle"].includes(t.status);
     if (!CLOSES.includes(m[2]) || ["working", "blocked"].includes(t.status)) return false;
     const found = markersOf(Number(m[1]), sp.folder);
-    return found === undefined || (found?.has(m[2]) ?? false);
+    // A verdict posted on code that moved since (pr-risk-stale): its agent stopped, decide() then runs pr-risk again.
+    // Not before: a pr-risk just launched on the stale verdict has no status yet.
+    return found === undefined || (found?.has(m[2]) ?? false) || (Boolean(found?.has(`${m[2]}-stale`)) && ["done", "idle"].includes(t.status));
   }).map((t) => (sp.tabs.length === 1 ? { cmd: "space.close", args: { id: sp.id, confirmed: true } } : { cmd: "tab.close", args: { id: t.id, confirmed: true } })));
 }
 
@@ -296,8 +328,8 @@ export function decide(s, entry, tab, ctx) {
       if (s.failing) { e.blocker = null; return out(LABELS.yours, "un check en échec que la surveillance ne corrige pas (ni Jenkins ni Sonar)", null, toast); }
       if (!s.reported && ctx.hasCi) return out(LABELS.waiting, "aucun check sur ce commit : attente de la CI du repo");
       step = REVIEW.find((r) => (r !== "qa" || ctx.hasQa) && (r !== "pr-demo" || ctx.hasDemo) && !s.markers.has(r) && !silent.includes(r));
-      // Fixups stay for the reviewers' "changes since last review" until a human approves.
-      if (!step && s.approved && s.fixups) {
+      // Fixups stay for the reviewers' "changes since last review" until a human approves, or pr-risk asks for none.
+      if (!step && (s.approved || noHuman(s)) && s.fixups) {
         if ((e.attempts.squash ?? 0) >= BUDGET) refuse("squash", `commits fixup! encore là après ${BUDGET} squashs`);
         else step = "squash";
       }
@@ -307,7 +339,7 @@ export function decide(s, entry, tab, ctx) {
       const ci = s.reported ? "CI verte" : ctx.hasCi ? "aucun check" : "pas de CI";
       if (s.draft) return out(LABELS.draft, `${ci}, pas de review sur un brouillon`);
       const done = REVIEW.filter((r) => s.markers.has(r));
-      return out(LABELS.ok, [ci, done.length && `faits : ${done.join(", ")}`, silent.length && `fermés sans commentaire : ${silent.join(", ")}`,
+      return out(LABELS.ok, [ci, done.length && `faits : ${done.join(", ")}`, !s.approved && noHuman(s) && "pr-risk : 0 revue humaine, merge à toi", silent.length && `fermés sans commentaire : ${silent.join(", ")}`,
         !ctx.hasDemo && !s.markers.has("pr-demo") && "pas de pr-demo (pas de section ## Demo dans AGENTS.md ni CLAUDE.md)",
         !ctx.hasQa && !s.markers.has("qa") && "pas de qa (skill absent du clone)"].filter(Boolean).join(" ; "));
     }

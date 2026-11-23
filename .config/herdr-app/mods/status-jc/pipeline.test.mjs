@@ -191,3 +191,12 @@ test("karadocHolder names the tab holding karadoc", () => {
   assert.equal(karadocHolder(["⟳ #12 pr-review", "⟳ #5471 qa"], new Set([5471]), new Set([5471])), "⟳ #5471 qa");
   assert.equal(karadocHolder(["⟳ #12 pr-review"], new Set([12]), new Set([12])), null);
 });
+
+test("a 0-human pr-risk verdict on the head stands for the approval", () => {
+  const done = new Set(["pr-review", "qa", "pr-demo", "pr-risk"]);
+  const risk = (humans) => ({ humans, sha: "x", onHead: true });
+  assert.equal(band(green({ markers: done, risk: risk(0) }), {}).appr, "ok");
+  assert.equal(band(green({ markers: done, risk: risk(0), fixups: 2 }), {}).appr, "todo");
+  assert.equal(band(green({ markers: done, risk: risk(1) }), {}).appr, "wait");
+  assert.equal(band(green({ markers: done, risk: { ...risk(0), onHead: null } }), {}).appr, "wait");
+});

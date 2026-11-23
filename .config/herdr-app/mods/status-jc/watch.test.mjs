@@ -1,7 +1,7 @@
 // node --test ~/.config/herdr-app/mods/status-jc/watch.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { fixups, searchSince, sonarFindings, markers, signalsOf, checks, jenkinsBuild, decide, emptyEntry, tabName, LABELS, promptFor, repoOfRemote, undoLaunch, holdingTabs, closing, karadocHeld, checkoutBases, checkoutsOf } from "./watch.js";
+import { fixups, searchSince, sonarFindings, markers, riskOf, noHuman, withRiskTree, signalsOf, checks, jenkinsBuild, decide, emptyEntry, tabName, LABELS, promptFor, repoOfRemote, undoLaunch, holdingTabs, closing, karadocHeld, checkoutBases, checkoutsOf } from "./watch.js";
 
 // Real summaries: arthur#5458 (passed) and arthur#5449 (failed gate).
 const PASSED = `Issues  
@@ -683,4 +683,80 @@ test("decide: a check the watch gave up on is the blocker to open, gone once gre
   const given = decide(green({ jenkins: ko }), at({ attempts: { jenkins: 2, sonar: 0 } }), NO_TAB, CTX).entry;
   assert.deepEqual([given.label, given.blocker], ["à toi", { step: "jenkins", url: "https://ci.example/job/x/1/console" }]);
   assert.equal(decide(green(), given, NO_TAB, CTX).entry.blocker, null);
+});
+
+const SHA = "0123456789abcdef0123456789abcdef01234567";
+const riskBody = (humans, sha = SHA, tier = humans ? "Medium" : "Low") =>
+  `<!-- pr-risk -->\n${sha ? `<!-- pr-risk-head: ${sha} -->\n` : ""}## PR risk: ${tier} · ${humans} human review(s)\n**Reason:** x`;
+
+test("riskOf reads my pr-risk verdict: humans and the head it judged", () => {
+  const c = (login, body) => ({ author: { login }, body });
+  assert.deepEqual(riskOf([c("jcgay", riskBody(0))], "jcgay"), { humans: 0, sha: SHA });
+  assert.deepEqual(riskOf([c("jcgay", riskBody(1))], "jcgay"), { humans: 1, sha: SHA });
+  assert.deepEqual(riskOf([c("jcgay", riskBody(2, SHA, "High"))], "jcgay"), { humans: 2, sha: SHA });
+  assert.deepEqual(riskOf([c("jcgay", riskBody(0, null))], "jcgay"), { humans: 0, sha: null }, "posted before the head line");
+  assert.equal(riskOf([c("someone", riskBody(0))], "jcgay"), null, "another author's verdict");
+  assert.equal(riskOf([c("jcgay", "<!-- pr-review -->\nx")], "jcgay"), null);
+  assert.equal(riskOf(undefined, "jcgay"), null);
+});
+
+test("signalsOf: changes requested by a human", () => {
+  assert.equal(signalsOf({ repo: "o/r", reviewDecision: "CHANGES_REQUESTED" }, [], "me").changesRequested, true);
+  assert.equal(signalsOf({ repo: "o/r", reviewDecision: "REVIEW_REQUIRED" }, [], "me").changesRequested, false);
+});
+
+test("signalsOf: a verdict on the head commit is on the head, another one is unknown until its tree is compared", () => {
+  const view = (head) => ({ repo: "o/r", headRefOid: head, comments: [{ author: { login: "me" }, body: riskBody(0) }] });
+  assert.equal(signalsOf(view(SHA), [], "me").risk.onHead, true);
+  assert.equal(signalsOf(view("other"), [], "me").risk.onHead, null);
+  assert.equal(signalsOf({ repo: "o/r", headRefOid: SHA }, [], "me").risk, null);
+});
+
+test("withRiskTree: a 0-human verdict on another tree is stale unless approved", () => {
+  const s = (over = {}) => green({ markers: new Set(ALL), risk: { humans: 0, sha: SHA, onHead: null }, ...over });
+  const stale = withRiskTree(s(), false);
+  assert.deepEqual([stale.risk.onHead, stale.markers.has("pr-risk"), stale.markers.has("pr-risk-stale"), noHuman(stale)], [false, false, true, false]);
+  assert.equal(withRiskTree(s({ approved: true }), false).markers.has("pr-risk"), true, "an approved PR needs no fresh verdict");
+  assert.equal(withRiskTree(s({ risk: { humans: 1, sha: SHA, onHead: null } }), false).markers.has("pr-risk"), true, "1 human: not run again");
+  const same = withRiskTree(s(), true);
+  assert.deepEqual([same.risk.onHead, same.markers.has("pr-risk"), noHuman(same)], [true, true, true]);
+  assert.equal(noHuman(withRiskTree(s({ changesRequested: true }), true)), false, "a human asked for changes");
+  const unknown = withRiskTree(s(), null);
+  assert.deepEqual([unknown.risk.onHead, unknown.markers.has("pr-risk"), noHuman(unknown)], [null, true, false], "gh failed: as today");
+  assert.equal(noHuman(withRiskTree(s({ risk: { humans: 1, sha: SHA, onHead: null } }), true)), false);
+});
+
+test("a 0-human verdict on the head squashes without approval and ends ok, the merge stays mine", () => {
+  const risk = (humans) => ({ humans, sha: SHA, onHead: true });
+  const r = decide(green({ markers: ALL, fixups: 2, risk: risk(0) }), at(), NO_TAB, CTX);
+  assert.deepEqual([r.launch, r.entry.attempts.squash], ["squash", 1]);
+  const ok = decide(green({ markers: ALL, risk: risk(0) }), at(), NO_TAB, CTX);
+  assert.equal(ok.entry.label, LABELS.ok);
+  assert.match(ok.entry.why, /pr-risk : 0 revue humaine, merge à toi/);
+  assert.equal(decide(green({ markers: ALL, fixups: 2, risk: risk(1) }), at(), NO_TAB, CTX).launch, null, "1 human: waits");
+  assert.doesNotMatch(decide(green({ markers: ALL, approved: true, risk: risk(0) }), at(), NO_TAB, CTX).entry.why, /0 revue humaine/);
+});
+
+test("a stale verdict runs pr-risk again once, not after it stopped without posting", () => {
+  const stale = (over = {}) => withRiskTree(green({ markers: new Set(ALL), fixups: 2, risk: { humans: 0, sha: SHA, onHead: null }, ...over }), false);
+  assert.equal(decide(stale(), at(), NO_TAB, CTX).launch, "pr-risk");
+  const launched = { step: "pr-risk", head: "h1", tab: "⟳ #5462 pr-risk" };
+  assert.equal(decide(stale(), at({ launched }), DONE, CTX).entry.label, LABELS.running, "its tab holds until it closes");
+  const gone = decide(stale(), at({ launched }), NO_TAB, CTX);
+  assert.deepEqual([gone.launch, gone.entry.silent.h1], [null, ["pr-risk"]], "closed without a fresh verdict: no loop");
+  // Launched on h0, a push moved the head to h1 meanwhile: once its tab closed, pr-risk runs on h1.
+  assert.equal(decide(stale(), at({ launched: { ...launched, head: "h0" } }), NO_TAB, CTX).launch, "pr-risk");
+});
+
+test("closing: a stale pr-risk tab closes once its agent stopped, never just launched", () => {
+  const sp = (status) => [{ id: "s", folder: "/w", active: false, tabs: [{ id: "t", name: "⟳ #5462 pr-risk", panes: 1, active: false, status }, { id: "o", name: "x", panes: 1 }] }];
+  const stale = () => new Set(["pr-review", "pr-risk-stale"]);
+  assert.deepEqual(closing(sp(null), stale), [], "no status yet: just launched");
+  assert.deepEqual(closing(sp("working"), stale), []);
+  assert.deepEqual(closing(sp("idle"), stale), [{ cmd: "tab.close", args: { id: "t", confirmed: true } }]);
+});
+
+test("a stale pr-risk verdict is an undone review step", () => {
+  const s = withRiskTree(green({ markers: new Set(ALL), risk: { humans: 0, sha: SHA, onHead: null } }), false);
+  assert.match(decide(s, at({ silent: { h1: ["pr-risk"] } }), NO_TAB, CTX).entry.why, /faits : pr-review, qa, pr-demo/);
 });
