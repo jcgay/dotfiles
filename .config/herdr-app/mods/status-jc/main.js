@@ -93,12 +93,12 @@ export default class WorkspaceStatus extends View {
       } finally {
         this.watching = false;
       }
-      // null: another copy's round holds the lease. The panel's switch and pauses may have changed during the round: keep them.
+      // null: another copy's round holds the lease. The panel's switch, pauses and agent count may have changed during the round: keep them.
       if (next) {
         // paused is never pruned: the search only sees PRs updated within 7 days, a quiet paused PR would lose its pause.
         const cur = shared(WATCH);
         // running (set by round() once it holds the lease) and next: the panel's header.
-        setShared(WATCH, { ...next, on: cur?.on ?? next.on, paused: cur?.paused ?? next.paused ?? [], running: false, every: ROUND_MS, next: this.nextAt });
+        setShared(WATCH, { ...next, on: cur?.on ?? next.on, paused: cur?.paused ?? next.paused ?? [], maxAgents: cur?.maxAgents ?? next.maxAgents, running: false, every: ROUND_MS, next: this.nextAt });
       }
     });
   }

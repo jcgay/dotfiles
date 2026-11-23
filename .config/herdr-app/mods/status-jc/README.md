@@ -95,7 +95,7 @@ L'étape de revue est la première, dans l'ordre `pr-review`, `qa`, `pr-demo`, `
 
 ```mermaid
 flowchart TD
-  S["étape choisie"] --> G{"surveillance coupée, 3 agents de surveillance pris, ou karadoc pris pour pr-demo et qa ?"}
+  S["étape choisie"] --> G{"surveillance coupée, maximum d'agents de surveillance pris (3 par défaut, réglable dans le panneau pr), ou karadoc pris pour pr-demo et qa ?"}
   G -->|oui| W["en attente, ou à toi si Sonar noté à toi"]
   G -->|non| P["tentative comptée pour rebase, jenkins, sonar et squash, onglet noté"]
   P --> C{"clone local trouvé ?"}
@@ -125,7 +125,8 @@ Pas d'autre ménage : la surveillance ne supprime aucun worktree, et les onglets
   paused: ["owner/repo#N"],
   at: 1763300000000,  // début du dernier tour (ms)
   every: 120000,      // période des tours ; next : quand le minuteur lance le suivant ; running: true pendant un tour (bandeau du panneau)
-  agents: { busy: 2, max: 3 },        // agents de surveillance occupés en fin de tour
+  maxAgents: 4,                       // écrit par le panneau pr (− / +), lu en direct ; absent : 3
+  agents: { busy: 2, max: 4 },        // agents de surveillance occupés en fin de tour, max suit maxAgents
   karadoc: "⟳ #5471 qa" | null,        // l'onglet qui tient karadoc
   durations: { "agent:qa": [ms, …], "ci:jenkins": [ms, …] }, // 10 dernières durées par étape
   sonarRepos: ["owner/repo"],         // repos où Sonar a déjà rapporté : ailleurs, case sonar en pointillé
