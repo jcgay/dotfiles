@@ -195,6 +195,17 @@ export function closing(spaces, markersOf) {
   }).map((t) => (sp.tabs.length === 1 ? { cmd: "space.close", args: { id: sp.id, confirmed: true } } : { cmd: "tab.close", args: { id: t.id, confirmed: true } })));
 }
 
+// Whether the agent of a conflicted squash (pr-squash entry { state: "agent", at, tab }) is over: its tab closed, no agent
+// left in it (Claude quit, a shell remains), or done or idle, as closing() reads them. Not in the first seconds: start()
+// does not wait for its tab, and another status-jc copy may look before spaces() and agents() list it.
+// tabNames: Set of every tab name; agent: the agents() row in that tab, or undefined.
+// shortcut: tab names carry no repo, another repo's "⟳ #N squash" can stand in for this one; match on the session id if it bites
+export const SQUASH_GRACE_MS = 15000;
+export function squashAgentOver(entry, tabNames, agent, now) {
+  if (now - entry.at < SQUASH_GRACE_MS) return false;
+  return !tabNames.has(entry.tab) || !agent || ["done", "idle"].includes(agent.status);
+}
+
 // `git worktree list --porcelain` → the folders with branch checked out. The watch's own worktree is detached, a prunable
 // one no longer exists: neither is listed.
 export function checkoutsOf(porcelain, branch) {

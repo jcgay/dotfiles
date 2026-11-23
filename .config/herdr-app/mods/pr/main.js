@@ -241,6 +241,17 @@ export default class PullRequest extends View {
         .child(div().flex_1().min_w(0).truncate().child(armed.refused ? "merge refusé" : `armé${armed.why ? ` · ${armed.why}` : ""}`))
         .child(action("pr-disarm", armed.refused ? "Effacer" : "Désarmer", disarm)))
       .when(Boolean(armed.error), (e) => e.child(div().text_size(11).text_color(t.ansi1).child(armed.error)))];
+    // A pr-squash request under way: asked (status-jc has not claimed it), running, or a conflict's agent, whose line goes to its tab.
+    const squashLine = (s, id) => {
+      if (s.state !== "agent") return div().child(s.state === "asked" ? "squash demandé…" : "squash en cours…");
+      const goAgent = (_e, cx) => {
+        cx.stop_propagation();
+        const terminal = panes().find((p) => p.pane === agents().find((a) => a.tab_name === s.tab)?.pane)?.terminal;
+        if (terminal) run("agent.focus", { terminal });
+      };
+      return div().id(id).cursor_pointer().hover((x) => x.text_color(t.accent)).tooltip("Aller à l'agent").on_click(goAgent)
+        .child("conflit : un agent squash le résout…");
+    };
     // Squash: status-jc (mods/status-jc/squasher.js) folds the fixup! commits on a click; its watch does it alone once approved.
     // The regex is watch.js's FIXUP: Herdr refuses imports from another mod's folder.
     const fixes = (pr?.commits ?? []).filter((c) => /^(fixup|amend|squash)! /.test(c.messageHeadline ?? "")).length;
@@ -250,7 +261,7 @@ export default class PullRequest extends View {
     const squashRow = mergeKey && pr.state === "OPEN" && ["Squash", v_flex().gap(3)
       .child(h_flex().gap(8).items_center()
         .child(dot(squashing ? "running" : !fixes ? "ok" : approved ? "ko" : "idle", fixes && approved && !squashing ? t.blocked : null))
-        .child(div().flex_1().min_w(0).truncate().child(squashing ? "squash en cours…" : !fixes ? "rien à squasher"
+        .child(div().flex_1().min_w(0).truncate().child(squashing ? squashLine(squash, "squash-line") : !fixes ? "rien à squasher"
           // The merge button waits for the squash (canArm): say it here, or it just looks missing.
           : `${fixes} commit${fixes > 1 ? "s" : ""} fixup! à squasher${!approved && auto ? " · auto après approbation" : ""}${!pr.isDraft && !armed ? " · merge après le squash" : ""}`))
         .when(fixes > 0 && !squashing, (r) => r.child(guarded("pr-squash", "Squasher", "Confirmer le push forcé",
@@ -423,6 +434,8 @@ export default class PullRequest extends View {
         .when(Boolean(merges[k]?.refused && merges[k]?.error), (e) => e.child(div().text_size(11).text_color(t.ansi1).child(`merge refusé : ${merges[k].error}`)))
         .when(Boolean(entry.error), (e) => e.child(div().text_size(11).text_color(t.ansi1).child(entry.error)))
         .when(pending(k), (e) => e.child(div().text_size(11).text_color(t.dim).child("ouverture…")))
+        .when(Boolean(squashes[k]) && squashes[k].state !== "error", (e) => e.child(squashLine(squashes[k], `squash-line-${k}`)))
+        .when(squashes[k]?.state === "error", (e) => e.child(div().text_size(11).text_color(t.ansi1).child(`squash refusé : ${squashes[k].error}`)))
         .when(Boolean(opens[k]?.error) && !pending(k), (e) => e.child(div().text_size(11).text_color(t.ansi1).child(opens[k].error)));
     };
     // The view's own registry: status-jc rewrites pr-watch every round and would drop it.

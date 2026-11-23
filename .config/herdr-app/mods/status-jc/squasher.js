@@ -1,7 +1,7 @@
 // The PR panel's squash button: it writes { state: "asked" } in shared("pr-squash"), this folds the PR's fixup! commits in its
 // watch worktree with git alone (autosquash), and only on a conflict opens a "⟳ #N squash" agent tab.
-import { spaces, shared, setShared } from "herdr";
-import { tabName, promptFor } from "./watch.js";
+import { spaces, agents, shared, setShared } from "herdr";
+import { tabName, promptFor, squashAgentOver } from "./watch.js";
 import { findClone, prepareWorktree, autosquash, start, sh } from "./watcher.js";
 
 const SQUASH = "pr-squash";
@@ -18,6 +18,11 @@ const setEntry = (key, entry) => {
 export async function squashRound(id) {
   const now = Date.now(), all = shared(SQUASH) ?? {};
   for (const [k, e] of Object.entries(all)) if (e.state === "error" && now - e.at > ERROR_MS) setEntry(k, null);
+  // A conflict's agent keeps the request until it is over (watch.js squashAgentOver).
+  const tabs = new Set(spaces().flatMap((sp) => sp.tabs.map((t) => t.name)));
+  for (const [k, e] of Object.entries(all)) {
+    if (e.state === "agent" && squashAgentOver(e, tabs, agents().find((a) => a.tab_name === e.tab), now)) setEntry(k, null);
+  }
   const [key] = Object.entries(all).find(([, e]) => e.state === "asked" || (e.state === "running" && now - e.at > DEAD_MS)) ?? [];
   if (!key) return;
   // Claimed before any await: copies share one single-threaded runtime.
@@ -36,9 +41,11 @@ export async function squashRound(id) {
     const wt = await prepareWorktree(clone, repo, s.branch);
     if (wt.busy) throw new Error(`tu travailles sur ${s.branch} dans ${wt.busy.split("/").pop()} (non poussé)`);
     if (wt.dirty) throw new Error("le worktree de surveillance a du travail non poussé");
+    if (await autosquash(wt.path, s)) return setEntry(key, null);
     // shortcut: this agent's session is not kept in entry.sessions (the watch round owns them), so the git cell cannot reopen it; record it when that is wanted
-    if (!(await autosquash(wt.path, s))) start(wt.path, tabName(s.number, "squash"), promptFor("squash", s));
-    setEntry(key, null);
+    const tab = tabName(s.number, "squash");
+    start(wt.path, tab, promptFor("squash", s));
+    setEntry(key, { state: "agent", at: Date.now(), tab });
   } catch (e) {
     setEntry(key, { state: "error", at: Date.now(), error: e?.message ?? String(e) });
   }
