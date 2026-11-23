@@ -44,3 +44,7 @@ Thumbs.db
 .java-version
 
 **/.claude/settings.local.json
+
+## playwright-cli page snapshots #
+##################################
+.playwright-cli/
