@@ -36,6 +36,7 @@ export async function squashRound(id) {
     const wt = await prepareWorktree(clone, repo, s.branch);
     if (wt.busy) throw new Error(`tu travailles sur ${s.branch} dans ${wt.busy.split("/").pop()} (non poussé)`);
     if (wt.dirty) throw new Error("le worktree de surveillance a du travail non poussé");
+    // shortcut: this agent's session is not kept in entry.sessions (the watch round owns them), so the git cell cannot reopen it; record it when that is wanted
     if (!(await autosquash(wt.path, s))) start(wt.path, tabName(s.number, "squash"), promptFor("squash", s));
     setEntry(key, null);
   } catch (e) {

@@ -176,7 +176,7 @@ export async function autosquash(path, s) {
 }
 
 // A background launch: focus false keeps the user where they are. session: the Claude session id, so the PR panel can resume it.
-export function start(path, name, task, session) {
+export function start(path, name, task, session = randomUUID()) {
   const argv = ["claude", "--session-id", session];
   const space = spaces().find((s) => !s.machine && s.folder === path);
   if (space) run("tab.new", { space: space.id, folder: path, name, argv, task, focus: false });
