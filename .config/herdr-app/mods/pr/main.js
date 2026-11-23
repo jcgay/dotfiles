@@ -309,7 +309,8 @@ export default class PullRequest extends View {
     const paused = reg?.paused ?? [];
     // A row's small button; its click must not reach the row, whose own click opens the PR or its agent.
     const rowButton = (id, tip, onClick) => h_flex().id(id).min_w(24).h(24).px(3).gap(2).flex_none().items_center().justify_center().rounded(5)
-      .text_color(t.dim).cursor_pointer().hover((s) => s.bg(t.hover).text_color(t.foreground))
+      // t.muted at rest: t.dim fell under 3:1 for a control on the dark theme at 1x.
+      .text_color(t.muted).cursor_pointer().hover((s) => s.bg(t.hover).text_color(t.foreground))
       .tooltip(tip).accessibility_label(tip).on_click((_e, cx) => { cx.stop_propagation(); onClick(cx); });
     const togglePause = (k) => {
       // A pause touched by hand is the user's now: the opening no longer lifts it on close.
@@ -335,7 +336,7 @@ export default class PullRequest extends View {
         .when(missing, (e) => e.opacity(0.4))
         .when(shown, (e) => e.text_color(t.foreground))
         // ⌨ has no glyph in the panel's font: workspace-chrome's terminal icon instead.
-        .child(svg("mods/workspace-chrome/terminal.svg").size(14).text_color(shown ? t.foreground : t.dim)).when(shown, (e) => e.child(div().size(4).rounded(2).bg(t.done)));
+        .child(svg("mods/workspace-chrome/terminal.svg").size(14).text_color(shown ? t.foreground : t.muted)).when(shown, (e) => e.child(div().size(4).rounded(2).bg(t.done)));
     };
     // The row's actions, as verbs under it when they apply: the same requests as the Pull request panel; status-jc does the squash and the merge.
     // Ready for review: the round it asks starts the reviews without waiting.
