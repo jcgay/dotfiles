@@ -147,6 +147,8 @@ Pas d'autre ménage : la surveillance ne supprime aucun worktree, et les onglets
       clock: { step, since, readyAt } | { yours: true } | null, // étape en cours, prête à approuver vers
       fixups, draft, approved,                // pour Squasher (une fois approuvée) et Merger quand tout est vert du panneau
       work: { folder, exists } | null,        // dossier qu'ouvrirait ⌨ (null : pas de clone)
+      blocker: { step, url } | null,          // check abandonné (jenkins : sa console, sonar : son analyse), ouvert par le clic du panneau sur une PR à toi
+      errorRounds,                            // tours d'affilée où GitHub n'a pas pu lire la PR
     },
   },
 }

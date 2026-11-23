@@ -27,7 +27,7 @@ const STATE_HELP = {
   skip: "jamais fait dans ce dépôt",
 };
 const LABEL_HELP = {
-  "à toi": "la surveillance a besoin de toi : la raison est sous la ligne",
+  "à toi": "la surveillance a besoin de toi : la raison est sous la ligne ; un clic ouvre le log Jenkins ou l'analyse Sonar en cause",
   erreur: "GitHub n'a pas pu lire la PR",
   "pas de clone local": "aucun clone du dépôt sur ce Mac : aucun agent ne peut être lancé",
   "agent en cours": "un agent travaille sur la PR ; clic pour aller à son onglet",
@@ -300,7 +300,12 @@ export default class PullRequest extends View {
     const look = (l) => looks[l] ?? [t.dim, "idle"];
     // A label this table lacks (renamed in status-jc, which the panel cannot import) goes last.
     const rank = (l) => { const i = Object.keys(looks).indexOf(l); return i < 0 ? Infinity : i; };
+    // A « à toi » PR whose check the watch gave up on opens what blocks it (status-jc's entry.blocker): the Jenkins
+    // console or the Sonar analysis. Otherwise its agent's tab, else the PR.
+    const blocked = (entry) => entry.label === "à toi" && entry.blocker?.url ? entry.blocker : null;
+    const BLOCKER_VERB = { jenkins: "Ouvrir le log Jenkins", sonar: "Ouvrir l'analyse Sonar" };
     const open = (entry) => {
+      if (blocked(entry)) return exec("open", [entry.blocker.url]);
       const agent = entry.launched && agents().find((a) => a.tab_name === entry.launched.tab);
       const terminal = agent && panes().find((p) => p.pane === agent.pane)?.terminal;
       if (terminal) run("agent.focus", { terminal }); else exec("open", [entry.url]);
@@ -345,6 +350,7 @@ export default class PullRequest extends View {
       const can = rowActions(entry, merges[k], squashes[k]);
       const disarm = () => { const { [k]: _, ...rest } = shared("pr-merge") ?? {}; setShared("pr-merge", rest); };
       return [
+        blocked(entry) && action(`blocker-${k}`, BLOCKER_VERB[entry.blocker.step] ?? "Ouvrir le check en échec", () => exec("open", [entry.blocker.url])),
         isDraft(entry) && action(`ready-${k}`, "Passer prête pour review",
           (cx) => this.act(cx, "Passage en revue", ["gh", "pr", "ready", entry.url], { timeout: 30000 }, askRound)),
         can.squash && guarded(`squash-${k}`, `Squasher ${entry.fixups} fixup!`, "Confirmer le push forcé",
@@ -400,10 +406,14 @@ export default class PullRequest extends View {
       const picked = keyboard && k === this.sel;
       return v_flex().id(`watch-${k}`).gap(2).rounded(8).px(8).py(7).cursor_pointer().hover((s) => s.bg(t.hover).border_color(picked ? t.accent : t.hover))
         .border_1().border_color(picked ? t.accent : t.background).when(picked, (e) => e.bg(t.hover))
-        .tooltip(folded && entry.title ? entry.title : entry.launched ? "Aller à l'agent" : "Ouvrir la PR").on_click(() => open(entry))
+        .tooltip(blocked(entry) ? BLOCKER_VERB[entry.blocker.step] ?? "Ouvrir le check en échec" : folded && entry.title ? entry.title : entry.launched ? "Aller à l'agent" : "Ouvrir la PR")
+        .on_click(() => open(entry))
         .child(h_flex().gap(6).items_center()
           .child(div().text_size(12).font_semibold().child(repo.split("/").pop()))
-          .child(div().text_size(12).text_color(t.dim).child(`#${number}`))
+          // The number always opens the PR, also on a row whose click opens its blocker.
+          .child(h_flex().id(`num-${k}`).h(20).px(4).items_center().rounded(4).text_size(12).text_color(t.dim).cursor_pointer().hover((s) => s.bg(t.hover).text_color(t.accent))
+            .tooltip("Ouvrir la PR").accessibility_label(`Ouvrir la PR #${number}`)
+            .on_click((_e, cx) => { cx.stop_propagation(); exec("open", [entry.url]); }).child(`#${number}`))
           .child(div().flex_1())
           .child(work(k, entry.work)).child(pause(k)).child(chip(entry.label ?? "", color).tooltip(LABEL_HELP[entry.label] ?? "")))
         .when(Boolean(entry.title) && !folded, (e) => e.child(div().text_size(12).text_color(t.muted).truncate().child(entry.title)))
@@ -453,7 +463,7 @@ export default class PullRequest extends View {
         ["actions", "sous une PR quand elles servent : passer prête pour review (et lancer un tour), squasher les fixup! (push forcé : un second clic confirme), merger quand tout est vert (rebase and merge dès que tous les checks passent) ou désarmer"],
         [svg("mods/workspace-chrome/terminal.svg").size(14).text_color(t.dim), "ouvre un space Claude dans le worktree de la PR (une PR prête est mise en pause tant qu'il est ouvert)"],
         [h_flex().gap(4).child(svg("mods/pr/pause.svg").size(13).text_color(t.dim)).child(svg("mods/pr/play.svg").size(13).text_color(t.dim)), "met en pause ou reprend : rien n'est lancé sur une PR en pause"],
-        ["clic", "sur une ligne : l'agent qui y travaille, sinon la PR sur GitHub ; sur une case d'agent : rouvre sa dernière session Claude"],
+        ["clic", "sur une ligne : le log Jenkins ou l'analyse Sonar d'une PR « à toi », sinon l'agent qui y travaille, sinon la PR ; sur le numéro : la PR ; sur une case d'agent : rouvre sa dernière session Claude"],
       ]))
       .child(div().pt(4).text_color(t.dim).child("Survole un statut ou un bouton pour son détail."));
 

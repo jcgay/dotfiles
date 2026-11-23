@@ -663,3 +663,24 @@ test("decide: a read error says why it failed and counts its rounds", () => {
   assert.equal(r.entry.why, "lecture de la PR sur GitHub impossible : connexion gh expirée, lance gh auth status");
   assert.equal(r.entry.errorRounds, 2);
 });
+
+test("jenkinsConsole: the build's console from its check URL", async () => {
+  const { jenkinsConsole } = await import("./watch.js");
+  assert.equal(jenkinsConsole("https://ci.example/job/a/job/b%2Fc/57/display/redirect"), "https://ci.example/job/a/job/b%2Fc/57/console");
+  assert.equal(jenkinsConsole("https://ci.example/job/a/57/"), "https://ci.example/job/a/57/console");
+  assert.equal(jenkinsConsole("https://github.com/o/r/runs/1"), null);
+  assert.equal(jenkinsConsole(undefined), null);
+});
+
+test("decide: no Sonar blocker when another failing check is what the row names", () => {
+  const sonarIssues = { state: "ko", failed: false, url: "https://sonar/x" };
+  const r = decide(green({ sonar: sonarIssues, failing: true }), at({ attempts: { jenkins: 0, sonar: 2 } }), NO_TAB, CTX).entry;
+  assert.deepEqual([r.label, r.blocker], ["à toi", null]);
+});
+
+test("decide: a check the watch gave up on is the blocker to open, gone once green", () => {
+  const ko = { ...jenkinsKo, url: "https://ci.example/job/x/1/display/redirect" };
+  const given = decide(green({ jenkins: ko }), at({ attempts: { jenkins: 2, sonar: 0 } }), NO_TAB, CTX).entry;
+  assert.deepEqual([given.label, given.blocker], ["à toi", { step: "jenkins", url: "https://ci.example/job/x/1/console" }]);
+  assert.equal(decide(green(), given, NO_TAB, CTX).entry.blocker, null);
+});

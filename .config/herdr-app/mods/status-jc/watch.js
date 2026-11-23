@@ -7,6 +7,12 @@ export function searchSince(now) {
 
 // jenkinsBuild and checks are copied from mods/pr/model.js: Herdr refuses imports from another mod's folder.
 // A Jenkins build URL → { jobPath, number } for `jk run view`, or null.
+// The console of a Jenkins build from its check URL (…/job/a/job/b/57/display/redirect → …/job/a/job/b/57/console), or null.
+export function jenkinsConsole(url) {
+  const m = /^(https?:\/\/[^/]+(?:\/job\/[^/]+)+\/\d+)(?:\/|$)/.exec(url ?? "");
+  return m ? `${m[1]}/console` : null;
+}
+
 export function jenkinsBuild(url) {
   const m = /^https?:\/\/[^/]+((?:\/job\/[^/]+)+)\/(\d+)(?:\/|$)/.exec(url ?? "");
   if (!m) return null;
@@ -192,6 +198,8 @@ export function decide(s, entry, tab, ctx) {
   }
   e.error = null;
   e.errorRounds = 0;
+  // blocker: what to open when the watch gave up on a check (the panel's click on a « à toi » row), else null.
+  e.blocker = null;
   e.seen = { jenkins: false, sonar: false, ...e.seen };
   for (const c of ["jenkins", "sonar"]) if (s[c]) e.seen[c] = true;
   // A check this PR had but the head lacks has not reported yet: wait, as for a running one.
@@ -248,6 +256,8 @@ export function decide(s, entry, tab, ctx) {
   let yours = null; // why the PR is mine, when the watch gives up on a check
   const refuse = (c, why) => {
     yours = why;
+    const url = c === "jenkins" ? jenkinsConsole(s.jenkins?.url) : c === "sonar" ? s.sonar?.url ?? null : null;
+    if (url) e.blocker = { step: c, url };
     if (!e.told[c]) toast = `PR #${s.number} : ${c} à toi`;
     e.told[c] = true;
   };
@@ -282,7 +292,8 @@ export function decide(s, entry, tab, ctx) {
     }
     const silent = e.silent[s.head] ?? [];
     if (!s.draft) {
-      if (s.failing) return out(LABELS.yours, "un check en échec que la surveillance ne corrige pas (ni Jenkins ni Sonar)", null, toast);
+      // Another check blocks: a Sonar blocker kept from refuse() above would open the wrong page.
+      if (s.failing) { e.blocker = null; return out(LABELS.yours, "un check en échec que la surveillance ne corrige pas (ni Jenkins ni Sonar)", null, toast); }
       if (!s.reported && ctx.hasCi) return out(LABELS.waiting, "aucun check sur ce commit : attente de la CI du repo");
       step = REVIEW.find((r) => (r !== "qa" || ctx.hasQa) && (r !== "pr-demo" || ctx.hasDemo) && !s.markers.has(r) && !silent.includes(r));
       // Fixups stay for the reviewers' "changes since last review" until a human approves.
