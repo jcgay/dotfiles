@@ -427,6 +427,12 @@ export default class PullRequest extends View {
     };
     // The view's own registry: status-jc rewrites pr-watch every round and would drop it.
     const hideDrafts = Boolean(shared("pr-watch-view")?.hideDrafts);
+    const maxAgents = reg?.maxAgents ?? 3;
+    // From the live value: two clicks before a redraw must count twice.
+    const addMax = (d) => {
+      const cur = shared("pr-watch") ?? {}, n = (cur.maxAgents ?? 3) + d;
+      if (n >= 1 && n <= 9) setShared("pr-watch", { on: false, prs: {}, error: null, at: 0, ...cur, maxAgents: n });
+    };
     const drafts = entries.filter(([, e]) => isDraft(e)).length;
     const sorted = [...entries].filter(([, e]) => !hiddenDraft(e, hideDrafts)).sort(([, a], [, b]) => rank(a.label) - rank(b.label)); // stable: registry order within a label
     // shortcut: the selected row is not scrolled into view; with ok PRs folded the list rarely outgrows the panel.
@@ -438,7 +444,13 @@ export default class PullRequest extends View {
         .child(h_flex().id("watch-switch").h(24).gap(8).items_center().rounded(6).px(4).text_size(12).text_color(t.foreground).cursor_pointer().hover((s) => s.bg(t.hover))
           .on_click(() => setShared("pr-watch", { on: false, prs: {}, error: null, at: 0, ...reg, on: !reg?.on }))
           .child(dot(reg?.on ? "ok" : "ko")).child(div().child(reg?.on ? "Surveillance active" : "Surveillance coupée")))
-        .when(Boolean(reg?.agents), (e) => e.child(div().child(`Agents ${reg.agents.busy}/${reg.agents.max}`)))
+        // The ceiling of watch agents at once: status-jc reads pr-watch.maxAgents live, its default (3) until set here.
+        .child(h_flex().gap(2).items_center()
+          .child(rowButton("agents-less", maxAgents <= 1 ? "Minimum : 1 agent de surveillance"
+            : `Un agent de surveillance de moins (${maxAgents} au plus ; ceux en cours continuent)`, () => addMax(-1)).when(maxAgents <= 1, (e) => e.opacity(0.4)).child("−"))
+          .child(div().child(`Agents ${reg?.agents?.busy ?? 0}/${maxAgents}`))
+          .child(rowButton("agents-more", maxAgents >= 9 ? "Maximum : 9 agents de surveillance"
+            : `Un agent de surveillance de plus (${maxAgents} au plus)`, () => addMax(1)).when(maxAgents >= 9, (e) => e.opacity(0.4)).child("+")))
         .when(Boolean(reg?.agents), (e) => e.child(div().child(reg.karadoc ? `karadoc pris (${reg.karadoc.replace(/^⟳ /, "")})` : "karadoc libre")))
         .when(drafts > 0, (e) => e.child(h_flex().id("watch-drafts").h(22).px(8).items_center().rounded(11).border_1().border_color(t.border).cursor_pointer()
           .hover((s) => s.bg(t.hover)).tooltip(hideDrafts ? "Afficher les brouillons" : "Masquer les brouillons")
@@ -460,6 +472,7 @@ export default class PullRequest extends View {
       .child(legend(["ok", "run", "wait", "ko", "me", "todo", "skip"].map((s) => [cellOf(`help-${s}`, {}, "rev", s), STATE_HELP[s]])))
       .child(section("Boutons"))
       .child(legend([
+        ["− +", "règle combien d'agents de surveillance tournent à la fois (1 à 9, 3 par défaut) ; en baisser le nombre n'arrête pas ceux en cours"],
         ["actions", "sous une PR quand elles servent : passer prête pour review (et lancer un tour), squasher les fixup! (push forcé : un second clic confirme), merger quand tout est vert (rebase and merge dès que tous les checks passent) ou désarmer"],
         [svg("mods/workspace-chrome/terminal.svg").size(14).text_color(t.dim), "ouvre un space Claude dans le worktree de la PR (une PR prête est mise en pause tant qu'il est ouvert)"],
         [h_flex().gap(4).child(svg("mods/pr/pause.svg").size(13).text_color(t.dim)).child(svg("mods/pr/play.svg").size(13).text_color(t.dim)), "met en pause ou reprend : rien n'est lancé sur une PR en pause"],

@@ -28,7 +28,7 @@ feat/x → master · revue demandée à alice
 ```
 Surveillance des PR               tour dans 1 min  [rafraîchir]  ?
 ────────────────────────────────────────────────────────────
-● Surveillance active  Agents 2/3  karadoc libre
+● Surveillance active  − Agents 2/3 +  karadoc libre
 arthur #5471                         [terminal] [pause] [agent en cours]
   Ajoute l'export PDF des ordonnances
   [git][jenk][sonar][rev][qa][demo][risk][appr][merge]   ← la bande d'étapes
@@ -39,7 +39,7 @@ ordostruct #74                       [terminal] [pause] [ok]   ← une PR ok se 
 ```
 
 - **En-tête** de la Surveillance : le temps avant le prochain tour (toutes les 2 min) ; le bouton rafraîchir en demande un tout de suite. C'est son seul rafraîchissement : elle ne fait que lire le registre de `status-jc`, sans appel gh. **Rafraîchir**, dans l'en-tête de Pull request, relit la PR de la branche.
-- **Bandeau** : l'interrupteur, les agents de surveillance occupés sur 3, l'onglet qui tient karadoc.
+- **Bandeau** : l'interrupteur, les agents de surveillance occupés sur leur maximum (3 par défaut, de 1 à 9 avec − et +), l'onglet qui tient karadoc.
 - **?** dans l'en-tête de la Surveillance déplie une aide : les neuf étapes dans l'ordre, les couleurs, les boutons et le clavier. Chaque statut a aussi son infobulle.
 - **Brouillons (N)** dans le bandeau masque les brouillons (il devient « Brouillons masqués (N) ») (en pause compris, sauf ceux « à toi », « erreur » ou « pas de clone local ») et les réaffiche ; le choix est gardé dans `shared("pr-watch-view")`, que `status-jc` ne réécrit pas.
 - **Bande d'étapes**, calculée par `status-jc` : vert fait, orange clignotant en cours (agent, CI, merge armé), orange fixe en attente d'une approbation humaine, rouge en échec que la surveillance corrige, violet à toi, gris à venir, pointillé jamais fait dans ce repo (pas de CI, de Sonar, de qa ou de `## Demo`). Un brouillon n'a que git, jenk et sonar ; une PR en pause a sa bande en contours (les étapes faites gardent leur teinte, rien ne clignote). Un clic sur une case d'agent (git, jenk, sonar, rev, qa, demo, risk) rouvre sa dernière session Claude : l'onglet `⟳` tant que l'agent tourne, sinon un onglet `↺ #N <étape>` qui lance `claude --resume` dans le worktree où il a tourné (`status-jc` lance chaque agent avec `--session-id` et garde l'id dans `entry.sessions`).

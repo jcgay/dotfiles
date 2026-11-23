@@ -7,7 +7,7 @@ import { appendJournal } from "./journal-file.js";
 import { readHint, searchSince, signalsOf, withRiskTree, decide, emptyEntry, promptFor, repoOfRemote, undoLaunch, holdingTabs, karadocHeld, karadocHolder, closing, checkoutBases, checkoutsOf, LABELS } from "./watch.js";
 import { bandOf, measure, addSamples, clockOf, workOf } from "./pipeline.js";
 
-const MAX_AGENTS = 3;
+const MAX_AGENTS = 3; // default; the PR panel's header sets pr-watch.maxAgents
 const LEASE = "pr-watch-lease";
 const LEASE_MS = 240000; // a round older than this died without clearing its lease
 const VIEW_FIELDS = "number,title,url,isDraft,headRefName,headRefOid,statusCheckRollup,comments,reviews,mergeable,baseRefName,reviewDecision,commits";
@@ -254,13 +254,15 @@ async function roundUnderLease(registry, cache, at) {
   const launched = []; // tab names started this round: running before agents() lists them
   const prs = {};
   const toasts = new Map(); // PR key → this round's toast, for the journal
+  // Read live, as paused: the panel's − / + may change it during the round.
+  const maxAgents = () => shared("pr-watch")?.maxAgents ?? MAX_AGENTS;
   for (const s of all) {
     const before = registry.prs[s.key] ?? emptyEntry();
     try {
       const busy = [...new Set([...heldTabs(all), ...launched])];
       const { clone, hasQa, hasDemo, hasCi, hasKaradoc, worktrees } = repos.get(s.repo);
       // paused read live: the PR panel's ⌨ may have paused this PR since the round started.
-      const ctx = { on: registry.on, paused: (shared("pr-watch")?.paused ?? registry.paused ?? []).includes(s.key), slots: MAX_AGENTS - busy.length, karadocFree: !hasKaradoc || !karadocHeld(busy, karadocPrs, roundPrs), hasQa, hasDemo, hasCi };
+      const ctx = { on: registry.on, paused: (shared("pr-watch")?.paused ?? registry.paused ?? []).includes(s.key), slots: maxAgents() - busy.length, karadocFree: !hasKaradoc || !karadocHeld(busy, karadocPrs, roundPrs), hasQa, hasDemo, hasCi };
       const tab = { ...tabOf(before), busy: busy.some((t) => t.startsWith(`⟳ #${s.number} `)) };
       const r = decide(s, before, tab, ctx);
       if (r.toast) { notify({ title: r.toast, body: s.url, level: "warning" }); toasts.set(s.key, r.toast); }
@@ -330,5 +332,5 @@ async function roundUnderLease(registry, cache, at) {
   const busy = [...new Set([...heldTabs(all), ...launched])];
   // journalOn: `on` as this round saw it, so the next round writes a switch made in between.
   return { ...registry, prs, error: null, searchFails: 0, at, journalOn: registry.on, durations, sonarRepos: [...sonarRepos],
-    agents: { busy: busy.length, max: MAX_AGENTS }, karadoc: karadocHolder(busy, karadocPrs, roundPrs) };
+    agents: { busy: busy.length, max: maxAgents() }, karadoc: karadocHolder(busy, karadocPrs, roundPrs) };
 }
