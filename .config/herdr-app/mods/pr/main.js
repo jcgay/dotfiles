@@ -18,7 +18,7 @@ const STEP_HELP = {
   qa: "un agent qa teste la PR pour y trouver des bugs (si le skill qa est dans le clone)",
   demo: "/pr-demo : une démo postée sur la PR (si AGENTS.md ou CLAUDE.md a une section ## Demo)",
   risk: "/pr-risk : le risque de la PR et s'il faut une revue humaine",
-  appr: "ton approbation sur GitHub, puis le squash des fixup!",
+  appr: "ton approbation sur GitHub (inutile quand pr-risk demande 0 revue humaine sur ce code), puis le squash des fixup!",
   merge: "le merge armé (« Merger quand tout est vert ») : rebase and merge dès que tout est vert",
 };
 const STATE_HELP = {

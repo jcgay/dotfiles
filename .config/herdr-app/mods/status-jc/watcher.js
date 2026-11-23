@@ -4,7 +4,7 @@ import { randomUUID } from "crypto";
 import { watchPath } from "./open.js";
 import { roundLines, searchLine } from "./journal.js";
 import { appendJournal } from "./journal-file.js";
-import { readHint, searchSince, signalsOf, decide, emptyEntry, promptFor, repoOfRemote, undoLaunch, holdingTabs, karadocHeld, karadocHolder, closing, checkoutBases, checkoutsOf, LABELS } from "./watch.js";
+import { readHint, searchSince, signalsOf, withRiskTree, decide, emptyEntry, promptFor, repoOfRemote, undoLaunch, holdingTabs, karadocHeld, karadocHolder, closing, checkoutBases, checkoutsOf, LABELS } from "./watch.js";
 import { bandOf, measure, addSamples, clockOf, workOf } from "./pipeline.js";
 
 const MAX_AGENTS = 3;
@@ -21,12 +21,26 @@ export async function sh(cmd, args, cwd, timeout = 120000) {
   return r.stdout;
 }
 
-async function signals(pr, me, before) {
+// Whether two commits have the same tree: true, false, or null when gh cannot tell (a sha gone after a force-push).
+// trees: sha -> tree sha, kept across rounds (a commit's tree never changes).
+// shortcut: a failed lookup is asked again each round (one gh call per such PR), cache failures if the rate limit suffers
+async function sameTree(repo, a, b, trees) {
+  try {
+    for (const sha of [a, b]) trees[sha] ??= (await sh("gh", ["api", `repos/${repo}/commits/${sha}`, "--jq", ".commit.tree.sha"])).trim();
+    return trees[a] === trees[b];
+  } catch {
+    return null;
+  }
+}
+
+async function signals(pr, me, before, trees) {
   const repo = pr.repository.nameWithOwner;
   try {
     const view = JSON.parse(await sh("gh", ["pr", "view", String(pr.number), "-R", repo, "--json", VIEW_FIELDS]));
     const runs = JSON.parse(await sh("gh", ["api", `repos/${repo}/commits/${view.headRefOid}/check-runs?per_page=100`]));
-    return signalsOf({ ...view, repo }, runs.check_runs, me);
+    const s = signalsOf({ ...view, repo }, runs.check_runs, me);
+    // A verdict on another commit still holds on the same code (a squash keeps the tree).
+    return s.risk?.sha && s.risk.onHead !== true ? withRiskTree(s, await sameTree(repo, s.risk.sha, s.head, trees)) : s;
   } catch (e) {
     const url = `https://github.com/${repo}/pull/${pr.number}`;
     return { key: `${repo}#${pr.number}`, repo, number: pr.number, url, title: before?.title ?? "", error: e.message };
@@ -225,7 +239,8 @@ async function roundUnderLease(registry, cache, at) {
     return { ...registry, error: `${e.message} (${readHint(e.message)})`, at, searchFails };
   }
 
-  const all = await Promise.all(found.map((pr) => signals(pr, cache.me, registry.prs[`${pr.repository.nameWithOwner}#${pr.number}`])));
+  cache.trees ??= {}; // shortcut: never pruned (two shas per push), prune it if the app runs for months
+  const all = await Promise.all(found.map((pr) => signals(pr, cache.me, registry.prs[`${pr.repository.nameWithOwner}#${pr.number}`], cache.trees)));
   // Rebuilt each round from this round's repos: a repo with no open PR left drops out.
   const names = [...new Set(all.map((s) => s.repo))];
   const repos = new Map(await Promise.all(names.map(async (repo) => [repo, await cloneOf(repo, cache.clones ?? new Map())])));

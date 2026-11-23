@@ -208,13 +208,17 @@ Not read: <files or "nothing">.
 ```
 
 No-PR mode: print the terminal verdict, then the comment body below without
-the marker, titled "Risk", for the user to paste into the PR description.
+its two marker lines, titled "Risk", for the user to paste into the PR description.
 Post nothing.
 
 PR mode: write the comment body to `${TMPDIR:-/tmp}/pr-risk-<N>.md`, then post it.
+Its second line is the full `headRefOid` read in step 1, the head you
+assessed: the PR watch skips the human approval of a 0-review verdict only
+while that commit's code is the PR's.
 
 ````
 <!-- pr-risk -->
+<!-- pr-risk-head: <full head sha> -->
 ## PR risk: <TIER> · <0|1|2> human review(s)
 **Reason:** <one sentence>
 **Review focus:** `<file or area>` — <the one question the reviewer must answer>

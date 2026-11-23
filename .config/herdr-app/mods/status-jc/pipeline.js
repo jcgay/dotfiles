@@ -1,6 +1,6 @@
 // Where a watched PR stands: its step band, step durations and time left. Pure, no herdr import:
 // watcher.js writes the results in the registry, the PR panel draws them.
-import { BUDGET, REVIEW, LABELS, checkoutsOf } from "./watch.js";
+import { BUDGET, REVIEW, LABELS, checkoutsOf, noHuman } from "./watch.js";
 
 // The panel's labels, in the order decide() walks them.
 export const STEPS = ["git", "jenk", "sonar", "rev", "qa", "demo", "risk", "appr", "merge"];
@@ -40,7 +40,8 @@ export function bandOf(s, e, ctx) {
     : never[label] || silent.includes(name) ? "skip" : "todo");
   const reviewed = reviews.every((r) => r === "ok" || r === "skip");
   // Approved fixups still have their squash to come before the merge.
-  const appr = step === "squash" ? "run" : s.approved ? (s.fixups ? (spent("squash") ? "me" : "todo") : "ok") : reviewed ? "wait" : "todo";
+  // A 0-human pr-risk verdict on the head's code stands for the approval.
+  const appr = step === "squash" ? "run" : s.approved || noHuman(s) ? (s.fixups ? (spent("squash") ? "me" : "todo") : "ok") : reviewed ? "wait" : "todo";
   // merge: the panel paints it from shared("pr-merge"), read live.
   return mine([git, jenk, sonar, ...reviews, appr, "todo"]);
 }
