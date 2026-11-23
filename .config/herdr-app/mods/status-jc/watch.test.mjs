@@ -1,7 +1,7 @@
 // node --test ~/.config/herdr-app/mods/status-jc/watch.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { fixups, searchSince, sonarFindings, markers, riskOf, noHuman, withRiskTree, signalsOf, checks, jenkinsBuild, decide, emptyEntry, tabName, LABELS, promptFor, repoOfRemote, undoLaunch, holdingTabs, closing, karadocHeld, checkoutBases, checkoutsOf } from "./watch.js";
+import { fixups, searchSince, sonarFindings, markers, riskOf, noHuman, withRiskTree, signalsOf, checks, jenkinsBuild, decide, emptyEntry, tabName, LABELS, promptFor, repoOfRemote, undoLaunch, holdingTabs, closing, karadocHeld, checkoutBases, checkoutsOf, squashAgentOver, SQUASH_GRACE_MS } from "./watch.js";
 
 // Real summaries: arthur#5458 (passed) and arthur#5449 (failed gate).
 const PASSED = `Issues  
@@ -759,4 +759,14 @@ test("closing: a stale pr-risk tab closes once its agent stopped, never just lau
 test("a stale pr-risk verdict is an undone review step", () => {
   const s = withRiskTree(green({ markers: new Set(ALL), risk: { humans: 0, sha: SHA, onHead: null } }), false);
   assert.match(decide(s, at({ silent: { h1: ["pr-risk"] } }), NO_TAB, CTX).entry.why, /faits : pr-review, qa, pr-demo/);
+});
+
+test("squashAgentOver: a conflicted squash's agent ends with its tab, its agent or its work, never in its first seconds", () => {
+  const e = { state: "agent", at: 0, tab: "⟳ #3 squash" }, tabs = new Set(["⟳ #3 squash"]), later = SQUASH_GRACE_MS;
+  assert.equal(squashAgentOver(e, new Set(), undefined, 1000), false, "just started: tab not listed yet");
+  assert.equal(squashAgentOver(e, tabs, { status: "idle" }, 1000), false, "just started: idle before its task");
+  assert.equal(squashAgentOver(e, new Set(), undefined, later), true, "tab closed");
+  assert.equal(squashAgentOver(e, tabs, undefined, later), true, "Claude quit, a shell remains");
+  for (const status of ["done", "idle"]) assert.equal(squashAgentOver(e, tabs, { status }, later), true, status);
+  for (const status of ["working", "blocked", null]) assert.equal(squashAgentOver(e, tabs, { status }, later), false, String(status));
 });
