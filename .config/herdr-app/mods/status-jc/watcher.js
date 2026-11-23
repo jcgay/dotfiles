@@ -287,7 +287,8 @@ async function roundUnderLease(registry, cache, at) {
       prs[s.key] = pruned(entry);
     } catch (e) {
       // One broken PR keeps the others' launch records.
-      prs[s.key] = pruned({ ...before, label: LABELS.error, why: "la surveillance a planté sur cette PR", error: e?.message ?? String(e) });
+      // errorRounds 0: not a GitHub read error, the journal writes it at once.
+      prs[s.key] = pruned({ ...before, label: LABELS.error, why: "la surveillance a planté sur cette PR", error: e?.message ?? String(e), errorRounds: 0 });
     }
   }
   // After the PRs: decide() must still see the tab of a fix agent that pushed then stopped, or it takes that push for

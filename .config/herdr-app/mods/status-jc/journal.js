@@ -12,8 +12,22 @@ const said = (e) => (!e.why ? e.label : e.why.startsWith(e.label) ? e.why : `${e
 // pause (a pause lifted puts the PR back where it was, and the journal must say so). A new push, a
 // launch or a line asking me to act always writes. The written lines go to the entry's `logged` (the last two,
 // with the head they were written on), kept by the registry.
+// GitHub errors: a PR's error line waits for its second round in a row (errorRounds, set by decide), so a blip writes
+// nothing. When every watched PR fails (2 or more), it is GitHub, not the PRs: one line for all, on the second round.
+// The return to the state written before the error is not written again. Other errors (squash refused, a crash of the
+// watch on a PR) have no errorRounds and are written at once, as any label change.
+const ERROR = "erreur";
 export function roundLines(before, after, toasts) {
   const out = [];
+  const all = Object.values(after.prs ?? {});
+  const unread = (e) => e.label === ERROR && e.errorRounds > 0;
+  const outage = after.on && all.length >= 2 && all.every(unread);
+  // Once per outage: PRs that start failing on different rounds must not write it again.
+  const prev = Object.values(before.prs ?? {});
+  const told = prev.length >= 2 && prev.every(unread) && prev.some((e) => e.errorRounds >= 2);
+  if (outage && !told && all.some((e) => e.errorRounds >= 2)) {
+    out.push({ key: null, text: `${ERROR} : GitHub injoignable depuis 2 tours, ${all.length} PR non lues` });
+  }
   if (before.journalOn !== undefined && before.journalOn !== after.on) {
     out.push({ key: null, text: after.on ? "surveillance activée" : "surveillance coupée" });
   }
@@ -22,7 +36,10 @@ export function roundLines(before, after, toasts) {
     const was = before.prs?.[key];
     const l = e.launched, wl = was?.launched, logged = (was?.logged ?? []).filter((x) => typeof x === "object");
     let text = null, launch = false;
-    if (l && (l.step !== wl?.step || l.head !== wl?.head)) { text = `agent ${l.step} lancé`; launch = true; }
+    // From its second round, once: also a PR still failing after an outage it was part of ends.
+    if (unread(e)) text = !outage && e.errorRounds >= 2 && logged.at(-1)?.text !== said(e) ? said(e) : null;
+    else if (l && (l.step !== wl?.step || l.head !== wl?.head)) { text = `agent ${l.step} lancé`; launch = true; }
+    else if (was?.label === ERROR && logged.at(-1)?.text === said(e)) text = null;
     else if (!was || was.label !== e.label) {
       const paused = (text) => text.startsWith("en pause");
       const flap = logged.length === 2 && !paused(said(e)) && logged.some((x) => x.text === said(e))

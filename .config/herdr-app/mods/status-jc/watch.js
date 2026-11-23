@@ -184,11 +184,14 @@ export function decide(s, entry, tab, ctx) {
   e.title = s.title;
   const out = (label, why, launch = null, toast = null) => ({ entry: { ...e, label, why }, launch, toast });
 
+  // errorRounds: rounds in a row GitHub could not read this PR; the journal waits for the second (a blip is not news).
   if (s.error) {
     e.error = s.error;
+    e.errorRounds = (entry.errorRounds ?? 0) + 1;
     return out(LABELS.error, "lecture de la PR sur GitHub impossible");
   }
   e.error = null;
+  e.errorRounds = 0;
   e.seen = { jenkins: false, sonar: false, ...e.seen };
   for (const c of ["jenkins", "sonar"]) if (s[c]) e.seen[c] = true;
   // A check this PR had but the head lacks has not reported yet: wait, as for a running one.
