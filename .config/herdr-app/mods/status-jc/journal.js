@@ -1,6 +1,14 @@
 // What the watch did in one round, as journal lines. Pure: watcher.js and merger.js write them (journal-file.js).
 
+import { readHint } from "./watch.js";
+
 export const JOURNAL_FILE = "Library/Logs/herdr-watch.log"; // under home()
+
+// The search for my PRs failed (network down, gh logged out: every PR is unread, the round stops before decide).
+// fails: rounds in a row it failed, this one included. Written once, on the second, while the watch is on.
+export function searchLine(fails, on, message) {
+  return on && fails === 2 ? { key: null, text: `erreur : recherche des PR sur GitHub impossible : ${readHint(message)}` } : null;
+}
 
 // The label once: a why that starts with it ("en pause ; CI verte") stands alone.
 const said = (e) => (!e.why ? e.label : e.why.startsWith(e.label) ? e.why : `${e.label} : ${e.why}`);

@@ -642,3 +642,24 @@ test("waitingOnMe: « à toi » PRs and refused merges, once each", async () => 
   assert.deepEqual(waitingOnMe(prs, merges).sort(), ["o/r#1", "o/r#3"], "a refused merge of a PR the watch no longer lists");
   assert.deepEqual(waitingOnMe(undefined, undefined), []);
 });
+
+test("readHint: a cause and what to do from gh's first stderr line", async () => {
+  const { readHint } = await import("./watch.js");
+  assert.equal(readHint('Post "https://api.github.com/graphql": dial tcp: lookup api.github.com: no such host'), "réseau ou VPN ?");
+  assert.equal(readHint("error connecting to api.github.com"), "réseau ou VPN ?");
+  assert.equal(readHint("something else"), "réessayé au prochain tour");
+  assert.equal(readHint("HTTP 401: Bad credentials (https://api.github.com/graphql)"), "connexion gh expirée, lance gh auth status");
+  assert.equal(readHint("API rate limit exceeded for user ID 1"), "limite de l'API GitHub, réessayé au prochain tour");
+  assert.equal(readHint("GraphQL: Could not resolve to a PullRequest with the number of 9. (repository.pullRequest)"), "PR introuvable (supprimée, ou dépôt renommé ?)");
+  assert.equal(readHint(undefined), "réessayé au prochain tour");
+  assert.equal(readHint("HTTP 403: Resource protected by organization SAML enforcement."), "jeton gh pas autorisé pour l'organisation (SAML), lance gh auth refresh");
+  assert.equal(readHint("HTTP 403: Must have admin rights to Repository."), "réessayé au prochain tour", "a 403 is not a rate limit");
+  assert.equal(readHint("sh: gh: command not found"), "gh introuvable dans le PATH de Herdr");
+  assert.equal(readHint("label not found"), "réessayé au prochain tour", "\"not found\" alone is not a missing PR");
+});
+
+test("decide: a read error says why it failed and counts its rounds", () => {
+  const r = decide({ error: "HTTP 401: Bad credentials" }, { ...emptyEntry(), errorRounds: 1 }, { exists: false }, {});
+  assert.equal(r.entry.why, "lecture de la PR sur GitHub impossible : connexion gh expirée, lance gh auth status");
+  assert.equal(r.entry.errorRounds, 2);
+});

@@ -188,7 +188,7 @@ export function decide(s, entry, tab, ctx) {
   if (s.error) {
     e.error = s.error;
     e.errorRounds = (entry.errorRounds ?? 0) + 1;
-    return out(LABELS.error, "lecture de la PR sur GitHub impossible");
+    return out(LABELS.error, `lecture de la PR sur GitHub impossible : ${readHint(s.error)}`);
   }
   e.error = null;
   e.errorRounds = 0;
@@ -369,4 +369,17 @@ export function waitingOnMe(prs, merges) {
   const keys = new Set(Object.entries(prs ?? {}).filter(([, e]) => e?.label === LABELS.yours).map(([k]) => k));
   for (const [k, m] of Object.entries(merges ?? {})) if (m?.refused && k in (prs ?? {})) keys.add(k);
   return [...keys];
+}
+
+// What to do about a gh error reading a PR, from its first stderr line: the cause when gh says it, else the retry.
+export function readHint(message) {
+  const m = message ?? "";
+  if (/could not resolve host|error connecting to|i\/o timeout|timed? ?out|connection (refused|reset)|network is unreachable|dial tcp|EOF/i.test(m)) return "réseau ou VPN ?";
+  if (/HTTP 401|bad credentials|authentication|gh auth login/i.test(m)) return "connexion gh expirée, lance gh auth status";
+  // A 403 is not always the rate limit: an organization's SAML SSO refuses a token it has not authorized.
+  if (/SAML/i.test(m)) return "jeton gh pas autorisé pour l'organisation (SAML), lance gh auth refresh";
+  if (/rate limit/i.test(m)) return "limite de l'API GitHub, réessayé au prochain tour";
+  if (/command not found|no such file or directory.*\bgh\b|ENOENT/i.test(m)) return "gh introuvable dans le PATH de Herdr";
+  if (/HTTP 404|could not resolve to a pullrequest/i.test(m)) return "PR introuvable (supprimée, ou dépôt renommé ?)";
+  return "réessayé au prochain tour";
 }
