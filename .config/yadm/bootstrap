@@ -206,6 +206,13 @@ if claude --version &>/dev/null; then
   ' --argjson mods '["~/.claude/mods/subagent-band", "~/.claude/mods/commit-guard"]' "$settings" > "$settings.tmp" && mv "$settings.tmp" "$settings" \
     || { rm -f "$settings.tmp"; echo "⚠️  $settings illisible — réglages Claude non appliqués."; }
 
+  # AGENTS.md lu en plus des CLAUDE.md : par défaut Claude Code ne le lit que sans aucun CLAUDE.md au-dessus,
+  # et ~/CLAUDE.md est au-dessus de tous les dépôts. Une valeur déjà choisie (/config) gagne.
+  # https://code.claude.com/docs/en/memory#agents-md
+  jq '.pluginConfigs["cc-plugin-agents-md@builtin"].options.instructionFiles //= "claude-md-and-agents-md"' \
+    "$settings" > "$settings.tmp" && mv "$settings.tmp" "$settings" \
+    || { rm -f "$settings.tmp"; echo "⚠️  $settings illisible — lecture des AGENTS.md non activée."; }
+
   # Plugins et skills utiles seulement dans certains dépôts : coupés ici, le wrapper
   # ~/.local/bin/claude les rallume selon les fichiers du dépôt. Ces valeurs gagnent :
   # `claude plugin install` vient de les activer.
