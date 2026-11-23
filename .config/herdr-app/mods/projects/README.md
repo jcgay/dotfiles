@@ -8,7 +8,7 @@ Notre mod (pas un clone de Herdr) : ouvrir un space sur un de mes projets de `~/
 - **L'ordre** : d'abord les projets ouverts récemment, du plus récent au plus ancien, puis les autres par date de leur dernier commit, puis par nom.
 - **Taper** filtre sur le nom, sans tenir compte de la casse : le nom exact d'abord, puis ceux qui commencent par le texte, puis les autres.
 - `↑` `↓` choisissent, `↵` ou un clic ouvre, `esc` ferme.
-- **Ouvrir** : si un space local est sur le dépôt (marqué « ouvert »), on y va ; sinon un nouveau space dans `~/dev/<dépôt>`, qui prend le nom du dépôt.
+- **Ouvrir** : si un space local est sur le dépôt (marqué « ouvert »), on y va ; sinon un nouveau space dans `~/dev/<dépôt>`, qui prend le nom du dépôt, coupé en deux : un shell en haut, Claude en dessous (`pane.split` juste après `space.new`, qui montre le nouveau space).
 
 ## La récence
 
