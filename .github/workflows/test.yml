@@ -13,7 +13,7 @@ jobs:
           node-version: 26 # same as .config/mise/config.toml
       - run: node --test .config/herdr-app/mods/*/*.test.mjs
   claude-scripts:
-    runs-on: ubuntu-latest # has bash and jq
+    runs-on: ubuntu-latest # has bash, jq and sqlite3
     steps:
       - uses: actions/checkout@v7
-      - run: for t in .claude/scripts/*.test .claude/hooks/*.test .claude/skills/pr-review/scripts/*_test.sh .local/bin/claude.test .local/bin/wt-prune.test .local/bin/launchd-status.test .claude/statusline-command.test; do bash "$t" || exit 1; done
+      - run: for t in .claude/scripts/*.test .claude/hooks/*.test .claude/skills/pr-review/scripts/*_test.sh .local/bin/claude.test .local/bin/wt-prune.test .local/bin/launchd-status.test .local/bin/addition.test .claude/statusline-command.test; do bash "$t" || exit 1; done

@@ -1,0 +1,219 @@
+#!/usr/bin/env bash
+# addition: what Claude Code costs by skill, sub-agent, Herdr watch step, model or session.
+# Reads agentsview's archive (never writes it). Design: ~/docs/superpowers/specs/2026-11-24-addition-design.md
+set -uo pipefail
+
+usage() {
+  cat <<'EOF'
+usage: addition [--since Nd] [--by skill|agent|step|model|session] [--compare YYYY-MM-DD] [--json]
+                [--db PATH] [--journal PATH] [--no-sync]
+
+Cost at API prices (an approximation of the subscription's usage %), tokens and the agent's
+active time, from ~/.agentsview/sessions.db. Default: the last 30 days, by skill.
+  --by skill    a session is cut at each skill (Skill tool or typed /name); sub-agents count
+                in the segment that started them
+  --by agent    sub-agent type, (principal) for the main conversation
+  --by step     Herdr watch step (pr-review, sonar…), from ~/Library/Logs/herdr-watch.log
+  --compare D   cost per invocation in the --since days before D against from D on
+Active time (gaps between messages of the main conversation, 15 min at most) is left
+empty by agent and by model: it belongs to neither.
+EOF
+}
+
+since=30 by=skill compare='' json='' db='' journal=$HOME/Library/Logs/herdr-watch.log sync=1
+while (($#)); do
+  case $1 in
+    --since) since=${2:-}; since=${since%d}; shift ;;
+    --by) by=${2:-}; shift ;;
+    --compare) compare=${2:-}; shift ;;
+    --json) json=1 ;;
+    --db) db=${2:-}; sync=''; shift ;;
+    --journal) journal=${2:-}; shift ;;
+    --no-sync) sync='' ;;
+    -h | --help) usage; exit 0 ;;
+    *) usage >&2; exit 2 ;;
+  esac
+  shift
+done
+[[ $since =~ ^[0-9]+$ ]] || { echo "addition: --since takes a number of days (30d)" >&2; exit 2; }
+[[ $by =~ ^(skill|agent|step|model|session)$ ]] || { usage >&2; exit 2; }
+[[ -z $compare || $compare =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] || { echo "addition: --compare takes YYYY-MM-DD" >&2; exit 2; }
+db=${db:-$HOME/.agentsview/sessions.db}
+[ -f "$db" ] || { echo "addition: no agentsview archive at $db (brew install agentsview, then agentsview source sync)" >&2; exit 1; }
+[ -n "$sync" ] && { agentsview source sync > /dev/null 2>&1 || echo "addition: agentsview source sync failed, reading the archive as is" >&2; }
+
+# Herdr watch launches: "<date> <time>  <repo>#<n>  agent <step> lancé (session <uuid>)".
+steps=$(sed -nE "s/^[0-9-]+ [0-9:]+  ([A-Za-z0-9._\/-]+#[0-9]+)  agent ([A-Za-z0-9_-]+) lancé \(session ([A-Za-z0-9-]+)\)$/INSERT OR REPLACE INTO temp.steps VALUES ('\3', '\2', '\1');/p" "$journal" 2> /dev/null)
+
+# Installed skills and commands, so a typed /pr-review is one before any Skill tool call names it.
+skills=$(find "$HOME/.claude/skills" "$HOME/.claude/commands" "$HOME/.claude/plugins/cache" "$HOME/.agents/skills" \
+    \( -name SKILL.md -o -path '*/commands/*.md' \) 2> /dev/null \
+  | sed -nE 's#.*/([a-z0-9_-]+)/SKILL\.md$#\1#p; s#.*/commands/([a-z0-9_-]+)\.md$#\1#p' | sort -u \
+  | sed "s/.*/INSERT INTO temp.skills VALUES ('&');/")
+
+if [ -n "$compare" ]; then
+  from="strftime('%Y-%m-%dT%H:%M:%fZ', '$compare', '-$since days')"
+  period="CASE WHEN ts < '${compare}T00:00:00' THEN 'before' ELSE 'after' END"
+else
+  from="strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-$since days')"
+  period="'all'"
+fi
+case $by in
+  skill) label="CASE WHEN unlinked THEN '(sous-agent non rattaché)' ELSE coalesce(blabel, '(sans skill)') END" ;;
+  agent) label="coalesce(type, '(principal)')" ;;
+  model) label="model" ;;
+  session) label="substr(top, 1, 8) || ' ' || substr(replace(coalesce((SELECT first_message FROM sessions WHERE id = top), ''), char(10), ' '), 1, 50)" ;;
+  step) label="coalesce((SELECT step FROM temp.steps WHERE session_id = top), '(hors watch)')" ;;
+esac
+# Invocations: segments for the skill axis, sub-agent runs for the agent axis, top sessions for the others.
+case $by in
+  skill) unit="bsid || ':' || coalesce(bord, -1)" ;;
+  agent) unit="sid" ;;
+  *) unit="top" ;;
+esac
+
+if [ -n "$compare" ]; then
+  report="
+SELECT label,
+  count(DISTINCT CASE WHEN period = 'before' THEN unit END) AS n_before,
+  round(coalesce(sum(CASE WHEN period = 'before' THEN cost END) / 1e6 / nullif(count(DISTINCT CASE WHEN period = 'before' THEN unit END), 0), 0), 2) AS per_n_before,
+  count(DISTINCT CASE WHEN period = 'after' THEN unit END) AS n_after,
+  round(coalesce(sum(CASE WHEN period = 'after' THEN cost END) / 1e6 / nullif(count(DISTINCT CASE WHEN period = 'after' THEN unit END), 0), 0), 2) AS per_n_after
+FROM labelled WHERE kind = 'u' GROUP BY label)
+SELECT *, CASE WHEN per_n_before > 0 THEN round(100.0 * (per_n_after - per_n_before) / per_n_before) END AS delta_pct
+FROM r ORDER BY per_n_after * n_after + per_n_before * n_before DESC"
+else
+  report="
+SELECT label,
+  count(DISTINCT CASE WHEN kind = 'u' THEN unit END) AS n,
+  round(sum(cost) / 1e6, 2) AS cost_usd,
+  round(sum(cost) / 1e6 / nullif(count(DISTINCT CASE WHEN kind = 'u' THEN unit END), 0), 2) AS cost_per_n,
+  sum(inp) AS input, sum(outp) AS output, sum(cw) AS cache_write, sum(cr) AS cache_read,
+  round(sum(secs) / 60.0, 1) AS active_min
+FROM labelled GROUP BY label)
+SELECT * FROM r WHERE n > 0 ORDER BY cost_usd DESC"
+fi
+if [ -n "$json" ]; then
+  # json_object prints reals with 15 digits (3.2), the json mode with 17 (3.200000000000000177).
+  [ -n "$compare" ] && cols='label n_before per_n_before n_after per_n_after delta_pct' \
+    || cols='label n cost_usd cost_per_n input output cache_write cache_read active_min'
+  fields=$(for c in $cols; do printf "'%s', %s, " "$c" "$c"; done)
+  final=".headers off
+.mode list
+SELECT json_group_array(json_object(${fields%, })) FROM (WITH r AS ($report);"
+else
+  final=".mode column
+WITH r AS ($report LIMIT 25;"
+fi
+sql="
+CREATE TEMP TABLE steps (session_id TEXT PRIMARY KEY, step TEXT, pr TEXT);
+$steps
+CREATE TEMP TABLE skills (name TEXT);
+$skills
+-- Where a session's tokens count: its top-level session and, for a sub-agent, the ordinal of the
+-- top-level Agent call that started it (recursively), with its own type.
+CREATE TEMP TABLE origin AS
+WITH RECURSIVE calls AS (
+  SELECT t.subagent_session_id AS child, t.session_id AS parent, m.ordinal AS ord,
+    coalesce(json_extract(t.input_json, '\$.subagent_type'), 'general-purpose') AS type
+  FROM tool_calls t JOIN messages m ON m.id = t.message_id
+  WHERE coalesce(t.subagent_session_id, '') != ''),
+-- A sub-agent no tool call points to (an Agent call older than agentsview's link) climbs parent_session_id to its
+-- top-level session and counts there at the last message before its own first one. With no top-level ancestor
+-- in the archive, it is its own top, under (sous-agent non rattaché).
+up (id, cur, depth) AS (
+  SELECT id, parent_session_id, 0 FROM sessions
+  WHERE relationship_type = 'subagent' AND id NOT IN (SELECT child FROM calls)
+  UNION ALL
+  SELECT up.id, p.parent_session_id, up.depth + 1 FROM up JOIN sessions p ON p.id = up.cur
+  WHERE p.relationship_type = 'subagent' AND up.depth < 10),
+loose AS (
+  SELECT id, CASE WHEN cur IN (SELECT id FROM sessions WHERE relationship_type != 'subagent') THEN cur ELSE id END AS top
+  FROM (SELECT id, cur, max(depth) FROM up GROUP BY id)),
+tree (id, top, ord, type, unlinked, depth) AS (
+  SELECT id, id, NULL, NULL, 0, 0 FROM sessions WHERE relationship_type != 'subagent'
+  UNION ALL
+  SELECT id, top, (SELECT max(ordinal) FROM messages WHERE session_id = top
+      AND timestamp <= (SELECT min(timestamp) FROM messages WHERE session_id = loose.id)),
+    '(non rattaché)', top = id, 0 FROM loose
+  UNION ALL
+  SELECT c.child, tr.top, coalesce(tr.ord, c.ord), c.type, tr.unlinked, tr.depth + 1
+  FROM calls c JOIN tree tr ON tr.id = c.parent WHERE tr.depth < 10)
+SELECT id, top, min(ord) AS ord, min(type) AS type, max(unlinked) AS unlinked FROM tree GROUP BY id;
+CREATE INDEX temp.origin_id ON origin (id);
+
+-- Skill starts: a Skill tool call, or a prompt whose first word is /name (not a path: lowercase, no other /).
+CREATE TEMP TABLE bounds AS
+SELECT t.session_id AS sid, m.ordinal AS ord, t.skill_name AS label
+FROM tool_calls t JOIN messages m ON m.id = t.message_id
+WHERE t.tool_name = 'Skill' AND coalesce(t.skill_name, '') != ''
+UNION ALL
+-- A typed /name is a skill when namespaced (plugin:skill), installed or seen in a Skill call; /clear ends the
+-- skill before it (NULL label); other commands (/model, /compact, /reload-plugins…) cut nothing.
+SELECT session_id, ordinal, CASE WHEN name = 'clear' THEN NULL ELSE name END FROM (
+  SELECT session_id, ordinal, substr(c, 2, instr(c || ' ', ' ') - 2) AS name FROM (
+    SELECT session_id, ordinal, replace(replace(content, char(10), ' '), char(13), ' ') AS c
+    FROM messages WHERE role = 'user' AND is_system = 0 AND content GLOB '/[a-z]*'))
+WHERE name NOT GLOB '*[^a-z0-9:_-]*' AND (name = 'clear' OR name GLOB '*:*' OR name IN (SELECT name FROM temp.skills)
+  OR name IN (SELECT skill_name FROM tool_calls WHERE tool_name = 'Skill'));
+CREATE INDEX temp.bounds_sid ON bounds (sid, ord);
+
+-- One row per API message (a message split over several rows shares its claude_message_id).
+CREATE TEMP TABLE usage AS
+SELECT session_id AS sid, min(ordinal) AS ord, min(timestamp) AS ts, model,
+  max(coalesce(json_extract(token_usage, '\$.input_tokens'), 0)) AS inp,
+  max(coalesce(json_extract(token_usage, '\$.output_tokens'), 0)) AS outp,
+  max(coalesce(json_extract(token_usage, '\$.cache_creation_input_tokens'), 0)) AS cw,
+  max(coalesce(json_extract(token_usage, '\$.cache_creation.ephemeral_1h_input_tokens'), 0)) AS cw1h,
+  max(coalesce(json_extract(token_usage, '\$.cache_read_input_tokens'), 0)) AS cr
+FROM messages WHERE role = 'assistant' AND token_usage != ''
+GROUP BY session_id, CASE WHEN claude_message_id = '' THEN 'row' || id ELSE claude_message_id END;
+
+-- Active time: the gap before each message of a top-level session, except before a prompt (my thinking
+-- time). shortcut: a gap is capped at 15 min (a wake-up after a long background wait), lower it if it skews.
+CREATE TEMP TABLE timing AS
+SELECT session_id AS sid, ordinal AS ord, timestamp AS ts, model,
+  min(900, (julianday(timestamp) - julianday(lag(timestamp) OVER w)) * 86400) AS secs,
+  role = 'user' AND is_system = 0 AS prompt
+FROM messages WHERE session_id IN (SELECT id FROM sessions WHERE relationship_type != 'subagent')
+WINDOW w AS (PARTITION BY session_id ORDER BY ordinal);
+
+CREATE TEMP TABLE rows AS
+SELECT 'u' AS kind, o.top, coalesce(o.ord, u.ord) AS eord, u.sid, u.ord AS sord, o.type, o.unlinked, u.model, u.ts,
+  coalesce((u.inp * p.input_microdollars_per_mtok + u.outp * p.output_microdollars_per_mtok
+   + (u.cw - u.cw1h) * p.cache_creation_microdollars_per_mtok
+   + u.cw1h * CASE WHEN p.cache_creation_1h_microdollars_per_mtok > 0 THEN p.cache_creation_1h_microdollars_per_mtok
+                   ELSE p.cache_creation_microdollars_per_mtok END
+   + u.cr * p.cache_read_microdollars_per_mtok) / 1e6, 0) AS cost,
+  u.inp, u.outp, u.cw, u.cr, NULL AS secs, p.model_pattern IS NULL AS unpriced
+FROM usage u JOIN origin o ON o.id = u.sid LEFT JOIN model_pricing p ON p.model_pattern = u.model
+WHERE u.ts >= $from
+UNION ALL
+-- The main conversation's time has no model or sub-agent of its own: --by model and --by agent leave it out.
+SELECT 't', sid, ord, sid, ord, NULL, 0, model, ts, 0, 0, 0, 0, 0, coalesce(secs, 0), 0
+FROM timing WHERE NOT prompt AND ts >= $from AND '$by' NOT IN ('agent', 'model');
+
+-- A row's skill: the last skill its own sub-agent session started before it, else the top session's segment.
+CREATE TEMP TABLE labelled AS
+WITH own AS (
+  SELECT r.*, CASE WHEN r.sid != r.top THEN
+    (SELECT b.ord FROM bounds b WHERE b.sid = r.sid AND b.ord <= r.sord ORDER BY b.ord DESC LIMIT 1) END AS sbord
+  FROM rows r),
+seg AS (
+  SELECT own.*, CASE WHEN sbord IS NULL THEN top ELSE sid END AS bsid,
+    coalesce(sbord, (SELECT b.ord FROM bounds b WHERE b.sid = own.top AND b.ord <= own.eord ORDER BY b.ord DESC LIMIT 1)) AS bord
+  FROM own)
+SELECT seg.*, (SELECT b.label FROM bounds b WHERE b.sid = seg.bsid AND b.ord = seg.bord LIMIT 1) AS blabel,
+  $period AS period, '' AS label, '' AS unit FROM seg;
+UPDATE labelled SET label = $label, unit = $unit;
+
+.mode list
+SELECT 'addition: no price for ' || model || ', its tokens count at \$0' FROM labelled WHERE unpriced GROUP BY model;
+.headers on
+$final
+"
+out=$(sqlite3 -readonly "$db" <<<"$sql") || exit 1
+grep '^addition: no price' <<<"$out" >&2
+out=$(grep -v '^addition: no price' <<<"$out")
+[ -n "$json" ] && [ -z "$out" ] && out='[]'
+printf '%s\n' "$out"
