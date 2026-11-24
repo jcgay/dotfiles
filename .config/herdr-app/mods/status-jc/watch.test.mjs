@@ -460,6 +460,18 @@ test("a repo without CI gets its review at once, one with CI waits for it", () =
   assert.equal(decide(green({ ...none, markers: ALL }), at(), NO_TAB, { ...CTX, hasCi: false }).entry.why, "pas de CI ; faits : pr-review, qa, pr-demo, pr-risk");
 });
 
+test("a [SKIP_CI] PR: Jenkins cancels its build and Sonar never runs, the watch goes on", () => {
+  const view = {
+    repo: "softwarevidal/arthur", number: 5507, title: "Rendre la skill QA portable [SKIP_CI]", url: "u", isDraft: false, headRefName: "b", headRefOid: "h1",
+    statusCheckRollup: [{ context: "continuous-integration/jenkins/pr-head", state: "ERROR", targetUrl: "https://jenkins/job/a/job/PR-5507/11/display/redirect" }],
+    comments: [],
+  };
+  const s = signalsOf(view, [], "jcgay");
+  assert.deepEqual([s.skipCi, s.jenkins.state, s.failing], [true, "ok", false], "the cancelled build is not a failure");
+  assert.equal(signalsOf({ ...view, title: "T" }, [], "jcgay").jenkins.state, "ko", "an aborted build without [SKIP_CI] is");
+  assert.equal(decide(green({ sonar: null, skipCi: true }), at({ seen: { jenkins: true, sonar: true } }), NO_TAB, CTX).launch, "pr-review", "no Sonar to wait for");
+});
+
 test("every label says why", () => {
   const why = (s, e = at(), tab = NO_TAB, ctx = CTX) => decide(s, e, tab, ctx).entry.why;
   assert.equal(why(green({ jenkins: { ...jenkinsKo, state: "running" } })), "CI en cours : Jenkins tourne");

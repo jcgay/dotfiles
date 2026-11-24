@@ -13,7 +13,7 @@ export function bandOf(s, e, ctx) {
   if (s.error) return e.band ?? null;
   const step = e.launched?.step;
   const spent = (c) => (e.attempts?.[c] ?? 0) >= BUDGET;
-  const ci = (c) => s[c]?.state ?? (e.seen?.[c] ? "running" : null);
+  const ci = (c) => s[c]?.state ?? (e.seen?.[c] && !s.skipCi ? "running" : null);
   const fix = (c, state) => step === c ? "run" : state === "ko" ? (spent(c) ? "me" : "ko") : state === "running" ? "run" : state === "ok" ? "ok" : "todo";
 
   const git = step === "rebase" ? "run" : s.conflict ? (spent("rebase") ? "me" : "ko") : s.conflict === null ? "todo" : "ok";
