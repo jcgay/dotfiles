@@ -68,10 +68,10 @@ node --test ~/.config/herdr-app/mods/*/*.test.mjs
 
 GitHub Actions (`.github/workflows/test.yml`) runs the same command on every push and pull request, on the Node version of `.config/mise/config.toml`. A new mod's `*.test.mjs` is picked up by the glob; keep `herdr` imports out of the module it tests, or Node cannot load it.
 
-The Claude scripts (`~/.claude/scripts`, `hooks`, `skills/pr-review/scripts`, `.local/bin/claude`, `.local/bin/wt-prune`, `.local/bin/launchd-status`) carry bash self-checks with a fake `gh` or `claude`, named `*.test` or `*_test.sh`. CI runs them too; locally, from `~`:
+The Claude scripts (`~/.claude/scripts`, `hooks`, `skills/pr-review/scripts`, `statusline-command.sh`, `.local/bin/claude`, `.local/bin/wt-prune`, `.local/bin/launchd-status`) carry bash self-checks (with a fake `gh` or `claude` where they call one), named `*.test` or `*_test.sh`. CI runs them too; locally, from `~`:
 
 ```sh
-for t in .claude/scripts/*.test .claude/hooks/*.test .claude/skills/pr-review/scripts/*_test.sh .local/bin/claude.test .local/bin/wt-prune.test .local/bin/launchd-status.test; do bash "$t" || echo "FAIL $t"; done
+for t in .claude/scripts/*.test .claude/hooks/*.test .claude/skills/pr-review/scripts/*_test.sh .local/bin/claude.test .local/bin/wt-prune.test .local/bin/launchd-status.test .claude/statusline-command.test; do bash "$t" || echo "FAIL $t"; done
 ```
 
 `skills/pr-demo/scripts/narrate_test.sh` needs ffmpeg and a speech engine, so it is run by hand only.

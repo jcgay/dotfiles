@@ -1,12 +1,13 @@
 import { View, div, svg } from "gpui-kit";
 import { h_flex } from "gpui-base";
-import { spaces, agents, panes, terminals, theme, run, window, keys, exec, home, shared, setShared, setBadge } from "herdr";
+import { spaces, agents, panes, terminals, theme, run, window, keys, exec, home, shared, setShared, setBadge, readTextFile } from "herdr";
 import { parseListeners, parseParents, parseCwds, spaceOf, health, stillMapped, healthPlan } from "./ports.js";
 import { round } from "./watcher.js";
 import { waitingOnMe } from "./watch.js";
 import { mergeRound } from "./merger.js";
 import { openRound } from "./opener.js";
 import { squashRound } from "./squasher.js";
+import { usageWindows, resetLabel } from "./usage.js";
 
 const WATCH = "pr-watch";
 const NOW = "pr-watch-now"; // the PR panel's ↻ asks for a round now
@@ -18,8 +19,9 @@ export default class WorkspaceStatus extends View {
   init(_props, cx) {
     this.ports = []; // [{ pid, port, space, state: "up" | "starting", at }]
     this.mapped = null; // the last ps and lsof-cwd answers: { at, pids, parents, cwds }
-    cx.timer.every(5000, (cx) => this.refresh(cx));
+    cx.timer.every(5000, (cx) => { this.refresh(cx); this.readUsage(cx); });
     this.refresh(cx);
+    this.readUsage(cx);
     // The PR watch lives here: this bar is always shown, the PR panel is not.
     // nextAt: when the timer runs the next round, for the panel's "tour dans X" (a ↻ round does not move it).
     this.nextAt = Date.now() + 60000;
@@ -33,6 +35,16 @@ export default class WorkspaceStatus extends View {
     cx.timer.every(5000, (cx) => this.open(cx));
     // Squash button (PR panel): same pace as the openings.
     cx.timer.every(5000, (cx) => this.squash(cx));
+  }
+
+  // Claude's usage, written by ~/.claude/statusline-command.sh at each response of any session.
+  // Unreadable or half-parsed: keep the last good value. Redraw only when the file changed.
+  readUsage(cx) {
+    cx.spawn(async (cx) => {
+      const text = await readTextFile(`${home()}/.cache/claude-usage.json`).catch(() => null);
+      if (!text || text === this.usageText) return;
+      try { this.usage = JSON.parse(text); this.usageText = text; cx.notify(); } catch { /* keep the last value */ }
+    });
   }
 
   squash(cx) {
@@ -179,6 +191,8 @@ export default class WorkspaceStatus extends View {
     const badge = needs + mine > 0 ? String(needs + mine) : null;
     if (badge !== this.badge) { this.badge = badge; setBadge(badge); }
     const shown = this.ports.filter((p) => p.space === space?.id);
+    const now = Date.now();
+    const usage = usageWindows(this.usage, now);
     const label = (icon, text) => h_flex().gap(6).items_center().child(svg(`mods/workspace-chrome/${icon}.svg`).size(13)).child(text);
     const port = (p) => h_flex().id(`port-${p.port}`).gap(5).items_center().hover((s) => s.text_color(t.foreground))
       .on_click(() => exec("open", [`http://localhost:${p.port}/`]))
@@ -197,6 +211,17 @@ export default class WorkspaceStatus extends View {
         // Same as ⌘⇧U and the tab button (tabs-jc): the watch list takes the keyboard.
         .on_click(() => { run("layout.select", { stack: "panel-body", child: "watch" }); run("layout.show", { id: "panel" }); setShared("watch-focus", Date.now()); })
         .child(div().size(6).rounded(3).bg(t.blocked)).child(`${mine} PR à toi`)))
+      .when(usage.length > 0, el => el.child(h_flex().id("claude-usage").gap(6).items_center()
+        .tooltip(usage.map((w) => `Claude ${w.name === "5h" ? "5 heures" : "7 jours"} : ${w.pct} %${w.reset ? ` jusqu'à ${resetLabel(w.reset, now)}` : ""}`).join("\n"))
+        // "Claude  5 h 6 % jusqu'à 10:40 · semaine 11 %": a label per window and a separator, not figures run together.
+        .child(div().text_color(t.dim).child("Claude"))
+        .children(usage.flatMap((w, i) => [
+          ...(i > 0 ? [div().text_color(t.dim).child("·")] : []),
+          h_flex().gap(4).items_center()
+            .child(div().text_color(t.dim).child(w.name === "5h" ? "5 h" : "semaine"))
+            .child(div().text_color(w.pct >= 90 ? t.blocked : w.pct >= 70 ? t.working : t.muted).child(`${w.pct} %`))
+            .when(w.name === "5h" && Boolean(w.reset), el => el.child(div().text_color(t.dim).child(`jusqu'à ${resetLabel(w.reset, now)}`))),
+        ]))))
       .child(div().flex_1())
       .when(shown.length > 0, el => el.child(h_flex().gap(12).items_center().children(shown.map(port))))
       .child(div().id("palette").text_color(t.dim).on_click(() => run("app.palette")).child(this.hint(t)));
