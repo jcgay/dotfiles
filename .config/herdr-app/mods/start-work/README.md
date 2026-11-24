@@ -7,7 +7,7 @@ Notre mod (pas un clone de Herdr) pour commencer un ticket en un geste : un tick
 Depuis un terminal dans un dépôt, tu choisis un ticket. Le mod :
 
 1. t'assigne le ticket Jira et le passe En cours s'il était encore « à faire » (case à décocher) ;
-2. crée le worktree avec worktrunk (`wt switch --create`), depuis la base choisie ;
+2. crée le worktree avec worktrunk (`wt switch --create`), depuis `origin/<base>` tout juste fetché (jamais la branche locale, souvent en retard) ;
 3. ouvre un space Herdr dessus avec `claude` ;
 4. colle dans Claude `/superpowers:brainstorming <ticket>` (`/superpowers:systematic-debugging <ticket>` pour un bug) **sans l'envoyer**, pour que tu le complètes.
 
@@ -104,7 +104,7 @@ flowchart TD
   TN -->|non| WT
   TR --> WT
   T -->|non| WT{"branche déjà sortie dans un worktree ?"}
-  WT -->|non| WS["wt switch (--create --base BASE pour Créer) --no-cd"]
+  WT -->|non| WS["wt switch (--create --base origin/BASE pour Créer) --no-cd"]
   WS -->|échec| E4["« worktrunk : … »"]
   WS -->|ok| SP
   WT -->|oui| SP{"un space montre déjà ce worktree ?"}

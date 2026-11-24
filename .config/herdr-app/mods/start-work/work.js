@@ -70,7 +70,7 @@ export async function start(state, cx, phase = () => {}) {
   // The worktree: one already checked out is used as is, work in progress and all.
   let trees = await checkouts(repo.main);
   if (!trees.has(branch)) {
-    const args = state.resume ? ["switch", branch, "--no-cd"] : ["switch", "--create", branch, "--base", base, "--no-cd"];
+    const args = state.resume ? ["switch", branch, "--no-cd"] : ["switch", "--create", branch, "--base", `origin/${base}`, "--no-cd"];
     phase("worktrunk…");
     try { await cmd("wt", args, repo.main, 600000); }
     catch (e) { throw new Error(`${done}worktrunk : ${e.message}`); }
