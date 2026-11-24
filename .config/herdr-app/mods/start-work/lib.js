@@ -2,7 +2,19 @@
 // slug, branchFor, existingWork and spaceIn come from aguiddir/herdr-config's start-work
 // (mods/start-work/lib.js), adapted.
 
-// "Données : 🐛 Fix l'accès" -> "donnees-fix-l-acces", at most 50 chars, cut at a dash.
+// ~/.config/herdr-app/config.json (rendered by `yadm alt` from the machine class) → its jira entry, if any.
+// start-work needs no owners: only a missing or unreadable file is an error.
+export const CONFIG_ERROR = "~/.config/herdr-app/config.json absent ou invalide : lance yadm alt";
+export function jiraOf(text) {
+  let config;
+  try { config = JSON.parse(text); } catch { return { jira: null, error: CONFIG_ERROR }; }
+  if (config === null || typeof config !== "object") return { jira: null, error: CONFIG_ERROR };
+  // A partial entry would curl undefined/rest/… and assign tickets to "undefined": no Jira then.
+  const ok = (v) => typeof v === "string" && v !== "";
+  return { jira: ok(config.jira?.url) && ok(config.jira?.me) ? config.jira : null, error: null };
+}
+
+// "Données : 🐛 Fix l'accès" ->"donnees-fix-l-acces", at most 50 chars, cut at a dash.
 export function slug(text) {
   let s = text.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
   if (s.length > 50) s = s.slice(0, 50).replace(/-[^-]*$/, "");
@@ -24,10 +36,11 @@ export function branchFor(item) {
 
 const KEY = /^[A-Z][A-Z0-9]+-\d+$/;
 
-export function parseQuery(text) {
+// jira false (no Jira on this machine): a key-shaped text (utf-8, ABC-12) is searched as text.
+export function parseQuery(text, jira = true) {
   const t = text.trim();
   if (!t) return { kind: "empty" };
-  if (KEY.test(t.toUpperCase())) return { kind: "key", key: t.toUpperCase() };
+  if (jira && KEY.test(t.toUpperCase())) return { kind: "key", key: t.toUpperCase() };
   // shortcut: a pasted URL is read in the current repo, whatever repo it names.
   const issue = /^#(\d+)$/.exec(t) ?? /^https:\/\/github\.com\/[^/]+\/[^/]+\/(?:pull|issues)\/(\d+)\b/.exec(t);
   if (issue) return { kind: "issue", number: Number(issue[1]) };

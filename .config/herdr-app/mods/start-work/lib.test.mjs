@@ -177,3 +177,23 @@ test("a colleague's ticket keeps their name when Jira hides their email", () => 
   assert.equal(item.assigneeName, "Charles Metivier");
   assert.equal(parseJiraIssues(JSON.stringify([jiraOne]))[0].assigneeName, null);
 });
+
+test("jiraOf: Jira from config.json, an error only when the file is missing or unreadable", async () => {
+  const { jiraOf, CONFIG_ERROR } = await import("./lib.js");
+  assert.equal(CONFIG_ERROR, "~/.config/herdr-app/config.json absent ou invalide : lance yadm alt");
+  assert.deepEqual(jiraOf(null), { jira: null, error: CONFIG_ERROR });
+  assert.deepEqual(jiraOf("{"), { jira: null, error: CONFIG_ERROR });
+  assert.deepEqual(jiraOf('{"owners":["a"]}'), { jira: null, error: null });
+  assert.deepEqual(jiraOf('{"jira":{"url":"u","me":"m"}}'), { jira: { url: "u", me: "m" }, error: null });
+});
+
+test("parseQuery without Jira: a key-shaped text is text", () => {
+  assert.deepEqual(parseQuery("utf-8", false), { kind: "text", text: "utf-8" });
+  assert.deepEqual(parseQuery("ABC-12"), { kind: "key", key: "ABC-12" });
+});
+
+test("jiraOf: a jira entry without url or me is no Jira", async () => {
+  const { jiraOf } = await import("./lib.js");
+  assert.deepEqual(jiraOf('{"jira":{"url":"u"}}'), { jira: null, error: null });
+  assert.deepEqual(jiraOf('{"jira":{"url":"u","me":""}}'), { jira: null, error: null });
+});

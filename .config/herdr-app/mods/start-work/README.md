@@ -162,7 +162,7 @@ Seul `lib.js` est testé ; `main.js` et `work.js` se vérifient à la main dans 
 - Pour ouvrir un second chantier sur un ticket déjà en cours, change le nom de branche : le bouton repasse à Créer, avec Jira et le prompt.
 - Le bouton ne peut rien tant que le `git fetch origin` n'est pas fini (grisé ; « Chargement… » tant que la liste est vide), pour ne jamais partir d'un vieux `origin/<base>`. Il est aussi grisé si la branche est vide ou si la recherche en cours n'a pas répondu.
 - Fermer la fenêtre pendant la création (Herdr ferme même sur `esc`) coupe le travail : un toast dit l'étape, ce qui est fait reste fait (ticket assigné, worktree).
-- Jira passe par `fish -c` pour avoir `JIRA_API_TOKEN` (`conf.d/secrets.fish`) ; mon adresse Jira est en dur dans `work.js` (`ME`).
+- Jira passe par `fish -c` pour avoir `JIRA_API_TOKEN` (`conf.d/secrets.fish`) ; mon adresse et l'URL Jira viennent de `jira.me` et `jira.url` du `~/.config/herdr-app/config.json` commun (rendu par `yadm alt` selon la classe), pour les seuls appels `curl` : la CLI `jira` lit son propre `~/.config/.jira/.config.yml`. Sans `jira` dans ce fichier, ou sans son `url` ou son `me` (machine perso), aucun appel Jira : ni recherche, ni « M'assigner », et un texte en forme de clé (`utf-8`, `ABC-12`) est cherché comme du texte ; sans le fichier, une note « ~/.config/herdr-app/config.json absent ou invalide : lance yadm alt ».
 - Le collage exporte `LANG=en_US.UTF-8` : Herdr lance les programmes sans locale, et `pbcopy` lirait les accents en MacRoman.
 - Si le presse-papier ne peut pas être remis, il reste sauvé dans le fichier temporaire que le toast nomme.
 

@@ -3,10 +3,8 @@
 import { exec, run, spaces, panes } from "herdr";
 import { parseJiraIssues, pickStartTransition, promptFor, spaceIn, clipboardIsText } from "./lib.js";
 
-const ME = "jean-christophe.gay@vidal.fr";
 // Herdr starts programs without a locale, and pbcopy then reads its input as MacRoman (é → √©).
 const UTF8 = "export LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8;";
-const JIRA = "https://vidalgroup.atlassian.net";
 
 // The first line of an error, without the colors jira-cli adds.
 export const firstLine = (r) => (r.stderr || r.stdout || "").replace(/\x1b\[[0-9;]*m/g, "").trim().split("\n")[0];
@@ -17,12 +15,14 @@ export async function cmd(program, args, cwd, timeout = 30000) {
   return r.stdout;
 }
 
+// `jira` ({ url, me }) comes from config.json and serves the REST calls only: jira-cli reads its own
+// ~/.config/.jira/.config.yml, set up per machine.
 // jira-cli and the REST API through fish: Herdr starts programs without the fish environment,
 // where JIRA_API_TOKEN lives (conf.d/secrets.fish).
 export const jira = (args, cwd) => cmd("fish", ["-c", "jira $argv", ...args], cwd);
 // My Jira display name: search results hide emails, mine included, so names are compared.
-export const myName = () => cmd("fish", ["-c", `curl -sf -u "${ME}:$JIRA_API_TOKEN" $argv`, `${JIRA}/rest/api/3/myself`]).then((out) => JSON.parse(out).displayName);
-const transitions = (key) => cmd("fish", ["-c", `curl -sf -u "${ME}:$JIRA_API_TOKEN" $argv`, `${JIRA}/rest/api/3/issue/${key}/transitions`]);
+export const myName = (jira) => cmd("fish", ["-c", `curl -sf -u "${jira.me}:$JIRA_API_TOKEN" $argv`, `${jira.url}/rest/api/3/myself`]).then((out) => JSON.parse(out).displayName);
+const transitions = (conf, key) => cmd("fish", ["-c", `curl -sf -u "${conf.me}:$JIRA_API_TOKEN" $argv`, `${conf.url}/rest/api/3/issue/${key}/transitions`]);
 
 // Every checked-out branch of the repo and its folder.
 async function checkouts(main) {
@@ -36,15 +36,15 @@ async function checkouts(main) {
 
 // Assign the ticket to me, then move it to In Progress if it was still to do. Only the assignment
 // stops the run: the state is a comfort, and the assignment cannot be undone.
-async function take(key, main, notes) {
+async function take(conf, key, main, notes) {
   const ticket = parseJiraIssues(await jira(["issue", "view", key, "--raw"], main))[0];
-  if (ticket.assignee !== ME) {
-    try { await jira(["issue", "assign", key, ME], main); }
+  if (ticket.assignee !== conf.me) {
+    try { await jira(["issue", "assign", key, conf.me], main); }
     catch (e) { throw new Error(`Jira refuse de t'assigner ${key} : ${e.message}. Rien n'a été créé.`); }
   }
   if (ticket.category !== "new") return;
   try {
-    const start = pickStartTransition(JSON.parse(await transitions(key)).transitions ?? []);
+    const start = pickStartTransition(JSON.parse(await transitions(conf, key)).transitions ?? []);
     if (!start) return void notes.push(`${key} assigné, état inchangé : aucune transition « En cours » depuis « ${ticket.status} ».`);
     await jira(["issue", "move", key, start.name], main);
   } catch (e) { notes.push(`${key} assigné, état inchangé : ${e.message}`); }
@@ -63,8 +63,8 @@ export async function start(state, cx, phase = () => {}) {
     for (const ref of [`refs/heads/${branch}`, `refs/remotes/origin/${branch}`])
       if ((await exec("git", ["show-ref", "--verify", "--quiet", ref], { cwd: repo.main })).code === 0)
         throw new Error(`La branche ${branch} existe déjà${ref.startsWith("refs/remotes/") ? " sur origin" : ""} : donne un autre nom à la nouvelle.`);
-  const taking = state.take && !state.resume && item.kind === "jira";
-  if (taking) { phase("Jira…"); await take(item.key, repo.main, notes); }
+  const taking = state.take && !state.resume && item.kind === "jira" && Boolean(state.jira);
+  if (taking) { phase("Jira…"); await take(state.jira, item.key, repo.main, notes); }
   const done = taking ? `${item.key} est déjà à toi. ` : "";
 
   // The worktree: one already checked out is used as is, work in progress and all.
