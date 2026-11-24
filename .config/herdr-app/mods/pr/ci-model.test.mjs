@@ -8,7 +8,9 @@ test("sinceDate is 7 days back", () => assert.equal(sinceDate(Date.parse("2026-1
 test("reposOf unions PR and commit searches", () => {
   const prs = JSON.stringify([{ repository: { nameWithOwner: "softwarevidal/arthur" } }, { repository: { nameWithOwner: "softwarevidal/harnais" } }]);
   const commits = JSON.stringify([{ repository: { fullName: "softwarevidal/docker-lib-karadoc" } }, { repository: { fullName: "softwarevidal/arthur" } }]);
-  assert.deepEqual(reposOf(prs, commits), ["arthur", "docker-lib-karadoc", "harnais"]);
+  assert.deepEqual(reposOf(prs, commits), ["softwarevidal/arthur", "softwarevidal/docker-lib-karadoc", "softwarevidal/harnais"]);
+  // Two owners may have a repo of the same name: both stay.
+  assert.deepEqual(reposOf(JSON.stringify([{ repository: { nameWithOwner: "b/x" } }]), JSON.stringify([{ repository: { fullName: "a/x" } }])), ["a/x", "b/x"]);
   assert.deepEqual(reposOf("", "not json"), []);
 });
 
@@ -19,11 +21,11 @@ test("isLong", () => {
 
 test("longJobs keeps the raw job name", () => {
   const ls = JSON.stringify([{ name: "PR-1191" }, { name: "master" }, { name: "release%2Fv4" }, { name: "feat%2Fx" }]);
-  assert.deepEqual(longJobs("vira", ls), [
-    { repo: "vira", branch: "master", jobPath: "team.software/github/vira/master" },
-    { repo: "vira", branch: "release/v4", jobPath: "team.software/github/vira/release%2Fv4" },
+  assert.deepEqual(longJobs("softwarevidal/vira", ls, "team.software/github"), [
+    { repo: "softwarevidal/vira", branch: "master", jobPath: "team.software/github/vira/master" },
+    { repo: "softwarevidal/vira", branch: "release/v4", jobPath: "team.software/github/vira/release%2Fv4" },
   ]);
-  assert.deepEqual(longJobs("vira", "oops"), []);
+  assert.deepEqual(longJobs("softwarevidal/vira", "oops", "team.software/github"), []);
 });
 
 test("rowState and rowOf", () => {
@@ -107,4 +109,17 @@ test("listComplete: cache the lists only when every search and jk job ls answere
   assert.equal(listComplete([ok, { code: 1, stderr: "rate limit" }], [ok]), false);
   assert.equal(listComplete([ok, ok], [ok, down]), false);
   assert.equal(listComplete([ok, ok], []), true);
+});
+
+test("parseConfig: missing, unreadable or ownerless config is an error", async () => {
+  const { parseConfig, CONFIG_ERROR } = await import("./ci-model.js");
+  for (const t of [null, "{", "[]", '{"owners":[]}', '{"owners":[""]}']) assert.deepEqual(parseConfig(t), { error: CONFIG_ERROR });
+  assert.equal(CONFIG_ERROR, "~/.config/herdr-app/config.json absent ou invalide : lance yadm alt"); // names the file: start-work has a config.json of its own
+  assert.deepEqual(parseConfig('{"owners":["a"],"dockerQa":true}'), { config: { owners: ["a"], dockerQa: true } });
+});
+
+test("repoLabel: the name alone with one owner", async () => {
+  const { repoLabel } = await import("./ci-model.js");
+  assert.equal(repoLabel("o/r", ["o"]), "r");
+  assert.equal(repoLabel("o/r", ["o", "p"]), "o/r");
 });

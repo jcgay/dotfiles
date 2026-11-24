@@ -1,7 +1,8 @@
 import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
-import { spaces, panes, agents, focused, exec, theme, layout, run, shared, setShared, props } from "herdr";
+import { spaces, panes, agents, focused, exec, theme, layout, run, shared, setShared, props, appHome, readTextFile } from "herdr";
 import { Ci } from "./ci.js";
+import { parseConfig } from "./ci-model.js";
 import { moveSel, jenkinsBuild, checks, otherChecks, summary, minutes, deploymentsFor, parseContainers, watchBranch, remember, clockText, workLook, rowActions, bandStates, nextRound, isDraft, hiddenDraft, sessionOf } from "./model.js";
 
 // How many spaces, checkouts and Jenkins builds the caches keep.
@@ -79,12 +80,22 @@ export default class PullRequest extends View {
     this.seen = new Map(); this.builds = new Map(); this.remotes = new Map(); this.turns = new Map();
     // The watch view only reads shared(): no gh or jk.
     cx.timer.every(60000, (cx) => { if (this.view === "pr" && visible("pr")) this.refresh(cx); });
+    // config.json: the owners in the watch's help, dockerQa for the containers. Re-read every minute: `yadm alt` applies without a restart.
+    this.config = null;
+    const read = () => readTextFile(`${appHome()}/config.json`).catch(() => null)
+      .then((text) => { this.config = parseConfig(text).config ?? null; });
+    // containers() waits for the first read: before it, the work machine would get no deployments for a minute.
+    this.configReady = read();
+    cx.spawn(async (cx) => { await this.configReady; cx.notify(); });
+    cx.timer.every(60000, (cx) => cx.spawn(async (cx) => { await read(); cx.notify(); }));
   }
 
   // Every container of the shared Docker hosts, through the wrappers in ~/.local/bin. One scan
   // serves every space for 5 minutes: it inspects some 270 containers. Concurrent callers share it.
-  containers(force) {
-    if (!force && this.scan.list && Date.now() - this.scan.at < 300000) return Promise.resolve(this.scan.list);
+  async containers(force) {
+    await this.configReady;
+    if (!this.config?.dockerQa) return []; // the QA Docker hosts are Vidal's: off unless config.json says so
+    if (!force && this.scan.list && Date.now() - this.scan.at < 300000) return this.scan.list;
     this.scan.pending ??= Promise.all(["dockersw", "docker-sw2", "dockerbo"].map((cli) =>
       exec("sh", ["-c", `${cli} ps -q | xargs ${cli} inspect --format '{{.Name}}|{{json .Config.Env}}'`], { timeout: 30000 })
         .then((r) => parseContainers(r.stdout)).catch(() => [])))
@@ -489,7 +500,7 @@ export default class PullRequest extends View {
     const legend = (items) => v_flex().gap(4).children(items.map(([mark, text]) => h_flex().gap(8).items_start()
       .child(div().w(44).flex_none().child(mark)).child(div().flex_1().min_w(0).text_color(t.muted).child(text))));
     const help = v_flex().gap(4).mb(10).p(10).rounded(8).bg(t.raised).text_size(11)
-      .child(div().text_color(t.muted).child("Tes PR ouvertes de softwarevidal touchées depuis 7 jours, "
+      .child(div().text_color(t.muted).child(`Tes PR ouvertes de ${this.config?.owners.join(", ") ?? "tes organisations (config.json absent ou invalide : lance yadm alt)"} touchées depuis 7 jours, `
         + "qu'un tour (toutes les 2 min, le bouton rafraîchir de l'en-tête pour tout de suite) fait avancer en lançant un agent pour l'étape suivante. La PR de la branche affichée a son propre panneau, Pull request."))
       .child(section("Étapes, dans l'ordre"))
       .child(legend(STEPS.map((s) => [cellOf("help", {}, s, "todo"), STEP_HELP[s]])))

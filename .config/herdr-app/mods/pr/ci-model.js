@@ -1,32 +1,43 @@
 // Pure helpers for the CI panel (view "ci"): fed with gh / jk JSON. No herdr import: node --test loads it.
 // Design: ~/.config/herdr-app/docs/2026-11-24-ci-watch-design.md
 
-// shortcut: one organisation, hard-coded; made configurable in a later PR.
-export const ORG = "softwarevidal";
 export const WINDOW_MS = 7 * 86400000;
-export const JOBS_FOLDER = "team.software/github";
+
+// ~/.config/herdr-app/config.json, rendered by `yadm alt` from the machine class.
+// Copied from status-jc/watch.js: a mod cannot import another's files.
+export const CONFIG_ERROR = "~/.config/herdr-app/config.json absent ou invalide : lance yadm alt";
+export function parseConfig(text) {
+  let config;
+  try { config = JSON.parse(text); } catch { return { error: CONFIG_ERROR }; }
+  const owners = config?.owners;
+  const ok = Array.isArray(owners) && owners.length > 0 && owners.every((o) => typeof o === "string" && o !== "");
+  return ok ? { config } : { error: CONFIG_ERROR };
+}
+
+// A repo's heading: its name alone when every repo has the same owner.
+export const repoLabel = (repo, owners) => owners.length > 1 ? repo : repo.split("/")[1];
 
 const parse = (json) => { try { return JSON.parse(json); } catch { return null; } };
 
 // "YYYY-MM-DD" of now - 7 days, for gh's ">date" qualifiers.
 export const sinceDate = (now) => new Date(now - WINDOW_MS).toISOString().slice(0, 10);
 
-// `gh search prs … --json repository` and `gh search commits … --json repository` → repo names, unique, sorted.
+// `gh search prs … --json repository` and `gh search commits … --json repository` → owner/name, unique, sorted.
 export function reposOf(prsJson, commitsJson) {
   const full = [...(parse(prsJson) ?? []).map((p) => p?.repository?.nameWithOwner), ...(parse(commitsJson) ?? []).map((c) => c?.repository?.fullName)];
-  return [...new Set(full.filter(Boolean).map((n) => n.split("/")[1]).filter(Boolean))].sort();
+  return [...new Set(full.filter((n) => /^[^/]+\/[^/]+$/.test(n ?? "")))].sort();
 }
 
 export const isLong = (branch) => /^(main|master|develop|sprint-.+|release\/.+)$/.test(branch);
 
-// `jk job ls <folder>/<repo> --json` → the long branches' jobs. jobPath keeps the raw name: jk 404s on release/v4, not on release%2Fv4.
-export function longJobs(repo, jobLsJson) {
+// `jk job ls <folder>/<name> --json` → the long branches' jobs of repo (owner/name). jobPath keeps the raw name: jk 404s on release/v4, not on release%2Fv4.
+export function longJobs(repo, jobLsJson, folder) {
   const jobs = parse(jobLsJson);
   if (!Array.isArray(jobs)) return [];
   return jobs.flatMap(({ name }) => {
     let branch;
     try { branch = decodeURIComponent(name ?? ""); } catch { return []; }
-    return isLong(branch) ? [{ repo, branch, jobPath: `${JOBS_FOLDER}/${repo}/${name}` }] : [];
+    return isLong(branch) ? [{ repo, branch, jobPath: `${folder}/${repo.split("/")[1]}/${name}` }] : [];
   });
 }
 
