@@ -80,7 +80,7 @@ SELECT label,
   count(DISTINCT CASE WHEN period = 'after' THEN unit END) AS n_after,
   round(coalesce(sum(CASE WHEN period = 'after' THEN cost END) / 1e6 / nullif(count(DISTINCT CASE WHEN period = 'after' THEN unit END), 0), 0), 2) AS per_n_after
 FROM labelled WHERE kind = 'u' GROUP BY label)
-SELECT *, CASE WHEN per_n_before > 0 THEN round(100.0 * (per_n_after - per_n_before) / per_n_before) END AS delta_pct
+SELECT *, CASE WHEN n_before > 0 AND n_after > 0 THEN round(100.0 * (per_n_after - per_n_before) / per_n_before) END AS delta_pct
 FROM r ORDER BY per_n_after * n_after + per_n_before * n_before DESC"
 else
   report="
