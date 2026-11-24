@@ -13,6 +13,7 @@ De gauche à droite :
 - le nom de la machine pour un space distant (rien pour ce Mac), la branche du space ;
 - `N agents`, et `· N t'attend(ent)` pour les agents `blocked`. Ce nombre part aussi en pastille sur l'icône du Dock (`setBadge`, rappelé seulement quand il change) ;
 - `N PR à toi`, en rouge, quand la surveillance a abandonné des PR (étiquette « à toi ») ou qu'un merge armé d'une PR surveillée a été refusé (`waitingOnMe` dans `watch.js`). Un clic ouvre le panneau Surveillance des PR, qui prend le clavier (`shared("watch-focus")`, comme `⌘⇧U`). Ce nombre s'ajoute à celui des agents dans la pastille du Dock ;
+- `Claude 5 h N % jusqu'à HH:MM · semaine N %` : l'usage Claude (fenêtres de 5 heures et de 7 jours, avec l'heure de remise à zéro de la première ; infobulle pour celle des 7 jours), le pourcentage orange à partir de 70 %, rouge à partir de 90 %. Lu toutes les 5 s dans `~/.cache/claude-usage.json`, que `~/.claude/statusline-command.sh` réécrit à chaque réponse de n'importe quelle session Claude Code (`rate_limits` de son entrée), seulement quand ses chiffres sont plus récents que ceux du fichier (remise à zéro plus tardive, puis usage plus haut) : une session inactive qui se redessine (changement de mode) ne remet pas ses vieux chiffres. Écriture en fichier temporaire puis `mv`, jamais un fichier à moitié écrit ; un fichier illisible garde la dernière valeur. Une fenêtre passée sa remise à zéro disparaît jusqu'à la prochaine réponse d'une session ;
 - les ports du space affiché, triés : point vert plein = répond, cercle qui clignote = démarre. Un clic ouvre `http://localhost:<port>/` ;
 - le raccourci de la palette tel qu'il est vraiment lié dans `keys.json` (`commandes` seul s'il n'y en a pas). Un clic l'ouvre.
 
@@ -203,7 +204,7 @@ Chaque tour de surveillance et chaque merge armé ajoutent leurs lignes à `~/Li
 | Fichier | Rôle |
 |---|---|
 | `mod.json` | Origine du clone (`workspace-status` 0.1.15). |
-| `main.js` | La vue : barre d'état, minuteurs des ports (5 s), de la surveillance (60 s puis 2 min, et la demande de tour relevée toutes les 5 s), du merge armé (1 min), des ouvertures et des squashs (5 s), écriture du registre. |
+| `main.js` | La vue : barre d'état, minuteurs des ports et de l'usage Claude (5 s), de la surveillance (60 s puis 2 min, et la demande de tour relevée toutes les 5 s), du merge armé (1 min), des ouvertures et des squashs (5 s), écriture du registre. |
 | `ports.js` | Fonctions pures des ports : lecture de lsof et ps, space d'un listener, santé, quoi interroger. |
 | `watch.js` | Fonctions pures de la surveillance : signaux d'une PR, `decide`, prompts, lecture de git. Sans import Herdr. |
 | `pipeline.js` | Fonctions pures de la bande d'étapes : cases, mesures de durée, médiane, estimation, worktree de ⌨. Sans import Herdr. |
@@ -215,7 +216,8 @@ Chaque tour de surveillance et chaque merge armé ajoutent leurs lignes à `~/Li
 | `opener.js` | Un passage d'ouverture : demande, gh, worktree, espace, pause. |
 | `journal.js` | Fonctions pures du journal : lignes d'un tour, format d'une ligne. Sans import Herdr. |
 | `journal-file.js` | Ajout des lignes au fichier du journal. |
-| `ports.test.mjs`, `watch.test.mjs`, `pipeline.test.mjs`, `merge.test.mjs`, `open.test.mjs`, `journal.test.mjs` | Tests `node:test` des fichiers purs. |
+| `usage.js` | Fonctions pures de l'usage Claude : fenêtres encore valides, heure de remise à zéro. Sans import Herdr. |
+| `ports.test.mjs`, `watch.test.mjs`, `pipeline.test.mjs`, `merge.test.mjs`, `open.test.mjs`, `journal.test.mjs`, `usage.test.mjs` | Tests `node:test` des fichiers purs. |
 
 ```sh
 node --test ~/.config/herdr-app/mods/status-jc/*.test.mjs

@@ -15,6 +15,25 @@ limit_reset=$(echo "$input" | jq -r '.rate_limits.five_hour.resets_at // empty')
 
 [ -z "$repo_name" ] && repo_name=$(basename "${project_dir:-$cwd}")
 
+# Herdr's status bar (mod status-jc) shows the same limits. Every session writes the file:
+# a temp file renamed in place (same APFS volume, so atomic), never a half-written file.
+# The trap removes the temp file if the script is stopped first; macOS purges $TMPDIR of the rest.
+# An idle session re-renders too (permission or vim mode change) with its old limits: write only
+# what is newer than the file (later reset, then higher use), so it never moves back. No file or
+# an unreadable one: jq fails (exit 2+), written. Same figures: exit 1, nothing rewritten.
+usage_file="$HOME/.cache/claude-usage.json"
+rate_limits=$(echo "$input" | jq -c '.rate_limits // empty')
+newer() {
+  jq -en --argjson n "$rate_limits" --slurpfile o "$usage_file" '
+    def k: [.five_hour.resets_at // 0, .five_hour.used_percentage // 0, .seven_day.resets_at // 0, .seven_day.used_percentage // 0];
+    ($n | k) > ($o[0] | k)' >/dev/null 2>&1
+  [ $? -ne 1 ]
+}
+if [ -n "$rate_limits" ] && newer && mkdir -p "$HOME/.cache" && usage_tmp=$(mktemp "${TMPDIR:-/tmp}/claude-usage.XXXXXX"); then
+  trap 'rm -f "$usage_tmp"' EXIT
+  printf '%s\n' "$rate_limits" > "$usage_tmp" && mv "$usage_tmp" "$usage_file"
+fi
+
 # Git branch (skip optional locks, cheap on large repos)
 branch=""
 if git -C "$cwd" rev-parse --git-dir &>/dev/null; then

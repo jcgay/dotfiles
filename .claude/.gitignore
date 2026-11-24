@@ -4,6 +4,7 @@
 *
 !.gitignore
 !statusline-command.sh
+!statusline-command.test
 !mods/
 !mods/subagent-band/
 !mods/subagent-band/.claude-plugin/
