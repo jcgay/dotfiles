@@ -33,9 +33,11 @@ Les ports sont relus toutes les 5 s, et tout de suite quand tu changes de space 
 
 Un premier tour 60 s après le démarrage du mod, puis toutes les 2 min, et dans les 5 s quand le rafraîchissement de la Surveillance des PR écrit `shared("pr-watch-now")` (ou dès la fin du tour en cours s'il y en a un). Les tours tournent aussi surveillance coupée : le panneau reste à jour, mais aucun agent ne part.
 
+Chaque tour (Surveillance, merge armé, « Travailler dessus », squash) relit d'abord `~/.config/herdr-app/config.json`, rendu par `yadm alt` selon la classe de la machine : un changement s'applique sans redémarrer. Absent ou sans `owners`, aucune boucle n'appelle GitHub ni ne lance d'agent (elles agiraient sur le compte où `gh` est connecté), le registre reste tel quel et le panneau affiche « ~/.config/herdr-app/config.json absent ou invalide : lance yadm alt ».
+
 Un tour prend un bail `shared("pr-watch-lease")` : si une autre copie du mod en tient un de moins de 4 min, le tour ne fait rien. Il lit ensuite :
 
-- `gh search prs --author=@me --state=open --owner=softwarevidal --updated=>=<aujourd'hui - 7 j>` : une PR sans activité depuis 7 jours sort de la liste (et du panneau) ;
+- `gh search prs --author=@me --state=open --owner=<o1> --owner=<o2> … --updated=>=<aujourd'hui - 7 j>`, un `--owner` par propriétaire de `owners` dans `~/.config/herdr-app/config.json` : une PR sans activité depuis 7 jours sort de la liste (et du panneau) ;
 - pour chaque PR, `gh pr view --json ...` (checks, commentaires, reviews) et `gh api .../commits/<sha>/check-runs` (Sonar) ;
 - pour chaque dépôt, son clone local (dossiers des spaces locaux et de leurs panes, `~/dev/agents-worktree/<repo>/*`, `/Volumes/sourcecode/<repo>`, reconnu par son remote `origin`), s'il a une CI (`Jenkinsfile` ou `.github/workflows/`), une section `## Demo` dans `AGENTS.md` ou `CLAUDE.md`, le skill QA (`testing-api-pull-requests` dont `references/report.md` porte le marqueur, sous `.agents/` ou `.claude/`) et un dossier `karadoc/`. Tout est lu avec git sur la branche par défaut au dernier fetch (`origin/HEAD`, sinon `origin/main`, sinon `origin/master`), jamais sur la branche checkout : le clone peut être sur une PR qui ajoute le premier `Jenkinsfile`, et le dépôt n'a pas de CI tant qu'elle n'est pas mergée.
 

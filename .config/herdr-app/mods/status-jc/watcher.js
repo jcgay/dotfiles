@@ -4,7 +4,7 @@ import { randomUUID } from "crypto";
 import { watchPath } from "./open.js";
 import { roundLines, searchLine } from "./journal.js";
 import { appendJournal } from "./journal-file.js";
-import { readHint, searchSince, signalsOf, withRiskTree, decide, emptyEntry, promptFor, repoOfRemote, undoLaunch, holdingTabs, karadocHeld, karadocHolder, closing, checkoutBases, checkoutsOf, LABELS } from "./watch.js";
+import { readHint, searchSince, ownerArgs, signalsOf, withRiskTree, decide, emptyEntry, promptFor, repoOfRemote, undoLaunch, holdingTabs, karadocHeld, karadocHolder, closing, checkoutBases, checkoutsOf, LABELS } from "./watch.js";
 import { bandOf, measure, addSamples, clockOf, workOf } from "./pipeline.js";
 
 const MAX_AGENTS = 3; // default; the PR panel's header sets pr-watch.maxAgents
@@ -210,7 +210,7 @@ const pruned = (e) => {
 
 // One watch round: reads my open PRs, decides, launches; returns the new registry, or null when another round
 // holds the lease (two status-jc copies must not launch twice). `cache` keeps `me`, this copy's lease id and the clones found.
-export async function round(registry, cache = {}) {
+export async function round(registry, cache = {}, owners) {
   const at = Date.now();
   cache.lease ??= `${at}-${Math.random()}`;
   const lease = shared(LEASE);
@@ -219,17 +219,17 @@ export async function round(registry, cache = {}) {
   // Only the copy running the round says so: a copy refused by the lease must not clear it.
   setShared("pr-watch", { ...(shared("pr-watch") ?? {}), running: true });
   try {
-    return await roundUnderLease(registry, cache, at);
+    return await roundUnderLease(registry, cache, at, owners);
   } finally {
     if (shared(LEASE)?.id === cache.lease) setShared(LEASE, null);
   }
 }
 
-async function roundUnderLease(registry, cache, at) {
+async function roundUnderLease(registry, cache, at, owners) {
   let found;
   try {
     cache.me ??= (await sh("gh", ["api", "user", "--jq", ".login"])).trim();
-    found = JSON.parse(await sh("gh", ["search", "prs", "--author=@me", "--state=open", "--owner=softwarevidal",
+    found = JSON.parse(await sh("gh", ["search", "prs", "--author=@me", "--state=open", ...ownerArgs(owners),
       `--updated=>=${searchSince(new Date())}`, "--json", "number,repository,updatedAt"]));
   } catch (e) {
     // The common outage (network, gh logged out) stops here, before any PR: the journal hears of it on its second round.

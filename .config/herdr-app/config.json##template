@@ -1,0 +1,12 @@
+{% if yadm.class == "Work" %}
+{
+  "owners": ["softwarevidal"],
+  "jenkins": { "folder": "team.software/github" },
+  "jira": { "url": "https://vidalgroup.atlassian.net", "me": "jean-christophe.gay@vidal.fr" },
+  "dockerQa": true
+}
+{% else %}
+{
+  "owners": ["jcgay"]
+}
+{% endif %}

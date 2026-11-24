@@ -1,9 +1,9 @@
 import { View, div, svg } from "gpui-kit";
 import { h_flex } from "gpui-base";
-import { spaces, agents, panes, terminals, theme, run, window, keys, exec, home, shared, setShared, setBadge, readTextFile } from "herdr";
+import { spaces, agents, panes, terminals, theme, run, window, keys, exec, home, shared, setShared, setBadge, readTextFile, appHome } from "herdr";
 import { parseListeners, parseParents, parseCwds, spaceOf, health, stillMapped, healthPlan } from "./ports.js";
 import { round } from "./watcher.js";
-import { waitingOnMe } from "./watch.js";
+import { waitingOnMe, parseConfig, CONFIG_ERROR } from "./watch.js";
 import { mergeRound } from "./merger.js";
 import { openRound } from "./opener.js";
 import { squashRound } from "./squasher.js";
@@ -47,12 +47,19 @@ export default class WorkspaceStatus extends View {
     });
   }
 
+  // ~/.config/herdr-app/config.json, read at each round: a `yadm alt` applies without a restart.
+  // Without it no loop touches GitHub: it would act on whatever account gh is logged in to.
+  async config() {
+    return parseConfig(await readTextFile(`${appHome()}/config.json`).catch(() => null));
+  }
+
   squash(cx) {
     if (this.squashing) return;
     this.squashing = true;
     this.squashId ??= `${Date.now()}-${Math.random()}`;
     cx.spawn(async () => {
       try {
+        if ((await this.config()).error) return;
         await squashRound(this.squashId);
       } catch (e) {
         console.log("squash:", e?.message ?? e);
@@ -68,6 +75,7 @@ export default class WorkspaceStatus extends View {
     this.openId ??= `${Date.now()}-${Math.random()}`;
     cx.spawn(async () => {
       try {
+        if ((await this.config()).error) return;
         await openRound(this.openId);
       } catch (e) {
         console.log("open:", e?.message ?? e);
@@ -83,6 +91,7 @@ export default class WorkspaceStatus extends View {
     this.mergeLease ??= `${Date.now()}-${Math.random()}`;
     cx.spawn(async () => {
       try {
+        if ((await this.config()).error) return;
         await mergeRound(this.mergeLease);
       } catch (e) {
         console.log("merge:", e?.message ?? e);
@@ -99,7 +108,8 @@ export default class WorkspaceStatus extends View {
     cx.spawn(async () => {
       let next;
       try {
-        next = await round(shared(WATCH) ?? FRESH, this);
+        const { config, error } = await this.config();
+        next = error ? { ...(shared(WATCH) ?? FRESH), error: CONFIG_ERROR, at: Date.now() } : await round(shared(WATCH) ?? FRESH, this, config.owners);
       } catch (e) {
         next = { ...(shared(WATCH) ?? FRESH), error: e?.message ?? String(e), at: Date.now() };
       } finally {

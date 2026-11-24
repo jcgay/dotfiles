@@ -1,5 +1,16 @@
 // Pure signals of a PR for the watch: fed with gh JSON. No herdr import, loads in plain Node.
 
+// ~/.config/herdr-app/config.json, rendered by `yadm alt` from the machine class. Copied in pr/ci-model.js.
+export const CONFIG_ERROR = "~/.config/herdr-app/config.json absent ou invalide : lance yadm alt";
+export function parseConfig(text) {
+  let config;
+  try { config = JSON.parse(text); } catch { return { error: CONFIG_ERROR }; }
+  const owners = config?.owners;
+  const ok = Array.isArray(owners) && owners.length > 0 && owners.every((o) => typeof o === "string" && o !== "");
+  return ok ? { config } : { error: CONFIG_ERROR };
+}
+export const ownerArgs = (owners) => owners.map((o) => `--owner=${o}`);
+
 // YYYY-MM-DD, seven days before `now` (lower bound of `gh search prs --updated`).
 export function searchSince(now) {
   return new Date(now.getTime() - 7 * 86400000).toISOString().slice(0, 10);

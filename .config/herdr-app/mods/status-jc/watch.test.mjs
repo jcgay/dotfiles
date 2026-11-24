@@ -770,3 +770,15 @@ test("squashAgentOver: a conflicted squash's agent ends with its tab, its agent 
   for (const status of ["done", "idle"]) assert.equal(squashAgentOver(e, tabs, { status }, later), true, status);
   for (const status of ["working", "blocked", null]) assert.equal(squashAgentOver(e, tabs, { status }, later), false, String(status));
 });
+
+test("parseConfig: missing, unreadable or ownerless config is an error", async () => {
+  const { parseConfig, CONFIG_ERROR } = await import("./watch.js");
+  for (const t of [null, "{", "[]", '{"owners":[]}', '{"owners":[""]}', '{"owners":"a"}']) assert.deepEqual(parseConfig(t), { error: CONFIG_ERROR });
+  assert.equal(CONFIG_ERROR, "~/.config/herdr-app/config.json absent ou invalide : lance yadm alt");
+  assert.deepEqual(parseConfig('{"owners":["a"],"jira":{}}'), { config: { owners: ["a"], jira: {} } });
+});
+
+test("ownerArgs: one --owner per owner", async () => {
+  const { ownerArgs } = await import("./watch.js");
+  assert.deepEqual(ownerArgs(["a", "b"]), ["--owner=a", "--owner=b"]);
+});
