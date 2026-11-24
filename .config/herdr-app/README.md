@@ -135,7 +135,7 @@ Bouton « Pull request » dans la barre d'onglets (ou `⌘⇧R`) : la PR de la b
 
 ### Panneau CI des branches longues
 
-Bouton CI (icône lecture dans un cercle) après « Surveillance des PR », ou `⌘⇧I` : le dernier build Jenkins de `main`, `master`, `develop`, `sprint-*` et `release/*` des dépôts `softwarevidal` où j'ai mergé une PR ou poussé un commit ces 7 derniers jours, les dépôts rouges en tête. Sur un build rouge : la console, la relance et **Corriger**, qui ouvre un space Claude sur une branche `fix/ci-<branche>-<N>` partie de la branche cassée ; l'agent relance si l'échec vient de l'infra ou d'un test instable, sinon corrige et ouvre une PR brouillon, que la Surveillance suit ensuite. Rafraîchi toutes les minutes panneau ouvert seulement. Détails : `docs/2026-11-24-ci-watch-design.md`.
+Bouton CI (icône lecture dans un cercle) après « Surveillance des PR », ou `⌘⇧I` : le dernier build Jenkins de `main`, `master`, `develop`, `sprint-*` et `release/*` des dépôts des propriétaires listés dans `config.json` (voir plus bas) où j'ai mergé une PR ou poussé un commit ces 7 derniers jours, les dépôts rouges en tête. Sur un build rouge : la console, la relance et **Corriger**, qui ouvre un space Claude sur une branche `fix/ci-<branche>-<N>` partie de la branche cassée ; l'agent relance si l'échec vient de l'infra ou d'un test instable, sinon corrige et ouvre une PR brouillon, que la Surveillance suit ensuite. Rafraîchi toutes les minutes panneau ouvert seulement. Détails : `docs/2026-11-24-ci-watch-design.md`.
 
 ### Panneau Journal
 
@@ -167,6 +167,7 @@ hc wait t3                   # attendre qu'un agent ait fini
 
 ## 6. Personnaliser sans casser
 
+- **Machine perso ou boulot** : `config.json`, rendu par `yadm alt` depuis `config.json##template` selon la classe yadm (éditer le template, jamais le rendu). `owners` (obligatoire) : les propriétaires GitHub dont la Surveillance, le panneau CI et le merge armé suivent les PR et dépôts. `jenkins.folder` : le panneau CI lit Jenkins ; absent, il lit GitHub Actions. `jira` (`url`, `me`) : `start-work` cherche et prend les tickets Jira ; absent, pas de Jira. `dockerQa` : le panneau PR cherche les conteneurs de QA. Sans `config.json`, ces mods n'appellent pas GitHub et disent « lance yadm alt ».
 - **Raccourcis** : `keys.json`. Une fois édité, Herdr ne le met plus à jour : `herdr-upstream` (lancé par `dot`) y fusionne ses nouveaux raccourcis par défaut, lus dans le binaire, avec `keys.default.json` comme base. Committer les deux ensemble. Éviter les `⌃lettre` que le shell utilise (`⌃C`, `⌃R`, `⌃W`…).
 - **Layout ou mod livré par Herdr** : ne jamais l'éditer (écrasé au démarrage). Le cloner (`layout.clone`, `mod.clone`) et committer l'original avec le clone ; `dot` reporte ensuite les mises à jour de Herdr dans nos clones (voir `~/.config/CLAUDE.md`).
 - **Vérifier un mod** : `herdr-app check ~/.config/herdr-app/mods/<nom>`, et les tests : `node --test ~/.config/herdr-app/mods/*/*.test.mjs`.

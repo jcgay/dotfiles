@@ -3,9 +3,9 @@
 // Design: ~/.config/herdr-app/docs/2026-11-24-ci-watch-design.md
 import { div, svg } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
-import { exec, run, spaces, panes, home } from "herdr";
+import { exec, run, spaces, panes, home, appHome, readTextFile } from "herdr";
 import { minutes } from "./model.js";
-import { ORG, JOBS_FOLDER, sinceDate, reposOf, longJobs, rowOf, fixOf, groups, jenkinsDown, fixBranch, fixPrompt, worktrees, remoteRepo, jkReached, listComplete } from "./ci-model.js";
+import { CONFIG_ERROR, parseConfig, repoLabel, sinceDate, reposOf, longJobs, rowOf, fixOf, groups, jenkinsDown, fixBranch, fixPrompt, worktrees, remoteRepo, jkReached, listComplete } from "./ci-model.js";
 
 const LIST_MS = 15 * 60000; // repos and their jobs change little: asked again after this, or on « rafraîchir »
 const RESULT = { SUCCESS: "ok", FAILURE: "échec", UNSTABLE: "instable", ABORTED: "abandonné" };
@@ -31,7 +31,7 @@ export class Ci {
     this.groups = []; this.fixes = {}; this.notes = {}; this.noteAt = {};
     this.clones = new Map(); this.trees = {}; this.fixing = new Set();
     this.error = null; this.loading = false; this.at = 0; this.again = null;
-    this.rerunning = new Set();
+    this.rerunning = new Set(); this.owners = [];
   }
 
   refresh(cx, force = false) {
@@ -51,20 +51,25 @@ export class Ci {
 
   async round(force) {
     const now = Date.now(), jk = [];
+    // Read each round: a `yadm alt` applies without a restart.
+    const { config, error } = parseConfig(await readTextFile(`${appHome()}/config.json`).catch(() => null));
+    if (error) { this.error = CONFIG_ERROR; return; }
+    const owners = config.owners, folder = config.jenkins?.folder;
+    if (owners.join() !== this.owners.join()) { this.owners = owners; this.repos = null; }
     for (const [k, at] of Object.entries(this.noteAt)) if (now - at > NOTE_MS) { delete this.notes[k]; delete this.noteAt[k]; }
     if (force || this.repos === null || now - this.listedAt > LIST_MS) {
-      const q = (kind, date) => call("gh", ["search", kind, "--author=@me", `--${date}=>${sinceDate(now)}`, "--owner", ORG, "--json", "repository", "--limit", "1000"]);
+      const q = (kind, date) => call("gh", ["search", kind, "--author=@me", `--${date}=>${sinceDate(now)}`, ...owners.flatMap((o) => ["--owner", o]), "--json", "repository", "--limit", "1000"]);
       const [prs, commits] = await Promise.all([q("prs", "merged-at"), q("commits", "committer-date")]);
       if (prs.code !== 0 && commits.code !== 0) throw new Error(firstLine(prs.stderr) || "gh search : échec");
       const repos = reposOf(prs.stdout, commits.stdout);
       // A repo without a Jenkins folder answers 404: it drops out.
-      const ls = await Promise.all(repos.map((r) => call("jk", ["job", "ls", `${JOBS_FOLDER}/${r}`, "--json"])));
+      const ls = await Promise.all(repos.map((r) => call("jk", ["job", "ls", `${folder}/${r.split("/")[1]}`, "--json"])));
       jk.push(...ls.map((r) => ({ ok: jkReached(r) })));
       // An incomplete answer (rate limit, a jk timeout) is used only when nothing better is known, and asked again next round.
       const complete = listComplete([prs, commits], ls);
       if (complete || this.repos === null) {
         this.repos = repos;
-        this.jobs = repos.flatMap((r, i) => ls[i].code === 0 ? longJobs(r, ls[i].stdout) : []);
+        this.jobs = repos.flatMap((r, i) => ls[i].code === 0 ? longJobs(r, ls[i].stdout, folder) : []);
       }
       if (complete) this.listedAt = now;
     }
@@ -75,7 +80,7 @@ export class Ci {
     const fixes = {};
     await Promise.all(red.map(async (repo) => {
       const [prs, trees] = await Promise.all([
-        call("gh", ["pr", "list", "-R", `${ORG}/${repo}`, "--state", "open", "--json", "number,headRefName,url", "--limit", "100"]),
+        call("gh", ["pr", "list", "-R", repo, "--state", "open", "--json", "number,headRefName,url", "--limit", "100"]),
         this.worktreeBranches(repo),
       ]);
       let open = [];
@@ -94,16 +99,17 @@ export class Ci {
     return this.trees[repo].map((w) => w.branch).filter(Boolean);
   }
 
-  // A local checkout of softwarevidal/<repo>: a space or pane folder, ~/dev/agents-worktree/<repo>/*, else ~/dev/<repo>.
+  // A local checkout of repo (owner/name): a space or pane folder, ~/dev/agents-worktree/<name>/*, else ~/dev/<name>.
   // Copied from status-jc's findClone (a mod cannot import another's files). A miss is kept LIST_MS, a hit for good.
   async findClone(repo) {
     const known = this.clones.get(repo);
     if (known && (known.folder || Date.now() - known.at < LIST_MS)) return known.folder;
-    const watch = await call("find", [`${home()}/dev/agents-worktree/${repo}`, "-mindepth", "1", "-maxdepth", "1", "-type", "d"]);
-    const folders = [...localFolders().flatMap((l) => l.folders), ...(watch.code === 0 ? watch.stdout.split("\n").filter(Boolean) : []), `${home()}/dev/${repo}`];
+    const name = repo.split("/")[1];
+    const watch = await call("find", [`${home()}/dev/agents-worktree/${name}`, "-mindepth", "1", "-maxdepth", "1", "-type", "d"]);
+    const folders = [...localFolders().flatMap((l) => l.folders), ...(watch.code === 0 ? watch.stdout.split("\n").filter(Boolean) : []), `${home()}/dev/${name}`];
     for (const folder of new Set(folders)) {
       const r = await call("git", ["-C", folder, "remote", "get-url", "origin"]);
-      if (r.code === 0 && remoteRepo(r.stdout) === `${ORG}/${repo}`) { this.clones.set(repo, { folder }); return folder; }
+      if (r.code === 0 && remoteRepo(r.stdout) === repo) { this.clones.set(repo, { folder }); return folder; }
     }
     this.clones.set(repo, { folder: null, at: Date.now() });
     return null;
@@ -212,7 +218,7 @@ export class Ci {
       : this.repos.length === 0 ? [empty("Aucune contribution de toi depuis 7 jours")]
       : this.groups.length === 0 ? [empty("Aucun build de branche longue cette semaine")]
       : this.groups.map((g) => v_flex().gap(6).pb(12)
-        .child(div().font_semibold().child(g.repo))
+        .child(div().font_semibold().child(repoLabel(g.repo, this.owners)))
         .children(g.rows.map(row)));
     const body = [this.error ? div().pb(10).text_color(t.ansi1).child(this.error) : null, ...list].filter(Boolean);
 
