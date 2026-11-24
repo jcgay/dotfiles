@@ -15,7 +15,8 @@ export function parseTail(text) {
     const [, date, time, key, said] = m;
     const pr = PR.exec(key);
     out.push({
-      date, time, key: pr ? key : null, repo: pr ? pr[1] : null, number: pr ? Number(pr[2]) : null, text: said,
+      date, time, key: pr ? key : null, repo: pr ? pr[1] : null, number: pr ? Number(pr[2]) : null,
+      text: said.replace(/ \(session [0-9a-f-]+\)$/, ""), // for addition (~/.local/bin), not for me,
       url: pr ? `https://github.com/${pr[1]}/pull/${pr[2]}` : null,
     });
   }

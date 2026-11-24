@@ -15,6 +15,10 @@ test("entries come newest first with their PR link", () => {
   ]);
 });
 
+test("the Claude session id of a launch stays in the file, not on screen", () => {
+  assert.equal(parseTail("2026-11-18 03:12  o/r#1  agent pr-review lancé (session 3f2a9c1e-0b4d-4e8a-9c1f-2d7e5a6b8c90)")[0].text, "agent pr-review lancé");
+});
+
 test("a line without PR has no link", () => {
   assert.deepEqual(parseTail("2026-11-18 03:12  -  surveillance coupée"),
     [{ date: "2026-11-18", time: "03:12", key: null, repo: null, number: null, text: "surveillance coupée", url: null }]);

@@ -46,7 +46,11 @@ export function roundLines(before, after, toasts) {
     let text = null, launch = false;
     // From its second round, once: also a PR still failing after an outage it was part of ends.
     if (unread(e)) text = !outage && e.errorRounds >= 2 && logged.at(-1)?.text !== said(e) ? said(e) : null;
-    else if (l && (l.step !== wl?.step || l.head !== wl?.head)) { text = `agent ${l.step} lancé`; launch = true; }
+    // The session id lets addition (~/.local/bin) cost the step: keep "(session <id>)" at the end of the line.
+    else if (l && (l.step !== wl?.step || l.head !== wl?.head)) {
+      const id = e.sessions?.[l.step]?.id;
+      text = `agent ${l.step} lancé${id ? ` (session ${id})` : ""}`; launch = true;
+    }
     else if (was?.label === ERROR && logged.at(-1)?.text === said(e)) text = null;
     else if (!was || was.label !== e.label) {
       const paused = (text) => text.startsWith("en pause");

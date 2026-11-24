@@ -13,6 +13,11 @@ test("a launch writes the agent step", () => {
     [{ key: K, text: "agent rebase lancé" }]);
 });
 
+test("a launch writes its Claude session id, for addition --by step", () => {
+  const after = { label: "agent en cours", launched: { step: "pr-review", head: "1a2b" }, sessions: { "pr-review": { id: "u-1" }, rebase: { id: "u-0" } } };
+  assert.deepEqual(lines({ label: "ok" }, after), [{ key: K, text: "agent pr-review lancé (session u-1)" }]);
+});
+
 test("two agents in a row under the same label write each launch", () => {
   const before = { label: "agent en cours", launched: { step: "pr-risk", head: "1a2b" } };
   assert.deepEqual(lines(before, { ...before, launched: { step: "pr-review", head: "1a2b" } }), [{ key: K, text: "agent pr-review lancé" }]);
