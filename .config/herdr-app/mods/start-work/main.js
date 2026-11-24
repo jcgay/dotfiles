@@ -5,7 +5,7 @@
 import { View, div } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input, Scrollbar, ScrollHandle } from "gpui-base";
 import { props, closeOverlay, theme, focused, spaces, exec, appHome, readTextFile, notify } from "herdr";
-import { branchFor, chosenBranch, parseQuery, jiraProjects, jql, parseJiraIssues, parseGhIssues, parseGhPr, existingWork, baseChoices } from "./lib.js";
+import { jiraOf, branchFor, chosenBranch, parseQuery, jiraProjects, jql, parseJiraIssues, parseGhIssues, parseGhPr, existingWork, baseChoices } from "./lib.js";
 import { start, cmd, jira, myName } from "./work.js";
 
 const lines = (s) => s.split("\n").map((l) => l.trim()).filter(Boolean);
@@ -34,7 +34,7 @@ export default class StartWork extends View {
     this.base = 0;
     this.branchOf = null; // the row the branch field was filled from
     this.ctx = { branches: [], prs: [], delivered: new Set(), projects: [] };
-    this.input = InputState.new({ placeholder: "Clé Jira, #issue ou #PR, ou décris le travail" });
+    this.input = InputState.new({ placeholder: "Ticket, #issue ou #PR, ou décris le travail" });
     this.input.on("change", (_e, cx) => { this.error = ""; this.search(cx); cx.notify(); });
     this.input.on("submit", (_e, cx) => this.go(cx));
     this.branch = InputState.new({ placeholder: "branche" });
@@ -55,11 +55,13 @@ export default class StartWork extends View {
     cx.notify();
     cx.timer.after(100, () => this.input.focus());
     const main = this.repo.main;
+    // Jira only where config.json declares it (the work machine); without the file, said in the notes.
+    ({ jira: this.jira, error: this.configError } = jiraOf(await readTextFile(`${appHome()}/config.json`).catch(() => null)));
     // Only the bases and the branches need the fetch: the rest starts with it, and the search
     // shows as soon as the Jira projects are known. Starting still waits for the fetch (this.ready),
     // so a base is never an old origin/<branch>.
     const fetched = exec("git", ["fetch", "--quiet", "origin"], { cwd: main, timeout: 60000 }).catch(() => null);
-    myName().then((name) => { this.me = name; cx.notify(); }).catch(() => {});
+    if (this.jira) myName(this.jira).then((name) => { this.me = name; cx.notify(); }).catch(() => {});
     const refs = () => Promise.all([
       cmd("git", ["for-each-ref", "--sort=-committerdate", "--format=%(refname:short)", "refs/heads", "refs/remotes/origin"], main).catch(() => ""),
       cmd("git", ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"], main).catch(() => "origin/master"),
@@ -85,7 +87,7 @@ export default class StartWork extends View {
       readTextFile(`${appHome()}/mods/start-work/config.json`).then((t) => JSON.parse(t ?? "{}")).catch(() => ({})),
       refs(),
     ]);
-    this.ctx.projects = config.jira?.[this.repo.name] ? [].concat(config.jira[this.repo.name]) : jiraProjects(lines(subjects));
+    this.ctx.projects = !this.jira ? [] : config.jira?.[this.repo.name] ? [].concat(config.jira[this.repo.name]) : jiraProjects(lines(subjects));
     this.projectsKnown = true;
     this.search(cx, true);
     // After the fetch, the remote branches may resume the shown row: refill the branch field,
@@ -103,11 +105,11 @@ export default class StartWork extends View {
     const seq = ++this.seq;
     const ask = (cx) => cx.spawn(async (cx) => {
       const text = this.input.value();
-      const q = parseQuery(text);
+      const q = parseQuery(text, Boolean(this.jira));
       const main = this.repo.main, projects = this.ctx.projects;
       const gh = ["--json", "number,title,url,assignees,labels,issueType"];
       const jiraList = (query) => jira(["issue", "list", "-p", "", "-q", query, "--order-by", "updated", "--raw", "--paginate", "0:20"], main);
-      const jiraCall = q.kind === "key" ? jira(["issue", "view", q.key, "--raw"], main)
+      const jiraCall = !this.jira ? null : q.kind === "key" ? jira(["issue", "view", q.key, "--raw"], main)
         : q.kind === "issue" || !projects.length ? null
         : jiraList(jql({ projects, mine: q.kind === "empty", text: q.kind === "text" ? q.text : undefined }));
       const issues = (out) => parseGhIssues(out || "[]");
@@ -118,9 +120,9 @@ export default class StartWork extends View {
         : cmd("gh", ["issue", "list", "--state", "open", "--limit", "20", ...gh, ...(q.kind === "empty" ? ["--assignee", "@me"] : ["--search", q.text])], main).then(issues);
       const [j, g] = await Promise.allSettled([jiraCall, ghCall]);
       if (seq !== this.seq) return; // a newer query is on its way
-      const notes = [], rows = [];
+      const notes = this.configError ? [this.configError] : [], rows = [];
       if (jiraCall) { if (j.status === "fulfilled") rows.push(...parseJiraIssues(j.value || "[]")); else notes.push(`Jira : ${j.reason?.message ?? j.reason}`); }
-      else if (this.projectsKnown && q.kind !== "issue" && !projects.length) notes.push("Jira : aucun projet trouvé pour ce dépôt (mods/start-work/config.json)");
+      else if (this.jira && this.projectsKnown && q.kind !== "issue" && !projects.length) notes.push("Jira : aucun projet trouvé pour ce dépôt (mods/start-work/config.json)");
       if (ghCall) { if (g.status === "fulfilled") rows.push(...g.value); else notes.push(`GitHub : ${g.reason?.message ?? g.reason}`); }
       if (q.kind === "text") rows.push({ kind: "free", title: q.text });
       this.rows = rows; this.notes = notes; this.at = 0; this.shown = seq;
@@ -154,7 +156,7 @@ export default class StartWork extends View {
     const item = this.selected(), branch = chosenBranch(item, this.branch.value());
     if (!this.canGo(item, branch)) return;
     const work = this.resume();
-    const state = { repo: this.repo, item, base: this.bases[this.base], branch, take: this.take && item.kind === "jira", resume: work?.branch === branch ? work : null };
+    const state = { repo: this.repo, item, base: this.bases[this.base], branch, take: this.take && item.kind === "jira", jira: this.jira, resume: work?.branch === branch ? work : null };
     this.busy = true; this.error = ""; this.phase = "";
     cx.spawn(async (cx) => {
       try {
