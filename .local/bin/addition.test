@@ -102,6 +102,7 @@ want '(sans skill)' .per_n_after 1
 want '(sans skill)' .delta_pct 0
 want humanizer .n_before 0
 want humanizer .per_n_after 16
+want pr-review .delta_pct null          # no invocation after D: no change to show
 
 out=$(bash ./addition --db "$tmp/none.db" 2>&1) && fail "a missing archive should exit 1"
 grep -q 'agentsview' <<<"$out" || fail "no hint for a missing archive"
