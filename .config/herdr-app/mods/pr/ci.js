@@ -1,11 +1,12 @@
-// The CI panel (view "ci"): the last Jenkins build of each long-lived branch of the repos I contributed to this week.
+// The CI panel (view "ci"): the last Jenkins build (GitHub Actions runs when config.json has no jenkins) of each
+// long-lived branch of the repos I contributed to this week.
 // main.js delegates to it; it asks gh and jk only when main.js calls refresh (panel shown).
-// Design: ~/.config/herdr-app/docs/2026-11-24-ci-watch-design.md
+// Design: ~/.config/herdr-app/docs/2026-11-24-ci-watch-design.md, 2026-11-24-herdr-config-design.md
 import { div, svg } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
 import { exec, run, spaces, panes, home, appHome, readTextFile } from "herdr";
 import { minutes } from "./model.js";
-import { CONFIG_ERROR, parseConfig, repoLabel, sinceDate, reposOf, longJobs, rowOf, fixOf, groups, jenkinsDown, fixBranch, fixPrompt, worktrees, remoteRepo, jkReached, listComplete } from "./ci-model.js";
+import { CONFIG_ERROR, parseConfig, repoLabel, RUN_FIELDS, actionsRows, jobsOf, sinceDate, reposOf, rowOf, fixOf, groups, jenkinsDown, fixBranch, fixPrompt, worktrees, remoteRepo, jkReached, listComplete } from "./ci-model.js";
 
 const LIST_MS = 15 * 60000; // repos and their jobs change little: asked again after this, or on « rafraîchir »
 const RESULT = { SUCCESS: "ok", FAILURE: "échec", UNSTABLE: "instable", ABORTED: "abandonné" };
@@ -51,31 +52,49 @@ export class Ci {
 
   async round(force) {
     const now = Date.now(), jk = [];
+    let ghError = null;
     // Read each round: a `yadm alt` applies without a restart.
     const { config, error } = parseConfig(await readTextFile(`${appHome()}/config.json`).catch(() => null));
     if (error) { this.error = CONFIG_ERROR; return; }
     const owners = config.owners, folder = config.jenkins?.folder;
-    if (owners.join() !== this.owners.join()) { this.owners = owners; this.repos = null; }
+    // Another source (owners, Jenkins or Actions): the cached lists belong to the old one.
+    const source = `${owners.join()}|${folder ?? ""}`;
+    if (source !== this.source) { this.source = source; this.owners = owners; this.repos = null; this.jobs = []; this.groups = []; this.fixes = {}; }
     for (const [k, at] of Object.entries(this.noteAt)) if (now - at > NOTE_MS) { delete this.notes[k]; delete this.noteAt[k]; }
     if (force || this.repos === null || now - this.listedAt > LIST_MS) {
       const q = (kind, date) => call("gh", ["search", kind, "--author=@me", `--${date}=>${sinceDate(now)}`, ...owners.flatMap((o) => ["--owner", o]), "--json", "repository", "--limit", "1000"]);
       const [prs, commits] = await Promise.all([q("prs", "merged-at"), q("commits", "committer-date")]);
       if (prs.code !== 0 && commits.code !== 0) throw new Error(firstLine(prs.stderr) || "gh search : échec");
       const repos = reposOf(prs.stdout, commits.stdout);
-      // A repo without a Jenkins folder answers 404: it drops out.
-      const ls = await Promise.all(repos.map((r) => call("jk", ["job", "ls", `${folder}/${r.split("/")[1]}`, "--json"])));
-      jk.push(...ls.map((r) => ({ ok: jkReached(r) })));
+      // A repo without a Jenkins folder answers 404: it drops out. Without Jenkins, its long branches.
+      const ls = await Promise.all(repos.map((r) => folder ? call("jk", ["job", "ls", `${folder}/${r.split("/")[1]}`, "--json"])
+        : call("gh", ["api", `repos/${r}/branches`, "--paginate", "--jq", ".[].name"])));
+      if (folder) jk.push(...ls.map((r) => ({ ok: jkReached(r) })));
+      // Without Jenkins, a repo whose branches could not be read would drop out silently.
+      const lost = folder ? null : ls.find((r) => !jkReached(r));
+      if (lost) ghError = `gh api branches : ${firstLine(lost.stderr) || "échec"}`;
       // An incomplete answer (rate limit, a jk timeout) is used only when nothing better is known, and asked again next round.
       const complete = listComplete([prs, commits], ls);
       if (complete || this.repos === null) {
         this.repos = repos;
-        this.jobs = repos.flatMap((r, i) => ls[i].code === 0 ? longJobs(r, ls[i].stdout, folder) : []);
+        this.jobs = jobsOf(repos, ls, folder);
       }
       if (complete) this.listedAt = now;
     }
-    const runs = await Promise.all(this.jobs.map((j) => call("jk", ["run", "ls", j.jobPath, "--limit", "1", "--json"])));
-    jk.push(...runs.map((r) => ({ ok: jkReached(r) })));
-    const rows = this.jobs.map((j, i) => runs[i].code === 0 ? rowOf(j, runs[i].stdout, now) : null).filter(Boolean);
+    let rows;
+    if (folder) {
+      const runs = await Promise.all(this.jobs.map((j) => call("jk", ["run", "ls", j.jobPath, "--limit", "1", "--json"])));
+      jk.push(...runs.map((r) => ({ ok: jkReached(r) })));
+      rows = this.jobs.map((j, i) => runs[i].code === 0 ? rowOf(j, runs[i].stdout, now) : null).filter(Boolean);
+    } else {
+      // Per branch and bounded by date, not by count: PR runs over the whole repo, or an hourly cron (168 runs a week),
+      // would push a rarer workflow's last run past any --limit.
+      const runs = await Promise.all(this.jobs.map((j) => call("gh", ["run", "list", "-R", j.repo, "--branch", j.branch,
+        "--created", `>=${sinceDate(now)}`, "--limit", "1000", "--json", RUN_FIELDS])));
+      rows = this.jobs.flatMap((j, i) => runs[i].code === 0 ? actionsRows(j.repo, runs[i].stdout, now) : []);
+      const failed = runs.find((r) => r.code !== 0);
+      if (failed) ghError ??= `gh run list : ${firstLine(failed.stderr) || "échec"}`;
+    }
     const red = [...new Set(rows.filter((r) => r.state === "ko").map((r) => r.repo))];
     const fixes = {};
     await Promise.all(red.map(async (repo) => {
@@ -88,7 +107,7 @@ export class Ci {
       for (const r of rows.filter((x) => x.repo === repo && x.state === "ko")) fixes[rowKey(r)] = fixOf(r, open, trees);
     }));
     this.groups = groups(rows); this.fixes = fixes;
-    this.error = jenkinsDown(jk) ? "Jenkins injoignable (VPN ?)" : null;
+    this.error = jenkinsDown(jk) ? "Jenkins injoignable (VPN ?)" : ghError;
   }
 
   // The branches checked out in the repo's local worktrees (none without a clone); kept for « fix en cours ».
@@ -165,10 +184,14 @@ export class Ci {
     this.rerunning.add(key);
     this.notes[key] = "relance…"; delete this.noteAt[key];
     cx.spawn(async (cx) => {
-      const r = await call("jk", ["run", "rerun", row.jobPath, String(row.number)]);
-      this.note(key, r.code === 0 ? `#${row.number} relancé` : `relance : ${firstLine(r.stderr || r.stdout)}`);
+      // Actions: every red workflow of the branch, or the row would stay red.
+      const all = row.red ? await Promise.all(row.red.map((x) => call("gh", ["run", "rerun", String(x.id), "-R", row.repo, "--failed"])))
+        : [await call("jk", ["run", "rerun", row.jobPath, String(row.number)])];
+      // Some workflows may restart while another refuses: name the refused ones, refresh for the others.
+      const failed = all.map((x, i) => x.code !== 0 && `${row.red?.[i]?.workflow ?? "relance"} : ${firstLine(x.stderr || x.stdout)}`).filter(Boolean);
+      this.note(key, failed.length ? `relance : ${failed.join(" ; ")}` : `#${row.number} relancé`);
       this.rerunning.delete(key);
-      if (r.code === 0) this.refresh(cx);
+      if (failed.length < all.length) this.refresh(cx);
       cx.notify();
     });
   }
@@ -200,13 +223,13 @@ export class Ci {
       const red = r.state === "ko";
       return v_flex().gap(2)
         .child(h_flex().id(`ci-row-${key}`).gap(8).items_center().cursor_pointer().hover((s) => s.opacity(0.8))
-          .tooltip(red ? `Ouvrir le build Jenkins (fini ${age})` : "Ouvrir le build Jenkins").on_click(() => exec("open", [r.url]))
+          .tooltip(red ? `Ouvrir le build (fini ${age})` : "Ouvrir le build").on_click(() => exec("open", [r.url]))
           .child(dot(r.state))
           .child(div().flex_1().min_w(0).truncate().child(r.branch))
           .child(div().flex_none().text_color(red ? t.ansi1 : t.foreground).child(`#${r.number} ${word}`))
           .when(!red, (e) => e.child(div().flex_none().text_size(11).text_color(t.dim).child(age)))
           .when(red, (e) => e
-            .child(icon(`ci-log-${key}`, svg("mods/workspace-chrome/file-text.svg").size(13), "Log Jenkins", () => exec("open", [`${r.url}console`])))
+            .child(icon(`ci-log-${key}`, svg("mods/workspace-chrome/file-text.svg").size(13), r.red ? `Ouvrir le run ${r.red[0]?.workflow ?? ""}` : "Log Jenkins", () => exec("open", [r.red ? r.url : `${r.url}console`])))
             .child(icon(`ci-rerun-${key}`, svg("mods/pr/rerun.svg").size(13), "Relancer le build", (cx) => this.rerun(cx, r)))
             .child(fixing)))
         .when(Boolean(note), (e) => e.child(div().pl(15).text_size(11).text_color(t.muted).child(note)));

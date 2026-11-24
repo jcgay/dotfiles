@@ -41,6 +41,12 @@ export function longJobs(repo, jobLsJson, folder) {
   });
 }
 
+// The answers of the listing calls, one per repo → the jobs read each round: Jenkins' `jk job ls`, or without
+// Jenkins the long branches of `gh api repos/<repo>/branches --jq '.[].name'`, each read with its own gh run list.
+export const jobsOf = (repos, ls, folder) => repos.flatMap((repo, i) => ls[i]?.code !== 0 ? []
+  : folder ? longJobs(repo, ls[i].stdout, folder)
+  : ls[i].stdout.split("\n").filter(isLong).map((branch) => ({ repo, branch })));
+
 const RED = ["FAILURE", "UNSTABLE", "ABORTED"];
 export const rowState = (run) => run.status !== "completed" ? "running" : RED.includes(run.result) ? "ko" : run.result === "SUCCESS" ? "ok" : "idle";
 
@@ -51,6 +57,41 @@ export function rowOf(job, runLsJson, now) {
   const startTime = Date.parse(run.startTime);
   if (!(now - startTime <= WINDOW_MS)) return null;
   return { ...job, number: run.number, state: rowState(run), result: run.result ?? null, startTime, durationMs: run.durationMs ?? 0, url: run.url };
+}
+
+// GitHub Actions, when config.json has no jenkins: `gh run list -R <repo> --json RUN_FIELDS`.
+export const RUN_FIELDS = "databaseId,number,headBranch,workflowName,status,conclusion,createdAt,startedAt,updatedAt,url";
+// Conclusions in Jenkins' words, so rowState and the panel's labels serve both sources.
+// cancelled is left out: cancel-in-progress cancels a run for a newer push, no failure.
+const CONCLUSION = { success: "SUCCESS", failure: "FAILURE", timed_out: "FAILURE", startup_failure: "FAILURE" };
+const RANK = { ko: 0, running: 1, ok: 2, idle: 3 };
+
+// The runs of repo → one row per long branch, from the last run of each workflow within the window.
+// The row is red when any of them is; its run is the newest red one (else the newest), `red` every red run.
+export function actionsRows(repo, runListJson, now) {
+  const runs = parse(runListJson);
+  if (!Array.isArray(runs)) return [];
+  const last = new Map(); // branch -> workflow -> run
+  for (const run of runs) {
+    const at = Date.parse(run.createdAt);
+    if (!isLong(run.headBranch ?? "") || !(now - at <= WINDOW_MS)) continue;
+    const byWorkflow = last.get(run.headBranch) ?? new Map();
+    const kept = byWorkflow.get(run.workflowName);
+    if (!kept || Date.parse(kept.createdAt) < at) byWorkflow.set(run.workflowName, run);
+    last.set(run.headBranch, byWorkflow);
+  }
+  return [...last].map(([branch, byWorkflow]) => {
+    const all = [...byWorkflow.values()].map((run) => ({ run, result: CONCLUSION[run.conclusion] ?? null }))
+      .map((x) => ({ ...x, state: rowState({ status: x.run.status, result: x.result }) }))
+      .sort((a, b) => Date.parse(b.run.createdAt) - Date.parse(a.run.createdAt));
+    const red = all.filter((x) => x.state === "ko");
+    const state = all.map((x) => x.state).sort((a, b) => RANK[a] - RANK[b])[0];
+    const { run, result } = red[0] ?? all[0];
+    const startTime = Date.parse(run.startedAt ?? run.createdAt);
+    return { repo, branch, number: run.number, state, result, startTime,
+      durationMs: run.status === "completed" ? Date.parse(run.updatedAt) - startTime : 0, url: run.url,
+      red: red.map((x) => ({ id: x.run.databaseId, workflow: x.run.workflowName })) };
+  });
 }
 
 const slug = (branch) => branch.replaceAll("/", "-");
@@ -76,6 +117,13 @@ export function groups(rows) {
 
 export function fixPrompt(row) {
   const { repo, branch, jobPath, number, result } = row, fix = fixBranch(branch, number);
+  if (row.red) {
+    const runs = row.red.map((x) => `${x.workflow} (\`gh run view ${x.id} -R ${repo} --log-failed\`)`).join(", ");
+    return `Les workflows GitHub Actions de ${branch} (${repo}) sont en échec : ${runs}. Lis leurs logs. `
+      + "Si l'échec vient de l'infrastructure ou d'un test instable, "
+      + `relance avec ${row.red.map((x) => `\`gh run rerun ${x.id} -R ${repo} --failed\``).join(" et ")}, ne pousse rien et dis-le. `
+      + `Sinon corrige sur la branche ${fix} où tu es, committe, pousse-la et ouvre une PR brouillon vers ${branch} (\`gh pr create --draft --base ${branch}\`).`;
+  }
   return `Le build Jenkins #${number} de ${branch} (${repo}) est en échec (${result}). Lis le log avec \`jk log ${jobPath} ${number}\` ; `
     + "sans VPN, Jenkins est injoignable : dis-le et arrête-toi. Si l'échec vient de l'infrastructure ou d'un test instable, "
     + `relance avec \`jk run rerun ${jobPath} ${number}\`, ne pousse rien et dis-le. Sinon corrige sur la branche ${fix} où tu es, `
@@ -95,8 +143,9 @@ export function worktrees(porcelain) {
 // `git remote get-url origin` → owner/name on GitHub, or null (same rule as status-jc's repoOfRemote).
 export const remoteRepo = (url) => /github\.com[:/]([^/\s]+\/[^/\s]+?)(?:\.git)?\/?\s*$/.exec(url ?? "")?.[1] ?? null;
 
-// A jk call that got an answer from Jenkins: a 404 is a repo without a Jenkins folder, not Jenkins down.
-export const jkReached = (r) => r.code === 0 || /404 Not Found/.test(r.stderr ?? "");
+// A jk (or gh api) call that got an answer: a 404 is a repo without a Jenkins folder (or gone), not a server down.
+// jk says "404 Not Found", gh "HTTP 404".
+export const jkReached = (r) => r.code === 0 || /404 Not Found|HTTP 404/.test(r.stderr ?? "");
 
 // Repos and jobs are cached only from a complete answer: a failed search or jk job ls would hide repos for 15 min.
 export const listComplete = (searches, jobLs) => searches.every((r) => r.code === 0) && jobLs.every(jkReached);

@@ -123,3 +123,55 @@ test("repoLabel: the name alone with one owner", async () => {
   assert.equal(repoLabel("o/r", ["o"]), "r");
   assert.equal(repoLabel("o/r", ["o", "p"]), "o/r");
 });
+
+test("actionsRows: one row per long branch, red when the last run of any workflow is red", async () => {
+  const { actionsRows } = await import("./ci-model.js");
+  const now = Date.parse("2026-11-24T09:00:00Z");
+  const r = (id, workflow, o) => ({ databaseId: id, number: id + 100, headBranch: "main", workflowName: workflow, status: "completed", conclusion: "success",
+    createdAt: "2026-11-24T07:00:00Z", startedAt: "2026-11-24T07:00:00Z", updatedAt: "2026-11-24T07:05:00Z", url: `u${id}`, ...o });
+  const rows = (runs) => actionsRows("jcgay/x", JSON.stringify(runs), now);
+
+  // A green and B red: red, the row is B's run, only B to rerun.
+  const [row] = rows([r(2, "A", { createdAt: "2026-11-24T08:00:00Z" }), r(1, "B", { conclusion: "failure" })]);
+  // number: the run's number, for display and the fix branch; red keeps the database id for gh run rerun / view.
+  assert.deepEqual(row, { repo: "jcgay/x", branch: "main", number: 101, state: "ko", result: "FAILURE",
+    startTime: Date.parse("2026-11-24T07:00:00Z"), durationMs: 300000, url: "u1", red: [{ id: 1, workflow: "B" }] });
+
+  // ko wins over a run in progress of another workflow.
+  assert.equal(rows([r(2, "A", { status: "in_progress", conclusion: "", createdAt: "2026-11-24T08:00:00Z" }), r(1, "B", { conclusion: "timed_out" })])[0].state, "ko");
+  // A newer green run of the same workflow hides its older red one.
+  const fixed = rows([r(2, "A", { createdAt: "2026-11-24T08:00:00Z" }), r(1, "A", { conclusion: "failure" })])[0];
+  assert.equal(fixed.state, "ok"); assert.equal(fixed.number, 102); assert.deepEqual(fixed.red, []);
+  // In progress only: running, no duration.
+  const running = rows([r(3, "A", { status: "in_progress", conclusion: "" })])[0];
+  assert.equal(running.state, "running"); assert.equal(running.durationMs, 0);
+  // A cancelled run (cancel-in-progress, a newer push) is no failure.
+  const cancelled = rows([r(4, "A", { conclusion: "cancelled" })])[0];
+  assert.equal(cancelled.state, "idle"); assert.deepEqual(cancelled.red, []);
+  // A feature branch or a run older than 7 days: no row.
+  assert.deepEqual(rows([r(5, "A", { headBranch: "feat/y" }), r(6, "A", { createdAt: "2026-11-10T00:00:00Z" })]), []);
+  assert.deepEqual(actionsRows("jcgay/x", "oops", now), []);
+});
+
+test("fixPrompt on an Actions row reads every red run with gh", () => {
+  const p = fixPrompt({ repo: "jcgay/x", branch: "main", number: 7, result: "FAILURE", red: [{ id: 7, workflow: "B" }, { id: 5, workflow: "C" }] });
+  for (const s of ["gh run view 7 -R jcgay/x --log-failed", "gh run view 5 -R jcgay/x --log-failed", "gh run rerun 7 -R jcgay/x --failed",
+    "fix/ci-main-7", "--draft", "--base main"]) assert.ok(p.includes(s), s);
+  assert.ok(!p.includes("jk "));
+});
+
+test("jobsOf: Jenkins jobs, or without Jenkins the repo's long branches from gh api branches", async () => {
+  const { jobsOf } = await import("./ci-model.js");
+  const jenkins = [{ code: 0, stdout: JSON.stringify([{ name: "master" }, { name: "PR-1" }]) }];
+  assert.deepEqual(jobsOf(["o/vira"], jenkins, "f"), [{ repo: "o/vira", branch: "master", jobPath: "f/vira/master" }]);
+  // Without Jenkins: one job per long branch, each read with its own gh run list --branch (a busy repo's
+  // PR runs would push a long branch's last run past a --limit over the whole repo).
+  const branches = [{ code: 0, stdout: "main\nfeat/x\nrelease/v2\n" }, { code: 1, stdout: "" }];
+  assert.deepEqual(jobsOf(["o/x", "o/y"], branches, undefined), [{ repo: "o/x", branch: "main" }, { repo: "o/x", branch: "release/v2" }]);
+  assert.deepEqual(jobsOf(["o/x"], [], undefined), []);
+});
+
+test("jkReached: gh's 404 counts as an answer too", () => {
+  assert.ok(jkReached({ code: 1, stderr: "gh: Not Found (HTTP 404)" }));
+  assert.ok(!jkReached({ code: 1, stderr: "gh: Bad credentials (HTTP 401)" }));
+});
