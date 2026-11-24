@@ -1,9 +1,11 @@
 # Mod `pr` : le panneau Pull request
 
-Notre mod (pas un clone). Il remplit deux blocs du panneau latéral du layout `jc`, choisis par sa prop `view` :
+Notre mod (pas un clone). Il remplit trois blocs du panneau latéral du layout `jc`, choisis par sa prop `view` :
 
 - `pr` (bouton Pull request de `tabs-jc`, `⌘⇧R`) : la PR de la branche affichée, son build Jenkins, où elle est déployée et ses checks ;
 - `watch` (`view: watch`, bouton Surveillance des PR, `⌘⇧U`) : la **Surveillance**, la liste des PR que `status-jc` suit, avec l'interrupteur, le bouton ⌨ « Travailler dessus » et le bouton pause. ⌨ ouvre un espace Claude dans le worktree de la PR : celui de la branche pour un brouillon, le `-watch` pour une PR prête, qui est alors mise en pause jusqu'à la fermeture de cet espace ; « ouverture… » puis l'éventuelle erreur s'affichent sous la ligne. Le panneau ne fait que l'afficher et écrire l'interrupteur, les pauses et les demandes d'ouverture (`shared("pr-open")`) ; toute la logique est dans [`status-jc`](../status-jc/README.md).
+
+- `ci` (`view: ci`, bouton CI, `⌘⇧I`) : le dernier build Jenkins des branches longues des dépôts où j'ai contribué, avec **Corriger** (voir [plus bas](#ci-des-branches-longues-view-ci)).
 
 ## Ce que tu vois
 
@@ -100,6 +102,28 @@ flowchart TD
     U --> V["https si l'hôte finit par .vidal.fr, sinon http"]
 ```
 
+## CI des branches longues (`view: ci`)
+
+Bouton CI de `tabs-jc` (icône de branche cochée), `⌘⇧I`. Le dernier build Jenkins de chaque branche longue (`main`, `master`, `develop`, `sprint-*`, `release/*`) des dépôts `softwarevidal` où j'ai contribué ces 7 derniers jours, que la casse vienne de moi ou d'un autre.
+
+```
+CI des branches longues                 il y a 0 min  rafraîchir
+────────────────────────────────────────────────────────────
+arthur
+  ● master        #2781 échec   il y a 4 h 16   [log] [relance] Corriger
+  ● sprint-roger  #2398 échec   il y a 3 h 26   [log] [relance] fix en cours → #5520
+docker-lib-karadoc
+  ● master          #122 ok     il y a 76 h 29
+```
+
+- Groupé par dépôt, ceux qui ont une branche rouge en tête. Pastille verte ok, rouge échec / instable / abandonné, orange clignotante en cours. Un clic sur la ligne ouvre le build.
+- Sur un build rouge terminé : la console, la relance (`jk run rerun`) et **Corriger**, ou « fix en cours » quand une PR ouverte part d'une branche `fix/ci-<branche>-<N>` (clic : la PR) ou que le worktree du fix de ce build existe.
+- « Aucune contribution de toi depuis 7 jours », « Jenkins injoignable (VPN ?) » quand tous les appels `jk` échouent ; un dépôt sans dossier Jenkins disparaît simplement.
+
+**Données** : les dépôts sont l'union de `gh search prs --author=@me --merged-at` (mes PR mergées, toutes branches cibles) et `gh search commits --author=@me` (la branche par défaut, pushs directs compris), limités à `softwarevidal` ; leurs jobs viennent de `jk job ls team.software/github/<repo>` (le nom brut, `release%2Fv4` : `jk` répond 404 à `release/v4`) ; le dernier build de `jk run ls <job> --limit 1`. Dépôts et jobs sont gardés 15 min, les builds relus à chaque tour : à l'ouverture, toutes les 60 s panneau visible, et sur « rafraîchir » (qui relit aussi les dépôts). Panneau fermé : aucun appel.
+
+Design : [CI des branches longues](../../docs/2026-11-24-ci-watch-design.md).
+
 ## Fichiers
 
 | Fichier | Rôle |
@@ -107,6 +131,9 @@ flowchart TD
 | `main.js` | La vue : récupération (gh, jk, Docker), caches, rendu des deux parties. |
 | `model.js` | Fonctions pures testées : URL Jenkins → job, checks de gh, résumé, durées, parsing Docker, correspondance des déploiements, branche d'un worktree de surveillance, cache borné, et ce que montre la Surveillance (texte du temps, aspect de ⌨, actions Squasher et Merger, cases de la bande, prochain tour). |
 | `model.test.mjs` | Tests de `model.js`. |
+| `ci.js` | La vue CI : récupération (gh, jk), cache des dépôts et jobs, rendu, relance et Corriger. |
+| `ci-model.js` | Fonctions pures de la vue CI : branches longues, lecture des réponses gh / jk, état d'une ligne, fix en cours, tri, consigne de l'agent. |
+| `ci-model.test.mjs` | Tests de `ci-model.js`. |
 | `mod.json` | `place: none` : le mod n'est posé que par le layout. |
 
 Tests : `node --test ~/.config/herdr-app/mods/pr/*.test.mjs`. Vérification du mod : `herdr-app check ~/.config/herdr-app/mods/pr`.

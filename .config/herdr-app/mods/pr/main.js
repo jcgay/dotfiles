@@ -1,6 +1,7 @@
 import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
 import { spaces, panes, agents, focused, exec, theme, layout, run, shared, setShared, props } from "herdr";
+import { Ci } from "./ci.js";
 import { moveSel, jenkinsBuild, checks, otherChecks, summary, minutes, deploymentsFor, parseContainers, watchBranch, remember, clockText, workLook, rowActions, bandStates, nextRound, isDraft, hiddenDraft, sessionOf } from "./model.js";
 
 // How many spaces, checkouts and Jenkins builds the caches keep.
@@ -61,7 +62,13 @@ function visible(view) {
 export default class PullRequest extends View {
   init(_props, cx) {
     // Herdr gives a block's layout props through props(), not init's argument.
-    this.view = props()?.view === "watch" ? "watch" : "pr";
+    this.view = ["watch", "ci"].includes(props()?.view) ? props().view : "pr";
+    // The CI panel is its own file; this copy only hands it the timer and the render.
+    if (this.view === "ci") {
+      this.ci = new Ci();
+      cx.timer.every(60000, (cx) => { if (visible("ci")) this.ci.refresh(cx); });
+      return;
+    }
     // The watch list's keyboard: ⌘⇧U (tabs-jc writes shared("watch-focus")) or a click in the panel gives it the keys.
     this.handle = cx.focus_handle(); this.sel = null; this.focusAsked = null;
     this.context = null; this.pr = null; this.build = null; this.error = null; this.loading = false; this.note = null; this.checksOpen = false;
@@ -161,6 +168,11 @@ export default class PullRequest extends View {
   render(cx) {
     // Opening the panel, or another space or pane while it is open, asks again.
     const shown = visible(this.view);
+    if (this.view === "ci") {
+      if (shown && !this.shown) this.ci.refresh(cx);
+      this.shown = shown;
+      return this.ci.render(cx, theme());
+    }
     if (this.view === "pr" && shown && (!this.shown || key() !== this.context)) this.refresh(cx);
     this.shown = shown;
     const t = theme(), pr = this.pr, b = this.build, where = location();

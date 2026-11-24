@@ -148,7 +148,7 @@ export default class Tabs extends View {
       : 10;
     const panel = find(root, "panel"), body = find(root, "panel-body");
     const enabled = shared("workspace.panels") ?? ["files", "changes"];
-    this.syncPanel(space, panel, body, [...enabled, "pr", "watch", "journal"]);
+    this.syncPanel(space, panel, body, [...enabled, "pr", "watch", "ci", "journal"]);
     // Icon only: three labels took a lot of the tab bar.
     // badge: a count (urgent, in the alert color) or a bare dot (something new, nothing to act on).
     const panelButton = (id, icon, label, badge = 0, dot = false) => {
@@ -181,6 +181,7 @@ export default class Tabs extends View {
       .when(enabled.includes("changes"), el => el.child(panelButton("changes", "mods/changes/changes.svg", "Changes")))
       .child(panelButton("pr", "mods/tabs-jc/pull-request.svg", "Pull request")) // not in workspace.panels: Settings knows only Files and Changes
       .child(panelButton("watch", "mods/tabs-jc/watch.svg", "Surveillance des PR"))
+      .child(panelButton("ci", "mods/tabs-jc/ci.svg", "CI des branches longues"))
       .child(panelButton("journal", "mods/tabs-jc/journal.svg", journalTip, urgent, unreadLines > 0))
       .when(w?.buttons, el => el.child(button("minimize", w.platform === "windows" ? svg("mods/tabs-jc/win-min.svg").size(16) : "−", () => run("window.minimize")))
         .child(button("maximize", w.platform === "windows" ? svg(`mods/tabs-jc/${w.maximized ? "win-restore" : "win-max"}.svg`).size(16) : "□", () => run("window.maximize")))

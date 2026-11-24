@@ -6,6 +6,7 @@ Clone du mod `tabs` de Herdr (version 0.1.15, voir `cloned_from` dans `mod.json`
 
 - Un bouton « Pull request » à droite des tabs, après Files et Changes. Il ouvre le panneau latéral sur le mod `pr` ; recliquer le referme.
 - Un bouton « Surveillance des PR » (`watch.svg`, le tracé `activity` de Lucide) juste après, sur le bloc `watch` (le mod `pr` avec `view: watch`), même mécanique ; `⌘⇧U` (`tabs-jc.panel:watch`). L'ouvrir ainsi écrit `shared("watch-focus")` (l'heure) pour que la liste prenne le clavier ; une restauration par `syncPanel` ne l'écrit pas.
+- Un bouton « CI des branches longues » (`ci.svg`, le `circle-play` de Lucide) après Surveillance, sur le bloc `ci` (le mod `pr` avec `view: ci`), même mécanique ; `⌘⇧I` (`tabs-jc.panel:ci`).
 - Un bouton « Journal » (`journal.svg`) juste après, sur le mod `journal`, même mécanique. Sa pastille, en rouge (`t.blocked`), compte les lignes non lues qui demandent d'agir : les numéros de `shared("journal-urgent")` après le marqueur `shared("journal-read")` (tous si le fichier est plus court que le marqueur, la règle de `unread()` de `mods/journal/model.js`). Au-delà de 99 elle affiche « 99+ ». Des non-lues sans rien à traiter donnent un simple point. L'infobulle dit les deux nombres (« Journal : 1 à traiter sur 9 non lues »). Les lignes écrites avant `journal-urgent` ne comptent pas.
 - Les boutons du panneau n'affichent plus que leur icône (le libellé passe en infobulle et en `accessibility_label`) : trois libellés prenaient trop de place dans la barre.
 - Les icônes de fenêtre Windows (`win-*.svg`) pointent vers `mods/tabs-jc/` au lieu de `mods/tabs/`.
@@ -20,7 +21,7 @@ Un clic fait `layout.select` sur la pile `panel-body` (enfant `pr`) puis `layout
 
 ## Le panneau mémorisé par space
 
-Cette mémoire vient de l'original (`syncPanel`), elle n'est pas propre au clone. Le clone y ajoute seulement `pr`, `watch` et `journal` à la liste des panneaux reconnus, pour qu'un panneau PR ou Journal soit lui aussi restauré.
+Cette mémoire vient de l'original (`syncPanel`), elle n'est pas propre au clone. Le clone y ajoute seulement `pr`, `watch`, `ci` et `journal` à la liste des panneaux reconnus, pour qu'un panneau PR ou Journal soit lui aussi restauré.
 
 À chaque rendu, `syncPanel` compare le space actif à celui du rendu précédent :
 
