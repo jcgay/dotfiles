@@ -108,7 +108,10 @@ export function ciTook(rollup) {
 
 export function signalsOf(view, checkRuns, me) {
   const risk = riskOf(view.comments, me);
-  const all = checks(view.statusCheckRollup);
+  // [SKIP_CI] in the title: the repo's Jenkinsfile cancels the build, which Jenkins reports to GitHub as ERROR, and Sonar never runs.
+  const skipCi = /\[SKIP_CI\]/.test(view.title ?? "");
+  const all = checks(view.statusCheckRollup).map((c, i) =>
+    skipCi && view.statusCheckRollup[i].state === "ERROR" && jenkinsBuild(c.url) ? { ...c, state: "ok" } : c);
   const builds = all.map((c) => ({ c, b: jenkinsBuild(c.url) })).filter((x) => x.b);
   const build = builds.find((x) => x.c.state === "ko") ?? builds[0];
   const run = (checkRuns ?? []).find((r) => SONAR.test(r.name));
@@ -126,6 +129,7 @@ export function signalsOf(view, checkRuns, me) {
     conflict: { CONFLICTING: true, MERGEABLE: false }[view.mergeable] ?? null, // null: GitHub is still computing it
     jenkins: build && { state: build.c.state, url: build.c.url, ...build.b },
     sonar,
+    skipCi,
     ciTook: ciTook(view.statusCheckRollup),
     pending: all.some((c) => c.state === "running"),
     failing: all.some((c) => c.state === "ko"),
@@ -257,7 +261,7 @@ export function decide(s, entry, tab, ctx) {
   e.seen = { jenkins: false, sonar: false, ...e.seen };
   for (const c of ["jenkins", "sonar"]) if (s[c]) e.seen[c] = true;
   // A check this PR had but the head lacks has not reported yet: wait, as for a running one.
-  const state = (c) => s[c]?.state ?? (e.seen[c] ? "running" : "ok");
+  const state = (c) => s[c]?.state ?? (e.seen[c] && !s.skipCi ? "running" : "ok");
 
   if (s.head !== e.head) {
     // A head that appears while a fix agent's tab exists (done included) is its push: keep its budget.
