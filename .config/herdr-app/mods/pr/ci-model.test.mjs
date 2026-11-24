@@ -1,7 +1,7 @@
 // node --test ~/.config/herdr-app/mods/pr/ci-model.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { sinceDate, reposOf, isLong, longJobs, rowOf, fixBranch, fixOf, groups, fixPrompt, jenkinsDown } from "./ci-model.js";
+import { sinceDate, reposOf, isLong, longJobs, rowOf, fixBranch, fixOf, groups, fixPrompt, jenkinsDown, worktrees, remoteRepo, jkReached, listComplete, rowState } from "./ci-model.js";
 
 test("sinceDate is 7 days back", () => assert.equal(sinceDate(Date.parse("2026-11-24T09:00:00Z")), "2026-11-17"));
 
@@ -43,7 +43,7 @@ test("fixBranch", () => assert.equal(fixBranch("release/v4", 12), "fix/ci-releas
 
 test("fixOf", () => {
   const row = { branch: "master", number: 12 };
-  assert.deepEqual(fixOf(row, [{ number: 5520, headRefName: "fix/ci-master-10", url: "u" }], []), { pr: { number: 5520, url: "u" } });
+  assert.deepEqual(fixOf(row, [{ number: 5520, headRefName: "fix/ci-master-10", url: "u" }], []), { pr: { number: 5520, url: "u" }, branch: "fix/ci-master-10" });
   assert.deepEqual(fixOf(row, [], ["fix/ci-master-12"]), { branch: "fix/ci-master-12" });
   assert.equal(fixOf(row, [], ["fix/ci-master-10"]), null);
   assert.equal(fixOf(row, [{ number: 1, headRefName: "fix/ci-master-old-1", url: "u" }], []), null);
@@ -68,4 +68,43 @@ test("jenkinsDown only when every call failed", () => {
   assert.equal(jenkinsDown([]), false);
   assert.equal(jenkinsDown([{ ok: false }, { ok: false }]), true);
   assert.equal(jenkinsDown([{ ok: false }, { ok: true }]), false);
+});
+
+test("worktrees parses git worktree list --porcelain", () => {
+  const out = "worktree /dev/arthur\nHEAD 1\nbranch refs/heads/master\n\nworktree /wt/arthur/fix-ci-master-12\nHEAD 2\nbranch refs/heads/fix/ci-master-12\n\nworktree /wt/x-watch\nHEAD 3\ndetached\n";
+  assert.deepEqual(worktrees(out), [
+    { folder: "/dev/arthur", branch: "master" },
+    { folder: "/wt/arthur/fix-ci-master-12", branch: "fix/ci-master-12" },
+    { folder: "/wt/x-watch", branch: null },
+  ]);
+  assert.deepEqual(worktrees(""), []);
+});
+
+test("remoteRepo", () => {
+  assert.equal(remoteRepo("git@github.com:softwarevidal/arthur.git\n"), "softwarevidal/arthur");
+  assert.equal(remoteRepo("https://github.com/softwarevidal/arthur"), "softwarevidal/arthur");
+  assert.equal(remoteRepo("git@gitlab.com:x/y.git"), null);
+});
+
+test("jkReached: a 404 (no Jenkins folder for this repo) still reached Jenkins", () => {
+  assert.equal(jkReached({ code: 0, stderr: "" }), true);
+  assert.equal(jkReached({ code: 1, stderr: 'Error: GET /job/team.software/job/github/job/x/api/json: 404 Not Found: {"status":"404"}' }), true);
+  assert.equal(jkReached({ code: 1, stderr: "dial tcp: lookup jenkins.vidal.net: no such host" }), false);
+  assert.equal(jkReached({ code: 1, stderr: "Error: timeout" }), false);
+});
+
+test("rowState: only SUCCESS is ok, NOT_BUILT is idle", () => {
+  assert.equal(rowState({ status: "completed", result: "SUCCESS" }), "ok");
+  assert.equal(rowState({ status: "completed", result: "NOT_BUILT" }), "idle");
+  assert.equal(rowState({ status: "completed", result: null }), "idle");
+  assert.equal(rowState({ status: "completed", result: "UNSTABLE" }), "ko");
+  assert.equal(rowState({ status: "running", result: null }), "running");
+});
+
+test("listComplete: cache the lists only when every search and jk job ls answered", () => {
+  const ok = { code: 0, stderr: "" }, e404 = { code: 1, stderr: "404 Not Found" }, down = { code: 1, stderr: "timeout" };
+  assert.equal(listComplete([ok, ok], [ok, e404]), true);
+  assert.equal(listComplete([ok, { code: 1, stderr: "rate limit" }], [ok]), false);
+  assert.equal(listComplete([ok, ok], [ok, down]), false);
+  assert.equal(listComplete([ok, ok], []), true);
 });

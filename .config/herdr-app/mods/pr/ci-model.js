@@ -31,7 +31,7 @@ export function longJobs(repo, jobLsJson) {
 }
 
 const RED = ["FAILURE", "UNSTABLE", "ABORTED"];
-export const rowState = (run) => run.status !== "completed" ? "running" : RED.includes(run.result) ? "ko" : "ok";
+export const rowState = (run) => run.status !== "completed" ? "running" : RED.includes(run.result) ? "ko" : run.result === "SUCCESS" ? "ok" : "idle";
 
 // `jk run ls <jobPath> --limit 1 --json` → the row of its last build, or null when none in the window.
 export function rowOf(job, runLsJson, now) {
@@ -49,7 +49,7 @@ export const fixBranch = (branch, number) => `fix/ci-${slug(branch)}-${number}`;
 export function fixOf(row, openPrs, worktreeBranches) {
   const re = new RegExp(`^fix/ci-${slug(row.branch).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}-\\d+$`);
   const pr = (openPrs ?? []).find((p) => re.test(p.headRefName ?? ""));
-  if (pr) return { pr: { number: pr.number, url: pr.url } };
+  if (pr) return { pr: { number: pr.number, url: pr.url }, branch: pr.headRefName };
   const own = fixBranch(row.branch, row.number);
   return (worktreeBranches ?? []).includes(own) ? { branch: own } : null;
 }
@@ -72,3 +72,20 @@ export function fixPrompt(row) {
 }
 
 export const jenkinsDown = (results) => results.length > 0 && results.every((r) => !r.ok);
+
+// `git worktree list --porcelain` → [{folder, branch}], branch null when detached.
+export function worktrees(porcelain) {
+  return (porcelain ?? "").split("\n\n").map((block) => {
+    const folder = /^worktree (.+)$/m.exec(block)?.[1], branch = /^branch refs\/heads\/(.+)$/m.exec(block)?.[1] ?? null;
+    return folder ? { folder, branch } : null;
+  }).filter(Boolean);
+}
+
+// `git remote get-url origin` → owner/name on GitHub, or null (same rule as status-jc's repoOfRemote).
+export const remoteRepo = (url) => /github\.com[:/]([^/\s]+\/[^/\s]+?)(?:\.git)?\/?\s*$/.exec(url ?? "")?.[1] ?? null;
+
+// A jk call that got an answer from Jenkins: a 404 is a repo without a Jenkins folder, not Jenkins down.
+export const jkReached = (r) => r.code === 0 || /404 Not Found/.test(r.stderr ?? "");
+
+// Repos and jobs are cached only from a complete answer: a failed search or jk job ls would hide repos for 15 min.
+export const listComplete = (searches, jobLs) => searches.every((r) => r.code === 0) && jobLs.every(jkReached);
