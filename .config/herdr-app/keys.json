@@ -61,7 +61,8 @@
     "cmd-shift-j": "mod.open:start-work",
     "cmd-shift-o": "mod.open:projects",
     "cmd-shift-r": "tabs-jc.panel:pr",
-    "cmd-shift-u": "tabs-jc.panel:watch"
+    "cmd-shift-u": "tabs-jc.panel:watch",
+    "cmd-shift-i": "tabs-jc.panel:ci"
   },
   "terminal": {
     "cmd-f": "terminal.search",

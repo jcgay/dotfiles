@@ -159,6 +159,16 @@
                       }
                     },
                     {
+                      "id": "ci",
+                      "type": "block",
+                      "content": {
+                        "mod": "pr",
+                        "props": {
+                          "view": "ci"
+                        }
+                      }
+                    },
+                    {
                       "id": "journal",
                       "type": "block",
                       "content": {
