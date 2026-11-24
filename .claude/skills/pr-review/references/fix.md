@@ -42,6 +42,9 @@ no-PR mode. `<base-sha>`, `<head>`, `headRefName`, `headRefOid` and
   `git rebase --autosquash` keeps only the original message: when a fixup's
   body explains a behaviour change, use `git commit --fixup=amend:<sha>` with
   the merged message (the original one plus that explanation) instead.
+  git refuses `-m` with `--fixup=amend:` too: write the whole message, its
+  first line `amend! <original subject>`, to a scratchpad file and run
+  `git commit -F <file>` without `--fixup`.
 - PR mode (and a PR whose diff GitHub refused), push: `git fetch origin <headRefName>`, then
   `git merge-base --is-ancestor origin/<headRefName> HEAD` must succeed, then
   `git push origin HEAD:refs/heads/<headRefName>`. Never force. Remote moved
@@ -58,4 +61,6 @@ no-PR mode. `<base-sha>`, `<head>`, `headRefName`, `headRefOid` and
 
   or `Non corrigé : <reason>.` with the same signature. Send it with
   `gh api repos/<owner>/<repo>/pulls/<N>/comments/<comment_id>/replies -F body=@<literal path>`.
+  One explicit call per reply, not a loop over `"<id> <file>"` pairs: zsh
+  does not split `$p`, and every call then reads a wrong path.
   Findings in the body only get no reply.
