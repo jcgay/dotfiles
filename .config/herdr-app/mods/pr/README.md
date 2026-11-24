@@ -104,23 +104,25 @@ flowchart TD
 
 ## CI des branches longues (`view: ci`)
 
-Bouton CI de `tabs-jc` (icône de branche cochée), `⌘⇧I`. Le dernier build Jenkins de chaque branche longue (`main`, `master`, `develop`, `sprint-*`, `release/*`) des dépôts `softwarevidal` où j'ai contribué ces 7 derniers jours, que la casse vienne de moi ou d'un autre.
+Bouton CI de `tabs-jc` (icône lecture dans un cercle), `⌘⇧I`. Le dernier build Jenkins de chaque branche longue (`main`, `master`, `develop`, `sprint-*`, `release/*`) des dépôts `softwarevidal` où j'ai contribué ces 7 derniers jours, que la casse vienne de moi ou d'un autre.
 
 ```
-CI des branches longues                 il y a 0 min  rafraîchir
+CI des branches longues                 à l'instant  Rafraîchir
 ────────────────────────────────────────────────────────────
 arthur
-  ● master        #2781 échec   il y a 4 h 16   [log] [relance] Corriger
-  ● sprint-roger  #2398 échec   il y a 3 h 26   [log] [relance] fix en cours → #5520
+  ● master        #2781 échec   [log] [relance] Corriger
+  ● sprint-roger  #2398 échec   [log] [relance] fix en cours → #5520
 docker-lib-karadoc
   ● master          #122 ok     il y a 76 h 29
 ```
 
-- Groupé par dépôt, ceux qui ont une branche rouge en tête. Pastille verte ok, rouge échec / instable / abandonné, orange clignotante en cours. Un clic sur la ligne ouvre le build.
-- Sur un build rouge terminé : la console, la relance (`jk run rerun`) et **Corriger**, ou « fix en cours » quand une PR ouverte part d'une branche `fix/ci-<branche>-<N>` (clic : la PR) ou que le worktree du fix de ce build existe.
+- Groupé par dépôt, ceux qui ont une branche rouge en tête. Pastille verte ok, rouge échec / instable / abandonné, orange clignotante en cours, cercle gris pour un autre résultat (`NOT_BUILT`). Un clic sur la ligne ouvre le build ; une ligne rouge garde la place pour le nom de la branche et donne son âge dans l'infobulle.
+- Sur un build rouge terminé : la console, la relance (`jk run rerun`) et **Corriger**, ou « fix en cours » quand une PR ouverte part d'une branche `fix/ci-<branche>-<N>` (clic : le space qui montre son worktree, sinon la PR, sinon un space avec Claude sur le worktree) ou que le worktree du fix de ce build existe.
 - « Aucune contribution de toi depuis 7 jours », « Jenkins injoignable (VPN ?) » quand tous les appels `jk` échouent ; un dépôt sans dossier Jenkins disparaît simplement.
 
-**Données** : les dépôts sont l'union de `gh search prs --author=@me --merged-at` (mes PR mergées, toutes branches cibles) et `gh search commits --author=@me` (la branche par défaut, pushs directs compris), limités à `softwarevidal` ; leurs jobs viennent de `jk job ls team.software/github/<repo>` (le nom brut, `release%2Fv4` : `jk` répond 404 à `release/v4`) ; le dernier build de `jk run ls <job> --limit 1`. Dépôts et jobs sont gardés 15 min, les builds relus à chaque tour : à l'ouverture, toutes les 60 s panneau visible, et sur « rafraîchir » (qui relit aussi les dépôts). Panneau fermé : aucun appel.
+**Corriger** cherche un clone local de `softwarevidal/<repo>` (un dossier d'un space ou d'une pane, un dossier de `~/dev/agents-worktree/<repo>/`, sinon `~/dev/<repo>` ; même idée que `findClone` de `status-jc`, recopiée car un mod n'importe pas les fichiers d'un autre), fait `git fetch origin <branche>` puis `wt switch --create fix/ci-<branche>-<N> --base origin/<branche>` (les `/` de la branche deviennent des `-`) et ouvre un space avec un onglet `ci <branche>` où Claude reçoit sa consigne : lire `jk log`, relancer avec `jk run rerun` si l'échec vient de l'infra ou d'un test instable sans rien pousser, sinon corriger, pousser et ouvrir une PR brouillon vers la branche cassée (que la Surveillance suit ensuite). Un worktree déjà là pour ce build est repris, un space qui le montre déjà est affiché. « ouverture… » puis l'erreur éventuelle (5 min) s'affichent sous la ligne ; un second clic pendant la préparation ne fait rien. Une branche de fix restée sans worktree est reprise telle quelle (`wt switch` sans `--create`). La relance ne part qu'une fois par ligne à la fois, et sa ligne dit « #N relancé » (ou l'erreur) pendant 5 min, le temps que Jenkins démarre le nouveau build.
+
+**Données** : les dépôts sont l'union de `gh search prs --author=@me --merged-at` (mes PR mergées, toutes branches cibles) et `gh search commits --author=@me` (la branche par défaut, pushs directs compris), limités à `softwarevidal` ; leurs jobs viennent de `jk job ls team.software/github/<repo>` (le nom brut, `release%2Fv4` : `jk` répond 404 à `release/v4`) ; le dernier build de `jk run ls <job> --limit 1`. Dépôts et jobs sont gardés 15 min, seulement quand les deux recherches et chaque `jk job ls` ont répondu (sinon la liste précédente reste et elle est redemandée au tour suivant), les builds relus à chaque tour : à l'ouverture, toutes les 60 s panneau visible, et sur « Rafraîchir » (qui relit aussi les dépôts ; demandé pendant un tour, il part à la fin de celui-ci). Une erreur s'affiche au-dessus des dernières lignes connues. Panneau fermé : aucun appel.
 
 Design : [CI des branches longues](../../docs/2026-11-24-ci-watch-design.md).
 
