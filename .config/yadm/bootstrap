@@ -133,8 +133,10 @@ if claude --version &>/dev/null; then
     claude plugin marketplace add 'softwarevidal/blaise#marketplace' || true
     claude plugin install blaise@blaise || true
     claude plugin install sonarqube@claude-plugins-official || true
-    # hooks sonar-secrets et serveur MCP (après `sonar auth login`)
+    # hooks sonar-secrets (après `sonar auth login`). integrate ajoute aussi le serveur MCP, retiré :
+    # un conteneur Docker par session pour ce que la CLI `sonar` fait déjà
     "$HOME/.local/share/sonarqube-cli/bin/sonar" integrate claude --non-interactive || true
+    claude mcp remove sonarqube -s user || true
   fi
 
   # Plannotator : binaire, plugin Claude et skills plannotator-* (le TUI vient du Brewfile)
