@@ -1,5 +1,5 @@
 // start-work: pick a Jira ticket, a GitHub issue or free work, then work.js assigns it, makes the
-// worktree with worktrunk, opens a space with Claude and types the brainstorming prompt (unsent).
+// worktree with worktrunk, opens a space with Claude and types the prompt (unsent).
 // Design: ~/.config/herdr-app/docs/2026-11-13-start-work-design.md
 
 import { View, div } from "gpui-kit";
@@ -105,7 +105,7 @@ export default class StartWork extends View {
       const text = this.input.value();
       const q = parseQuery(text);
       const main = this.repo.main, projects = this.ctx.projects;
-      const gh = ["--json", "number,title,url,assignees"];
+      const gh = ["--json", "number,title,url,assignees,labels,issueType"];
       const jiraList = (query) => jira(["issue", "list", "-p", "", "-q", query, "--order-by", "updated", "--raw", "--paginate", "0:20"], main);
       const jiraCall = q.kind === "key" ? jira(["issue", "view", q.key, "--raw"], main)
         : q.kind === "issue" || !projects.length ? null

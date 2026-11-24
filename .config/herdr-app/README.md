@@ -118,7 +118,7 @@ Depuis un terminal dans un dépôt :
 
 1. Le champ vide liste **mes** tickets Jira et issues GitHub ouverts. Taper filtre ; `MERLIN-2321`, `#123` ou l'URL GitHub collée va droit au ticket ou à la PR ; un texte libre propose aussi « Sans ticket ».
 2. `↑` `↓` pour choisir, choisir la **base** (master ou un `sprint-*` récent), ajuster la branche si besoin.
-3. **Créer** : m'assigne le ticket Jira et le passe En cours (case à décocher), crée le worktree avec worktrunk, ouvre un space avec Claude et y tape `/superpowers:brainstorming <ticket>` sans l'envoyer.
+3. **Créer** : m'assigne le ticket Jira et le passe En cours (case à décocher), crée le worktree avec worktrunk, ouvre un space avec Claude et y tape `/superpowers:brainstorming <ticket>` (`/superpowers:systematic-debugging` pour un bug) sans l'envoyer.
 4. Si le ticket a déjà une branche ou une PR ouverte, le bouton devient **Reprendre** : il ouvre le worktree existant (ou montre le space déjà ouvert dessus).
 5. Une PR (`#5471`) se reprend toujours sur sa propre branche, sans prompt. Une PR venant d'un fork ne marche pas (sa branche n'est pas sur `origin`).
 

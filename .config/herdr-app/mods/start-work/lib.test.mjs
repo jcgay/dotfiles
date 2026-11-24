@@ -58,7 +58,7 @@ test("jql text is quoted and escaped, never a second clause", () => {
 const jiraOne = { key: "MERLIN-2321", fields: { summary: "Uniformiser les URIs", status: { name: "Ouvert", statusCategory: { key: "new" } }, assignee: null } };
 
 test("jira issues from list and view output", () => {
-  const item = { kind: "jira", key: "MERLIN-2321", title: "Uniformiser les URIs", status: "Ouvert", category: "new", assignee: null, assigneeName: null };
+  const item = { kind: "jira", key: "MERLIN-2321", title: "Uniformiser les URIs", status: "Ouvert", category: "new", assignee: null, assigneeName: null, bug: false };
   assert.deepEqual(parseJiraIssues(JSON.stringify([jiraOne])), [item]);
   assert.deepEqual(parseJiraIssues(JSON.stringify(jiraOne)), [item]);
   const mine = { ...jiraOne, fields: { ...jiraOne.fields, assignee: { emailAddress: "me@x.fr" } } };
@@ -67,7 +67,7 @@ test("jira issues from list and view output", () => {
 
 test("github issues", () => {
   assert.deepEqual(parseGhIssues('[{"number":5446,"title":"t","url":"u","assignees":[{"login":"jcgay"}]}]'),
-    [{ kind: "issue", number: 5446, title: "t", url: "u", assignees: ["jcgay"] }]);
+    [{ kind: "issue", number: 5446, title: "t", url: "u", assignees: ["jcgay"], bug: false }]);
   assert.equal(parseGhIssues('{"number":1,"title":"t","url":"u","assignees":[]}').length, 1);
 });
 
@@ -82,6 +82,23 @@ test("prompts", () => {
   assert.equal(promptFor({ kind: "jira", key: "MERLIN-2321", title: "T" }), "/superpowers:brainstorming MERLIN-2321 : T");
   assert.equal(promptFor({ kind: "issue", number: 1, url: "https://g/1", title: "T" }), "/superpowers:brainstorming https://g/1 : T");
   assert.equal(promptFor({ kind: "free", title: "idée" }), "/superpowers:brainstorming idée");
+});
+
+test("a bug, by its Jira type or its GitHub type or label, starts with systematic-debugging", () => {
+  const [list] = parseJiraIssues(JSON.stringify([{ key: "M-1", fields: { summary: "T", issueType: { name: "Bug" } } }]));
+  const [view] = parseJiraIssues(JSON.stringify({ key: "M-2", fields: { summary: "T", issuetype: { name: "Amélioration" } } }));
+  assert.equal(promptFor(list), "/superpowers:systematic-debugging M-1 : T");
+  assert.equal(promptFor(view), "/superpowers:brainstorming M-2 : T");
+  const [label, type, feat, notBug] = parseGhIssues(JSON.stringify([
+    { number: 1, title: "T", url: "u1", labels: [{ name: "bug" }] },
+    { number: 2, title: "T", url: "u2", issueType: { name: "Bug" }, labels: [] },
+    { number: 3, title: "T", url: "u3", labels: [{ name: "debugger" }] },
+    { number: 4, title: "T", url: "u4", labels: [{ name: "not a bug" }] },
+  ]));
+  assert.equal(promptFor(label), "/superpowers:systematic-debugging u1 : T");
+  assert.equal(promptFor(type), "/superpowers:systematic-debugging u2 : T");
+  assert.equal(promptFor(feat), "/superpowers:brainstorming u3 : T");
+  assert.equal(promptFor(notBug), "/superpowers:brainstorming u4 : T");
 });
 
 import { pickStartTransition, baseChoices, spaceIn } from "./lib.js";
