@@ -135,7 +135,7 @@ Bouton « Pull request » dans la barre d'onglets (ou `⌘⇧R`) : la PR de la b
 
 ### Panneau CI des branches longues
 
-Bouton CI (icône lecture dans un cercle) après « Surveillance des PR », ou `⌘⇧I` : le dernier build Jenkins de `main`, `master`, `develop`, `sprint-*` et `release/*` des dépôts des propriétaires listés dans `config.json` (voir plus bas) où j'ai mergé une PR ou poussé un commit ces 7 derniers jours, les dépôts rouges en tête. Sur un build rouge : la console, la relance et **Corriger**, qui ouvre un space Claude sur une branche `fix/ci-<branche>-<N>` partie de la branche cassée ; l'agent relance si l'échec vient de l'infra ou d'un test instable, sinon corrige et ouvre une PR brouillon, que la Surveillance suit ensuite. Rafraîchi toutes les minutes panneau ouvert seulement. Détails : `docs/2026-11-24-ci-watch-design.md`.
+Bouton CI (icône lecture dans un cercle) après « Surveillance des PR », ou `⌘⇧I` : le dernier build Jenkins (GitHub Actions sur une machine sans `jenkins` dans `config.json`) de `main`, `master`, `develop`, `sprint-*` et `release/*` des dépôts des propriétaires listés dans `config.json` (voir plus bas) où j'ai mergé une PR ou poussé un commit ces 7 derniers jours, les dépôts rouges en tête. Sur un build rouge : la console, la relance et **Corriger**, qui ouvre un space Claude sur une branche `fix/ci-<branche>-<N>` partie de la branche cassée ; l'agent relance si l'échec vient de l'infra ou d'un test instable, sinon corrige et ouvre une PR brouillon, que la Surveillance suit ensuite. Rafraîchi toutes les minutes panneau ouvert seulement. Détails : `docs/2026-11-24-ci-watch-design.md`.
 
 ### Panneau Journal
 
