@@ -1,5 +1,5 @@
 // The side effects of start-work, in order: take the Jira ticket, make the worktree with worktrunk,
-// open a space with Claude, type the brainstorming prompt without sending it.
+// open a space with Claude, type the prompt without sending it.
 import { exec, run, spaces, panes } from "herdr";
 import { parseJiraIssues, pickStartTransition, promptFor, spaceIn, clipboardIsText } from "./lib.js";
 

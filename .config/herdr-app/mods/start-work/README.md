@@ -9,7 +9,7 @@ Depuis un terminal dans un dépôt, tu choisis un ticket. Le mod :
 1. t'assigne le ticket Jira et le passe En cours s'il était encore « à faire » (case à décocher) ;
 2. crée le worktree avec worktrunk (`wt switch --create`), depuis la base choisie ;
 3. ouvre un space Herdr dessus avec `claude` ;
-4. colle dans Claude `/superpowers:brainstorming <ticket>` **sans l'envoyer**, pour que tu le complètes.
+4. colle dans Claude `/superpowers:brainstorming <ticket>` (`/superpowers:systematic-debugging <ticket>` pour un bug) **sans l'envoyer**, pour que tu le complètes.
 
 Si le ticket a déjà une branche ou une PR ouverte, le bouton devient **Reprendre** : pas de Jira, pas de prompt, juste le worktree (sorti au besoin) et un space dessus, ou le space déjà ouvert.
 
@@ -117,7 +117,7 @@ flowchart TD
   WAIT -->|oui| PASTE["prompt collé sans Entrée, presse-papier remis"]
 ```
 
-Le prompt : Jira `/superpowers:brainstorming MERLIN-2321 : <titre>`, issue `/superpowers:brainstorming <url> : <titre>`, sans ticket `/superpowers:brainstorming <texte>`. Les avertissements (état Jira inchangé, prompt à coller, presse-papier pas remis) arrivent en toasts d'une minute.
+Le prompt : Jira `/superpowers:brainstorming MERLIN-2321 : <titre>`, issue `/superpowers:brainstorming <url> : <titre>`, sans ticket `/superpowers:brainstorming <texte>`. Un bug (type Jira `Bug`, type d'issue GitHub `Bug` ou label `bug`) prend `/superpowers:systematic-debugging` à la place. Les avertissements (état Jira inchangé, prompt à coller, presse-papier pas remis) arrivent en toasts d'une minute.
 
 Le worktree va où worktrunk le met (d'après la conception : `~/dev/agents-worktree/<repo>/<branche>`) ; ses hooks de création tournent.
 

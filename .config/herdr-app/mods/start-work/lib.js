@@ -69,14 +69,19 @@ export function parseJiraIssues(raw) {
     category: i.fields.status?.statusCategory?.key ?? null,
     assignee: i.fields.assignee?.emailAddress ?? null, // Jira Cloud hides colleagues' emails
     assigneeName: i.fields.assignee?.displayName ?? null,
+    bug: isBug((i.fields.issueType ?? i.fields.issuetype)?.name), // jira-cli: issueType in list, issuetype in view
   }));
 }
 
-// `gh issue list|view --json number,title,url,assignees`.
+// The whole name: a label "not a bug" or "bug-bounty" is no bug.
+const isBug = (name) => name?.toLowerCase() === "bug";
+
+// `gh issue list|view --json number,title,url,assignees,labels,issueType`: a bug by its type or a label.
 export function parseGhIssues(json) {
   const data = JSON.parse(json);
   return (Array.isArray(data) ? data : [data]).map((i) => ({
     kind: "issue", number: i.number, title: i.title, url: i.url, assignees: (i.assignees ?? []).map((a) => a.login),
+    bug: isBug(i.issueType?.name) || (i.labels ?? []).some((l) => isBug(l.name)),
   }));
 }
 
@@ -87,10 +92,10 @@ export function parseGhPr(json) {
 }
 
 export function promptFor(item) {
-  const brainstorm = "/superpowers:brainstorming";
-  if (item.kind === "jira") return `${brainstorm} ${item.key} : ${item.title}`;
-  if (item.kind === "issue") return `${brainstorm} ${item.url} : ${item.title}`;
-  return `${brainstorm} ${item.title}`;
+  const skill = item.bug ? "/superpowers:systematic-debugging" : "/superpowers:brainstorming";
+  if (item.kind === "jira") return `${skill} ${item.key} : ${item.title}`;
+  if (item.kind === "issue") return `${skill} ${item.url} : ${item.title}`;
+  return `${skill} ${item.title}`;
 }
 
 const plain = (s) => (s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
