@@ -1,0 +1,112 @@
+#!/usr/bin/env bash
+# Self-check for addition: bash addition.test (silent on success). Needs sqlite3 and jq.
+cd "$(dirname "$0")" || exit 1
+tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
+db=$tmp/sessions.db
+
+# The columns of agentsview's archive that addition reads. Prices: 1 µ$/token, cache read 0.1, 1h cache write 2.
+# S1 (1 day ago): no skill, /superpowers:brainstorming, a typed path, Skill humanizer, Agent → A1 (Explore) → A2,
+# a duplicated API message, an unpriced model, /model and /reload-plugins (not skills); A3 a sub-agent of S1 with no
+# tool call linking it, started during humanizer, which starts A5 (Plan); A1 runs code-review; A4 a second Explore. S2: 20 days ago, no skill, a /clear, a typed /pr-review (installed skill).
+sqlite3 "$db" <<'SQL'
+CREATE TABLE sessions (id TEXT PRIMARY KEY, project TEXT, first_message TEXT, started_at TEXT, relationship_type TEXT NOT NULL DEFAULT '', parent_session_id TEXT);
+CREATE TABLE messages (id INTEGER PRIMARY KEY, session_id TEXT, ordinal INTEGER, role TEXT, content TEXT NOT NULL DEFAULT '', timestamp TEXT, is_system INTEGER NOT NULL DEFAULT 0, model TEXT NOT NULL DEFAULT '', token_usage TEXT NOT NULL DEFAULT '', claude_message_id TEXT NOT NULL DEFAULT '');
+CREATE TABLE tool_calls (id INTEGER PRIMARY KEY, message_id INTEGER, session_id TEXT, tool_name TEXT, input_json TEXT, skill_name TEXT, subagent_session_id TEXT);
+CREATE TABLE model_pricing (model_pattern TEXT PRIMARY KEY, input_microdollars_per_mtok INTEGER, output_microdollars_per_mtok INTEGER, cache_creation_microdollars_per_mtok INTEGER, cache_creation_1h_microdollars_per_mtok INTEGER, cache_read_microdollars_per_mtok INTEGER);
+INSERT INTO model_pricing VALUES ('m1', 1000000, 1000000, 1000000, 2000000, 100000);
+INSERT INTO sessions VALUES ('S1', 'p', 'hello', NULL, '', NULL), ('A1', 'p', '', NULL, 'subagent', 'S1'),
+  ('A2', 'p', '', NULL, 'subagent', 'A1'), ('A3', 'p', '', NULL, 'subagent', 'S1'),
+  ('A4', 'p', '', NULL, 'subagent', 'S1'), ('A5', 'p', '', NULL, 'subagent', 'A3'), ('S2', 'p', 'old', NULL, '', NULL);
+INSERT INTO messages (id, session_id, ordinal, role, content, timestamp, model, token_usage, claude_message_id) VALUES
+  (1, 'S1', 0, 'user', 'hello', strftime('%Y-%m-%dT%H:%M:%fZ','now','-1 day'), '', '', ''),
+  (2, 'S1', 1, 'assistant', '', strftime('%Y-%m-%dT%H:%M:%fZ','now','-1 day','+60 seconds'), 'm1', '{"input_tokens":1000000}', 'msgA'),
+  (3, 'S1', 2, 'assistant', '', strftime('%Y-%m-%dT%H:%M:%fZ','now','-1 day','+61 seconds'), 'm1', '{"input_tokens":1000000}', 'msgA'),
+  (4, 'S1', 3, 'user', '/superpowers:brainstorming go', strftime('%Y-%m-%dT%H:%M:%fZ','now','-1 day','+300 seconds'), '', '', ''),
+  (5, 'S1', 4, 'assistant', '', strftime('%Y-%m-%dT%H:%M:%fZ','now','-1 day','+360 seconds'), 'm1', '{"output_tokens":2000000}', 'msgB'),
+  (6, 'S1', 5, 'user', '/Users/x/y z', strftime('%Y-%m-%dT%H:%M:%fZ','now','-1 day','+600 seconds'), '', '', ''),
+  (7, 'S1', 6, 'assistant', '', strftime('%Y-%m-%dT%H:%M:%fZ','now','-1 day','+660 seconds'), 'm1', '{"input_tokens":3000000}', 'msgC'),
+  (8, 'S1', 7, 'assistant', '', strftime('%Y-%m-%dT%H:%M:%fZ','now','-1 day','+720 seconds'), 'm1', '{"cache_read_input_tokens":10000000}', 'msgD'),
+  (9, 'S1', 8, 'assistant', '', strftime('%Y-%m-%dT%H:%M:%fZ','now','-1 day','+780 seconds'), 'mX', '{"input_tokens":5000000}', 'msgE'),
+  (18, 'S1', 9, 'user', '/model opus', strftime('%Y-%m-%dT%H:%M:%fZ','now','-1 day','+790 seconds'), '', '', ''),
+  (19, 'S1', 10, 'assistant', '', strftime('%Y-%m-%dT%H:%M:%fZ','now','-1 day','+800 seconds'), 'm1', '{"input_tokens":1000000}', 'msgF'),
+  (20, 'S1', 11, 'user', '/reload-plugins', strftime('%Y-%m-%dT%H:%M:%fZ','now','-1 day','+810 seconds'), '', '', ''),
+  (10, 'A1', 0, 'user', 'explore', strftime('%Y-%m-%dT%H:%M:%fZ','now','-1 day','+721 seconds'), '', '', ''),
+  (11, 'A1', 1, 'assistant', '', strftime('%Y-%m-%dT%H:%M:%fZ','now','-1 day','+730 seconds'), 'm1', '{"input_tokens":4000000}', 'a1'),
+  (12, 'A2', 1, 'assistant', '', strftime('%Y-%m-%dT%H:%M:%fZ','now','-1 day','+740 seconds'), 'm1', '{"cache_creation_input_tokens":1000000,"cache_creation":{"ephemeral_1h_input_tokens":1000000}}', 'a2'),
+  (23, 'A4', 1, 'assistant', '', strftime('%Y-%m-%dT%H:%M:%fZ','now','-1 day','+725 seconds'), 'm1', '{"input_tokens":1000000}', 'a4'),
+  (24, 'A5', 1, 'assistant', '', strftime('%Y-%m-%dT%H:%M:%fZ','now','-1 day','+755 seconds'), 'm1', '{"input_tokens":1000000}', 'a5'),
+  (13, 'A3', 1, 'assistant', '', strftime('%Y-%m-%dT%H:%M:%fZ','now','-1 day','+750 seconds'), 'm1', '{"input_tokens":7000000}', 'a3'),
+  (14, 'S2', 0, 'user', 'old', strftime('%Y-%m-%dT%H:%M:%fZ','now','-20 days'), '', '', ''),
+  (15, 'S2', 1, 'assistant', '', strftime('%Y-%m-%dT%H:%M:%fZ','now','-20 days','+30 seconds'), 'm1', '{"input_tokens":1000000}', 's2'),
+  (16, 'S2', 2, 'user', '/clear', strftime('%Y-%m-%dT%H:%M:%fZ','now','-20 days','+60 seconds'), '', '', ''),
+  (17, 'S2', 3, 'assistant', '', strftime('%Y-%m-%dT%H:%M:%fZ','now','-20 days','+90 seconds'), 'm1', '{"input_tokens":1000000}', 's2b'),
+  (21, 'S2', 4, 'user', '/pr-review 12', strftime('%Y-%m-%dT%H:%M:%fZ','now','-20 days','+100 seconds'), '', '', ''),
+  (22, 'S2', 5, 'assistant', '', strftime('%Y-%m-%dT%H:%M:%fZ','now','-20 days','+110 seconds'), 'm1', '{"input_tokens":1000000}', 's2c');
+INSERT INTO tool_calls (message_id, session_id, tool_name, input_json, skill_name, subagent_session_id) VALUES
+  (7, 'S1', 'Skill', '{"skill":"humanizer"}', 'humanizer', NULL),
+  (8, 'S1', 'Agent', '{"subagent_type":"Explore"}', NULL, 'A1'),
+  (11, 'A1', 'Agent', '{}', NULL, 'A2'),
+  (11, 'A1', 'Skill', '{"skill":"code-review"}', 'code-review', NULL),
+  (8, 'S1', 'Agent', '{"subagent_type":"Explore"}', NULL, 'A4'),
+  (13, 'A3', 'Agent', '{"subagent_type":"Plan"}', NULL, 'A5');
+SQL
+mkdir -p "$tmp/home/.claude/skills/pr-review"; touch "$tmp/home/.claude/skills/pr-review/SKILL.md"
+printf '2026-11-24 06:39  softwarevidal/ordostruct#80  agent pr-review lancé (session S1)\n2026-11-24 06:40  -  surveillance coupée\n' > "$tmp/watch.log"
+
+fail() { printf 'FAIL: %s\n%s\n' "$1" "$out"; exit 1; }
+run() { out=$(HOME=$tmp/home bash ./addition --db "$db" --journal "$tmp/watch.log" --json "$@" 2>/dev/null) || fail "exit $? for $*"; }
+row() { jq -c --arg l "$1" '.[] | select(.label == $l)' <<<"$out"; }
+want() { jq -e --argjson v "$3" "$2 == \$v" <<<"$(row "$1")" > /dev/null || fail "$1 $2 != $3"; }
+
+run
+want '(sans skill)' .n 3                  # S2 before and after its /clear
+want '(sans skill)' .cost_usd 3           # msgA counted once, S2 included in 30d
+row clear | grep -q . && fail "a built-in command became a skill"
+want 'superpowers:brainstorming' .cost_usd 2
+want 'superpowers:brainstorming' .active_min 1
+want humanizer .cost_usd 16               # 3 + cache read 1 + A2 1h write 2 + A3 7 + A4 1 + A5 1 + after /model 1, mX 0
+want humanizer .input 18000000            # mX tokens still counted
+want code-review .cost_usd 4              # the skill A1 ran
+for l in A3 A5; do jq -e --arg l "$l" '.[] | select(.label | startswith($l))' <<<"$out" > /dev/null && fail "$l is a top session"; done
+want humanizer .active_min 3.2
+want pr-review .cost_usd 1
+for l in model reload-plugins '(sous-agent non rattaché)'; do row "$l" | grep -q . && fail "$l is a row"; done
+jq -e '.[] | select(.label | test("Users"))' <<<"$out" > /dev/null && fail "a typed path became a skill"
+
+run --since 7d
+want '(sans skill)' .n 1
+
+run --by session
+jq -e '.[] | select(.label | startswith("A"))' <<<"$out" > /dev/null && fail "a sub-agent is its own session"
+
+run --by agent
+want Explore .cost_usd 5
+want Explore .n 2                         # two runs in one session
+want Plan .cost_usd 1                     # started by the unlinked A3
+want general-purpose .cost_usd 2
+want '(principal)' .cost_usd 11
+want '(non rattaché)' .cost_usd 7
+
+run --by model
+want mX .cost_usd 0
+want mX .input 5000000
+want mX .active_min null                  # active time only splits by skill, step or session
+
+run --by step
+want pr-review .cost_usd 23
+want '(hors watch)' .cost_usd 3
+
+run --compare "$(sqlite3 :memory: "select date('now','-10 days')")"
+want '(sans skill)' .n_before 2
+want '(sans skill)' .per_n_after 1
+want '(sans skill)' .delta_pct 0
+want humanizer .n_before 0
+want humanizer .per_n_after 16
+
+out=$(bash ./addition --db "$tmp/none.db" 2>&1) && fail "a missing archive should exit 1"
+grep -q 'agentsview' <<<"$out" || fail "no hint for a missing archive"
+bash ./addition --db "$db" --by color > /dev/null 2>&1; [ $? = 2 ] || fail "a bad --by should exit 2"
+out=$(bash ./addition --db "$db" --journal "$tmp/watch.log" 2>/dev/null) || fail "table mode"
+grep -q 'humanizer' <<<"$out" || fail "no humanizer in the table"
+grep -q 'mX' <<<"$(bash ./addition --db "$db" 2>&1 >/dev/null)" || fail "no warning for the unpriced model"
+exit 0
