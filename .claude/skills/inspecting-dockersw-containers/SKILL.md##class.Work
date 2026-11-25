@@ -29,7 +29,7 @@ dockersw ps --format '{{.Names}}\t{{.Image}}\t{{.Status}}' | grep -i <name>
 If nothing matches, look for the exact `VIRTUAL_HOST`:
 
 ```sh
-for id in $(dockersw ps -q); do dockersw inspect --format '{{.Name}}{{range .Config.Env}} {{.}}{{end}}' "$id"; done | grep 'VIRTUAL_HOST=<name>\.'
+dockersw inspect --format '{{range .Config.Env}}{{$.Name}} {{.}}{{"\n"}}{{end}}' $(dockersw ps -q) | grep ' VIRTUAL_HOST=<name>\.'
 ```
 
 ## Everyday commands
@@ -38,7 +38,7 @@ for id in $(dockersw ps -q); do dockersw inspect --format '{{.Name}}{{range .Con
 dockersw logs --since 30m <c> 2>&1 | grep ...       # logs go to stderr too
 dockersw exec <c> sh -c '...'                        # one sh -c per call, quote for the remote shell
 dockersw exec -i <c> curl -s -X POST --data-binary @- http://localhost:8080/... < body.xml   # skip the proxy
-dockersw inspect <c> --format '{{json .Config.Env}}' | tr ',' '\n' | grep -viE 'token|secret|password|key'
+dockersw inspect <c> --format '{{range .Config.Env}}{{.}}{{"\n"}}{{end}}' | grep -viE 'token|secret|pass|pwd|key|credential|auth|://[^/]*@'
 dockersw inspect <c> --format '{{range .Mounts}}{{.Source}} -> {{.Destination}}{{"\n"}}{{end}}'
 dockersw cp <c>:/data/app.db ./                     # copy -wal and -shm along with a SQLite file
 dockersw stats --no-stream <c>
