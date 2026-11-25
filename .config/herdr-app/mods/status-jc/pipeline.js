@@ -1,6 +1,6 @@
 // Where a watched PR stands: its step band, step durations and time left. Pure, no herdr import:
 // watcher.js writes the results in the registry, the PR panel draws them.
-import { BUDGET, REVIEW, LABELS, checkoutsOf, noHuman } from "./watch.js";
+import { BUDGET, REVIEW, LABELS, checkoutsOf, noHuman, sonarFirst } from "./watch.js";
 
 // The panel's labels, in the order decide() walks them.
 export const STEPS = ["git", "jenk", "sonar", "rev", "qa", "demo", "risk", "appr", "merge"];
@@ -20,7 +20,8 @@ export function bandOf(s, e, ctx) {
   let jenk;
   if (!ctx.hasCi && !s.reported) jenk = "skip";
   else if (s.conflict) jenk = "todo"; // GitHub runs no CI on a PR in conflict
-  else if (ci("jenkins")) jenk = fix("jenkins", ci("jenkins"));
+  // Jenkins spent but the sonar fix goes first (decide()): not mine yet.
+  else if (ci("jenkins")) jenk = ci("jenkins") === "ko" && step !== "jenkins" && sonarFirst(s, e) ? "ko" : fix("jenkins", ci("jenkins"));
   else jenk = s.failing ? "ko" : s.pending ? "run" : s.reported ? "ok" : "todo";
   // decide(): a failing check that neither the Jenkins nor the Sonar fix covers is mine once nothing runs, drafts aside.
   // shortcut: Sonar's check-run is in the rollup too, so a failing Sonar alone is told apart only through s.sonar
