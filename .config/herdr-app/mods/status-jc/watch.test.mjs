@@ -1,7 +1,7 @@
 // node --test ~/.config/herdr-app/mods/status-jc/watch.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { fixups, searchSince, sonarFindings, markers, riskOf, noHuman, withRiskTree, signalsOf, checks, jenkinsBuild, decide, emptyEntry, tabName, LABELS, promptFor, repoOfRemote, undoLaunch, holdingTabs, closing, karadocHeld, checkoutBases, checkoutsOf, squashAgentOver, SQUASH_GRACE_MS } from "./watch.js";
+import { fixups, searchSince, sonarFindings, markers, riskOf, noHuman, withRiskTree, signalsOf, checks, jenkinsBuild, decide, emptyEntry, tabName, LABELS, promptFor, repoOfRemote, undoLaunch, holdingTabs, closing, stoppedQa, karadocHeld, appTaken, checkoutBases, checkoutsOf, squashAgentOver, SQUASH_GRACE_MS } from "./watch.js";
 
 // Real summaries: arthur#5458 (passed) and arthur#5449 (failed gate).
 const PASSED = `Issues  
@@ -507,6 +507,17 @@ test("karadocHeld: pr-demo/qa tabs of a karadoc repo's PR, or of a PR gone from 
   assert.equal(karadocHeld(["⟳ #812 qa"], karadoc, round), true, "merged PR whose qa still runs");
 });
 
+test("one qa or pr-demo at a time per repo", () => {
+  const round = new Set([7, 8, 9]);
+  assert.equal(appTaken(["⟳ #7 pr-review", "⟳ #8 qa"], [7, 8], round), 8);
+  assert.equal(appTaken(["⟳ #9 pr-demo"], [7, 8], round), null, "another repo's PR");
+  assert.equal(appTaken(["⟳ #8 pr-risk"], [8], round), null, "pr-risk does not start the app");
+  assert.equal(appTaken(["⟳ #10 pr-demo"], [7], round), 10, "merged PR whose demo still runs");
+  const qa = decide(green({ markers: new Set(["pr-review"]) }), at(), NO_TAB, { ...CTX, app: 8 });
+  assert.equal(qa.launch, null);
+  assert.match(qa.entry.why, /#8 occupe déjà l'appli/);
+});
+
 test("pr-review holds its PR until its tab closes, and its push keeps the budget", () => {
   const launched = { step: "pr-review", head: "h1", tab: "⟳ #5462 pr-review" };
   const marked = new Set(["pr-risk", "pr-review"]);
@@ -766,6 +777,20 @@ test("closing: a stale pr-risk tab closes once its agent stopped, never just lau
   assert.deepEqual(closing(sp(null), stale), [], "no status yet: just launched");
   assert.deepEqual(closing(sp("working"), stale), []);
   assert.deepEqual(closing(sp("idle"), stale), [{ cmd: "tab.close", args: { id: "t", confirmed: true } }]);
+});
+
+test("closing: a qa stopped without its report two rounds running closes, one with its report stays", () => {
+  const sp = (name, status) => [{ id: "s", folder: "/w", active: false, tabs: [{ id: "t", name, panes: 1, active: false, status }, { id: "o", name: "x", panes: 1 }] }];
+  const close = [{ cmd: "tab.close", args: { id: "t", confirmed: true } }];
+  const none = () => new Set(["pr-review"]), qa = () => new Set(["pr-review", "qa"]), before = new Set(["t"]);
+  assert.deepEqual([...stoppedQa(sp("⟳ #1 qa", "idle"), none)], ["t"]);
+  assert.deepEqual([...stoppedQa(sp("⟳ #1 qa", "idle"), qa)], []);
+  assert.deepEqual(closing(sp("⟳ #1 qa", "idle"), none), [], "first round: its report may have come after the markers were read");
+  assert.deepEqual(closing(sp("⟳ #1 qa", "idle"), none, before), close);
+  assert.deepEqual(closing(sp("⟳ #1 qa", null), none, before), [], "just launched");
+  assert.deepEqual(closing(sp("⟳ #1 qa", "blocked"), none, before), []);
+  assert.deepEqual(closing(sp("⟳ #1 qa", "idle"), () => null, before), [], "markers unknown this round");
+  assert.deepEqual(closing(sp("⟳ #1 qa", "idle"), qa, before), [], "report posted: kept to fix its bugs");
 });
 
 test("a stale pr-risk verdict is an undone review step", () => {

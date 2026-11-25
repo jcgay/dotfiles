@@ -4,7 +4,7 @@ import { randomUUID } from "crypto";
 import { watchPath } from "./open.js";
 import { roundLines, searchLine } from "./journal.js";
 import { appendJournal } from "./journal-file.js";
-import { readHint, searchSince, ownerArgs, signalsOf, withRiskTree, decide, emptyEntry, promptFor, repoOfRemote, undoLaunch, holdingTabs, karadocHeld, karadocHolder, closing, checkoutBases, checkoutsOf, LABELS } from "./watch.js";
+import { readHint, searchSince, ownerArgs, signalsOf, withRiskTree, decide, emptyEntry, promptFor, repoOfRemote, undoLaunch, holdingTabs, karadocHeld, karadocHolder, appTaken, closing, stoppedQa, checkoutBases, checkoutsOf, LABELS } from "./watch.js";
 import { bandOf, measure, addSamples, clockOf, workOf } from "./pipeline.js";
 
 const MAX_AGENTS = 3; // default; the PR panel's header sets pr-watch.maxAgents
@@ -268,7 +268,10 @@ async function roundUnderLease(registry, cache, at, owners) {
       const busy = [...new Set([...heldTabs(all), ...launched])];
       const { clone, hasQa, hasDemo, hasCi, hasKaradoc, worktrees } = repos.get(s.repo);
       // paused read live: the PR panel's ⌨ may have paused this PR since the round started.
-      const ctx = { on: isOn(), paused: (shared("pr-watch")?.paused ?? registry.paused ?? []).includes(s.key), slots: maxAgents() - busy.length, karadocFree: !hasKaradoc || !karadocHeld(busy, karadocPrs, roundPrs), hasQa, hasDemo, hasCi };
+      const ctx = { on: isOn(), paused: (shared("pr-watch")?.paused ?? registry.paused ?? []).includes(s.key), slots: maxAgents() - busy.length, karadocFree: !hasKaradoc || !karadocHeld(busy, karadocPrs, roundPrs), hasQa, hasDemo, hasCi,
+        // busy holds this round's launches: two PRs of one round are covered.
+        // shortcut: tabs name the PR number only, two repos' PRs of the same number share it; it only waits more
+        app: appTaken(busy, all.filter((x) => x.repo === s.repo && x.number !== s.number).map((x) => x.number), roundPrs) };
       const tab = { ...tabOf(before), busy: busy.some((t) => t.startsWith(`⟳ #${s.number} `)) };
       const r = decide(s, before, tab, ctx);
       if (r.toast) { notify({ title: r.toast, body: s.url, level: "warning" }); toasts.set(s.key, r.toast); }
@@ -328,9 +331,11 @@ async function roundUnderLease(registry, cache, at, owners) {
       const s = all.find((x) => x.number === n && folder.includes(`/agents-worktree/${x.repo.split("/")[1]}/`));
       return s && (s.markers ?? null);
     };
-    for (const { cmd, args } of closing(spaces().filter((sp) => !sp.machine), markersOf)) {
+    const local = spaces().filter((sp) => !sp.machine);
+    for (const { cmd, args } of closing(local, markersOf, cache.qaStopped)) {
       try { run(cmd, args); } catch { /* already gone */ }
     }
+    cache.qaStopped = stoppedQa(local, markersOf);
   }
   await appendJournal(roundLines(registry, { on: registry.on, prs }, toasts));
   const durations = addSamples(registry.durations ?? {}, samples);
