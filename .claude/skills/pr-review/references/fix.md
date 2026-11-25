@@ -19,6 +19,12 @@ no-PR mode. `<base-sha>`, `<head>`, `headRefName`, `headRefOid` and
   Verify each finding against the code. Fix every valid `bloquant` and
   `important`, and the valid `mineur` ones worth it. A rejected finding gets
   a one-sentence technical reason.
+- An unconfirmed finding ("À vérifier") you checked and found valid follows
+  the same severity rule as a confirmed one. "It works today by chance"
+  (one past call, one lucky row) is not a reason to leave it.
+- After each fix, reread every other use of the table, set or function it
+  changed: a fix that reuses an existing set (a list of installed skills, a
+  cache) can change its meaning elsewhere.
 - Run the checks the repository documents (AGENTS.md, CLAUDE.md) on the
   modules you touched. A check that fails because of your fix: fix it or
   revert that fix and mark the finding "laissée". A failure unrelated to the
