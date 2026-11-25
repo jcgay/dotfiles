@@ -41,7 +41,7 @@ clips() { # $1 = dir, $2 = locale (fr_FR, en_US…)
     fi
   fi
   if [ "$engine" = say ]; then
-    voice=${voice:-$(_say_voice "$locale")}
+    voice=${voice:-$(_say_voice "$locale")} || { echo "no Premium/Enhanced say voice for $locale: set PR_DEMO_VOICE" >&2; return 1; }
   else
     command -v uvx >/dev/null || { echo "Piper needs uv (uvx)" >&2; return 1; }
     voice=${voice:-$(_piper_voice "$locale")} || { echo "no Piper voice for $locale: set PR_DEMO_VOICE" >&2; return 1; }
@@ -64,7 +64,8 @@ clips() { # $1 = dir, $2 = locale (fr_FR, en_US…)
 
 mix() { # $1 = video, $2 = dir, $3 = out
   local video=$1 dir=$2 out=$3 inputs=() filters="" labels="" n=0 i ms
-  while read -r i ms; do
+  while read -r i ms || [ -n "$i" ]; do  # a hand-written offsets.txt may lack its last newline
+    [ -n "$i" ] || continue # nor a blank line
     inputs+=(-i "$dir/s$i.wav")
     n=$((n + 1))
     filters+="[$n:a]adelay=${ms}|${ms}[a$i];"

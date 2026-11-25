@@ -132,6 +132,12 @@ git -C "<root>" merge-base origin/<baseRefName> <headRefOid>   # → <base sha>
 git -C "<root>" worktree add --detach "<root>-demo-<N>-base" <base sha>
 ```
 
+A PR already merged by a merge commit has its head in `origin/<baseRefName>`:
+the merge-base is the head itself, and both worktrees would get the same
+commit. For a merged PR, put `<mergeCommit>^1` in place of
+`origin/<baseRefName>` (`gh pr view <N> -R <owner>/<repo> --json mergeCommit
+--jq .mergeCommit.oid`).
+
 A worktree path that already exists (an interrupted run): if
 `git -C <path> rev-parse HEAD` prints the expected commit, reuse it; else
 stop and ask. One worktree per running app, always. Start each one with the section's

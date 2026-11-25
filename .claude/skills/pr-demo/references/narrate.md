@@ -37,7 +37,8 @@ Shell state is lost between tool calls, so the capture is one script in
 . <narrate> "<capture dir>/voice"
 p() { playwright-cli -s=pr-demo "$@" >/dev/null 2>&1 || echo "FAIL: $*" >&2; }
 
-p goto '<first page of the scenario>'   # before video-start: the video starts on the change
+p open '<first page of the scenario>'   # before video-start: the video starts on the change
+                                        # (goto instead when the login of ui.md already opened the session)
 p video-start "<capture dir>/pr-<N>-raw.webm" --cursor --size 1280x720
 start
 mark 0; caption "<caption 0>"
@@ -47,6 +48,7 @@ mark 1; caption "<caption 1>"
 ...
 wait_clip <last>; sleep 1
 p video-stop
+p close
 ```
 
 - `mark <i>` before the step's actions: the sentence starts as they do.
@@ -54,6 +56,8 @@ p video-stop
 - Each `playwright-cli` call takes one or two seconds. Typing, choosing and
   submitting a form between two sentences leaves a silence: do it before
   `video-start`, or under a sentence long enough to cover it.
+- The caption is a node of the page: a step that navigates (a `click` on a
+  link, a submit) erases it. Call `caption` again once the new page is there.
 - A `FAIL:` line on stderr: the step did not happen. Fix the selector and
   record again; never mix a voice over a broken capture.
 
@@ -65,6 +69,10 @@ then `Sleep` the clip's duration plus one second, rounded up, and more if
 the command's output takes longer to appear. Clip 0 starts at 0. Clip `i`
 starts after every earlier step: the command's length × `TypingSpeed`, plus
 its `Sleep`. Write `<capture dir>/voice/offsets.txt`, one `<i> <ms>` per line.
+
+The tape writes `Output "<capture dir>/pr-<N>-raw.webm"`, not the
+`pr-<N>.webm` of `cli.md`: the mix below reads the raw video and writes
+`pr-<N>.webm`.
 
 The caption is a shell comment, printed at once so it takes no video time:
 
