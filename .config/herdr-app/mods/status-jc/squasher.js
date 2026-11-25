@@ -38,7 +38,9 @@ export async function squashRound(id) {
     const s = { url: v.url, number: Number(number), branch: v.headRefName, head: v.headRefOid, base: v.baseRefName };
     const clone = await findClone(repo);
     if (clone === null) throw new Error(`aucun clone local de ${repo}`);
-    const wt = await prepareWorktree(clone, repo, s.branch);
+    // ⌨ may pause the PR during the fetch: nothing is pushed then.
+    const wt = await prepareWorktree(clone, repo, s.branch, () => (shared("pr-watch")?.paused ?? []).includes(key));
+    if (wt.paused) throw new Error("PR mise en pause pendant la préparation : rien poussé");
     if (wt.busy) throw new Error(`tu travailles sur ${s.branch} dans ${wt.busy.split("/").pop()} (non poussé)`);
     if (wt.dirty) throw new Error("le worktree de surveillance a du travail non poussé");
     if (await autosquash(wt.path, s)) return setEntry(key, null);
