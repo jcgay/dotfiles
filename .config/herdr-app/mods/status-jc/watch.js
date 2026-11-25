@@ -177,6 +177,17 @@ export function karadocHolder(busy, karadocPrs, roundPrs) {
     return m !== null && KARADOC.includes(m[2]) && (karadocPrs.has(Number(m[1])) || !roundPrs.has(Number(m[1])));
   }) ?? null;
 }
+// The PR of the repo whose qa or pr-demo tab is busy, or null: both start the app on the ports the repo fixes.
+// busy: tab names; numbers: the repo's other PRs; roundPrs: Set of every PR number of the round. A PR missing from the
+// round (merged, closed) whose agent still runs counts too, as in karadocHolder.
+export function appTaken(busy, numbers, roundPrs) {
+  for (const name of busy) {
+    const m = /^⟳ #(\d+) (\S+)$/.exec(name);
+    if (m && KARADOC.includes(m[2]) && (numbers.includes(Number(m[1])) || !roundPrs.has(Number(m[1])))) return Number(m[1]);
+  }
+  return null;
+}
+
 export const karadocHeld = (busy, karadocPrs, roundPrs) => karadocHolder(busy, karadocPrs, roundPrs) !== null;
 
 // Watch tabs ([{ name, status }]) that hold their PR, and for pr-demo/qa karadoc: a working or blocked agent, or a review
@@ -193,15 +204,30 @@ export function holdingTabs(tabs, markersOf) {
 
 // What to close this round ([{ cmd, args }]): the tab of a CLOSES step whose agent stopped and whose PR has its marker (or its
 // stale marker, agent done or idle) or left
-// the round (merged, closed), or of a CLOSES_DONE step whose agent finished (done or idle: null is not started yet), or its
+// the round (merged, closed), of a qa stopped (done or idle) without its marker, or of a CLOSES_DONE step whose agent finished (done or idle: null is not started yet), or its
 // space when that tab is the space's only one. Never the tab I am looking at, nor one
 // I split. args are confirmed: Herdr asks before closing a space, and nobody is there to answer.
 // spaces: local SpaceInfo[]; markersOf(number, folder): the PR's Set, null when unknown, undefined when gone.
-export function closing(spaces, markersOf) {
+// qaBefore: the ids stoppedQa() gave the round before.
+const qaStopped = (t, found) => ["done", "idle"].includes(t.status) && found?.has("qa") === false;
+
+// The ids of the qa tabs stopped without their report this round, for the next round's closing().
+export function stoppedQa(spaces, markersOf) {
+  return new Set(spaces.flatMap((sp) => sp.tabs.filter((t) => {
+    const m = /^⟳ #(\d+) qa$/.exec(t.name);
+    return m !== null && qaStopped(t, markersOf(Number(m[1]), sp.folder));
+  }).map((t) => t.id)));
+}
+
+export function closing(spaces, markersOf, qaBefore = new Set()) {
   return spaces.flatMap((sp) => sp.tabs.filter((t) => {
     const m = /^⟳ #(\d+) (\S+)$/.exec(t.name);
     if (m === null || t.panes !== 1 || (sp.active && t.active)) return false;
     if (CLOSES_DONE.includes(m[2])) return ["done", "idle"].includes(t.status);
+    // A qa stopped without its report (a question nobody reads) would hold the repo's app (appTaken) for good.
+    // One that posted its report stays open, to fix its bugs there. Markers are read at the round's start: a report
+    // posted during the round is missed, so the tab must have been stopped without it the round before too.
+    if (m[2] === "qa" && qaBefore.has(t.id) && qaStopped(t, markersOf(Number(m[1]), sp.folder))) return true;
     if (!CLOSES.includes(m[2]) || ["working", "blocked"].includes(t.status)) return false;
     const found = markersOf(Number(m[1]), sp.folder);
     // A verdict posted on code that moved since (pr-risk-stale): its agent stopped, decide() then runs pr-risk again.
@@ -372,7 +398,8 @@ export function decide(s, entry, tab, ctx) {
   }
 
   const blocked = !ctx.on ? "surveillance coupée" : ctx.slots <= 0 ? "tous les agents de surveillance sont pris"
-    : KARADOC.includes(step) && !ctx.karadocFree ? "karadoc occupé par un autre pr-demo ou qa" : null;
+    : KARADOC.includes(step) && !ctx.karadocFree ? "karadoc occupé par un autre pr-demo ou qa"
+    : KARADOC.includes(step) && ctx.app ? `#${ctx.app} occupe déjà l'appli de ce dépôt` : null;
   if (blocked) {
     const why = `${step} à lancer, mais ${blocked}`;
     return out(yours ? LABELS.yours : LABELS.waiting, yours ? `${yours} ; ${why}` : why, null, toast);
