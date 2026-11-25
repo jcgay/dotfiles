@@ -141,7 +141,13 @@ commit. For a merged PR, put `<mergeCommit>^1` in place of
 
 A worktree path that already exists (an interrupted run): if
 `git -C <path> rev-parse HEAD` prints the expected commit, reuse it; else
-stop and ask. One worktree per running app, always. Start each one with the section's
+stop and ask. One worktree per running app, always.
+
+A worktree made by `git worktree add` lacks the gitignored files (`.env`…).
+If the repo has a `.worktreeinclude`, run `wt -C <worktree> hook pre-start`
+in each worktree, then check those files are there.
+
+Start each one with the section's
 command, in the background, its output in a log file next to the captures.
 Wait for the ready sign. Then send one request the scenario uses: an
 environment error there means stop (guardrail), not capture.
