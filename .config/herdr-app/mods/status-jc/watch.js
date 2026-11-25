@@ -430,7 +430,7 @@ export function promptFor(step, s) {
     }
     case "sonar":
       return `Sonar remonte des problèmes sur ${s.url} (${s.sonar.url}). ${folder} `
-        + `Lis les nouvelles issues et les security hotspots de la pull request ${s.number} : sur sonarcloud.io avec le MCP SonarQube (paramètre \`pullRequest\`), `
+        + `Lis les nouvelles issues et les security hotspots de la pull request ${s.number} : sur sonarcloud.io avec la CLI \`sonar\` (\`sonar list issues -p <clé> --pull-request ${s.number}\`, et \`sonar api get "/api/hotspots/search?projectKey=<clé>&pullRequest=${s.number}&status=TO_REVIEW"\` pour les hotspots, la clé étant le paramètre \`id\` de l'URL Sonar ci-dessus ; pas de MCP SonarQube), `
         + `sur un SonarQube interne avec son API web. Si tu ne peux pas les lire, dis-le et arrête-toi. Sinon `
         + `corrige-les tous, bloquants ou non. Commite et pousse avec \`${push}\` (jamais de push forcé, jamais sur une autre branche).`;
     case "rebase":

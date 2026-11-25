@@ -131,7 +131,7 @@ ces trois situations :
   explicite (`git push origin HEAD:refs/heads/<branche>`). Pour Jenkins, il lit le log
   (`jk log`), corrige si l'échec vient du code de la PR, et relance le build (`jk run rerun`)
   si l'échec vient de l'infrastructure ou d'un test instable. Pour Sonar, il lit les issues de la
-  PR (MCP ou CLI Sonar, avec la clé de PR) et les corrige toutes, bloquantes ou non. Les messages
+  PR (CLI `sonar`, avec la clé de PR ; plus de MCP) et les corrige toutes, bloquantes ou non. Les messages
   de départ sont écrits dans `watch.js` et testés.
 - **Registre** : l'état partagé `shared("pr-watch")`, que Herdr persiste et que
   tous les mods peuvent lire (le panneau `pr` ne fait que le lire et basculer `on`), garde, par PR, les tentatives par check, le dernier commit vu et l'état « à toi ». Il survit à un
