@@ -1,7 +1,7 @@
 // node --test ~/.config/herdr-app/mods/status-jc/watch.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { fixups, searchSince, sonarFindings, markers, riskOf, noHuman, withRiskTree, signalsOf, checks, jenkinsBuild, decide, emptyEntry, tabName, LABELS, promptFor, repoOfRemote, undoLaunch, holdingTabs, closing, stoppedQa, karadocHeld, appTaken, checkoutBases, checkoutsOf, squashAgentOver, SQUASH_GRACE_MS } from "./watch.js";
+import { fixups, searchSince, sonarFindings, markers, riskOf, noHuman, withRiskTree, signalsOf, checks, jenkinsBuild, decide, emptyEntry, tabName, LABELS, promptFor, repoOfRemote, undoLaunch, holdingTabs, closing, stoppedQa, freshTabs, FRESH_MS, karadocHeld, appTaken, checkoutBases, checkoutsOf, squashAgentOver, SQUASH_GRACE_MS } from "./watch.js";
 
 // Real summaries: arthur#5458 (passed) and arthur#5449 (failed gate).
 const PASSED = `Issues  
@@ -613,6 +613,27 @@ test("a finished pr-risk, pr-review or pr-demo tab closes, its space when alone"
     assert.deepEqual(closing([space("s1", [tab("t1", `⟳ #2 ${step}`, { active: true })], true)], marked), [], `${step} I am looking at it`);
   }
   assert.deepEqual(seen, [[1, "/x/agents-worktree/arthur/b-watch"]], "the PR is looked up with its space's folder");
+  for (const name of ["⟳ #2 sonar", "⟳ #1 pr-risk"]) assert.deepEqual(closing([space("s1", [tab("t1", name, { status: "idle" })])], marked, new Set(), new Set([name])), [],
+    `${name} launched this round: idle until its task reaches it`);
+});
+
+test("freshTabs: tabs launched less than a minute ago, by any copy's round or by the squash button", () => {
+  const now = 1_000_000;
+  const entries = [
+    { launched: { step: "sonar", head: "h", tab: "⟳ #7 sonar", at: now - 2000 } }, // another copy, 2 s ago
+    { launched: { step: "jenkins", head: "h", tab: "⟳ #8 jenkins", at: now - FRESH_MS } }, // a minute ago: old enough
+    { launched: null }, {},
+  ];
+  const squashes = { "o/r#9": { state: "agent", tab: "⟳ #9 squash", at: now - 1000 }, "o/r#10": { state: "asked", at: now } };
+  assert.deepEqual([...freshTabs(entries, squashes, now)], ["⟳ #7 sonar", "⟳ #9 squash"]);
+  assert.deepEqual([...freshTabs([], undefined, now)], []);
+});
+
+test("stoppedQa leaves out a qa tab launched this round", () => {
+  const sp = { id: "s1", folder: "/x/agents-worktree/arthur/b-watch", tabs: [{ id: "t1", name: "⟳ #5 qa", status: "idle", panes: 1 }] };
+  const none = () => new Set();
+  assert.deepEqual([...stoppedQa([sp], none)], ["t1"]);
+  assert.deepEqual([...stoppedQa([sp], none, new Set(["⟳ #5 qa"]))], [], "idle while it starts is not stopped");
 });
 
 test("conflict with the base launches rebase before any check", () => {
