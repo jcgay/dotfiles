@@ -96,6 +96,7 @@ and tell the user. Pick the capture:
 | what a user sees in a browser | video | `references/ui.md` |
 | an HTTP API (REST, SOAP, feeds) | requests and responses | `references/api.md` |
 | a CLI or a script output | terminal video | `references/cli.md` |
+| what the Herdr desktop window shows (a mod, a layout) | frames to video | `references/herdr.md` |
 
 Several apply: use the one the PR title is about, add a second only if the
 user asks. Nothing a user or a client can observe (build internals,
