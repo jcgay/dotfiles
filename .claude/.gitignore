@@ -19,6 +19,8 @@
 !mods/commit-guard/hooks/
 !mods/commit-guard/hooks/*
 !.ponytail-band
+!harnais/
+!harnais/**
 !rules/
 !rules/git-commit.md
 !rules/github.md

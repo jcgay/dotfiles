@@ -1,0 +1,4 @@
+{
+  "name": "harnais",
+  "description": "Le skill testing-api-pull-requests du harnais et ses agents qa-*, sans le reste du plugin (hooks, règles, dépendances) : liens vers le clone ~/.local/share/harnais"
+}

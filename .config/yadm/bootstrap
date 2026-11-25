@@ -132,6 +132,11 @@ if claude --version &>/dev/null; then
     claude plugin install merlin@vidal || true
     claude plugin marketplace add 'softwarevidal/blaise#marketplace' || true
     claude plugin install blaise@blaise || true
+    # Du harnais d'équipe, seulement le skill testing-api-pull-requests et ses agents qa-* : le plugin
+    # ~/.claude/harnais (suivi, ajouté aux mods plus bas) pointe dans ce clone, que `dot` met à jour.
+    # Le plugin harnais complet apporterait ses hooks, ses règles et ses dépendances.
+    [ -d "$HOME/.local/share/harnais" ] || gh repo clone softwarevidal/harnais "$HOME/.local/share/harnais" \
+      || echo "⚠️  Clone du harnais raté (gh connecté ?) : le prochain \`dot\` le retente."
     claude plugin install sonarqube@claude-plugins-official || true
     # hooks sonar-secrets (après `sonar auth login`). integrate ajoute aussi le serveur MCP, retiré :
     # un conteneur Docker par session pour ce que la CLI `sonar` fait déjà
@@ -195,6 +200,13 @@ if claude --version &>/dev/null; then
   fi
 
   # Réglages, status line et mods (suivis par yadm) ; une valeur déjà présente dans settings.json gagne
+  # ~/.claude/harnais sur Work seulement, retiré d'une machine passée en Personal
+  mods='["~/.claude/mods/subagent-band", "~/.claude/mods/commit-guard"]' drop='[]'
+  if [ "$(yadm config local.class)" = "Work" ]; then
+    mods=$(jq -c '. + ["~/.claude/harnais"]' <<<"$mods")
+  else
+    drop='["~/.claude/harnais"]'
+  fi
   jq '{
     model: "opus",
     theme: "auto",
@@ -205,7 +217,8 @@ if claude --version &>/dev/null; then
   } + . | del(.subagentStatusLine)
     | .env.CLAUDE_CODE_PLUGIN_DIRS |= reduce $mods[] as $d (.;
         if (. // "") == "" then $d elif (split(":") | index($d)) then . else . + ":" + $d end)
-  ' --argjson mods '["~/.claude/mods/subagent-band", "~/.claude/mods/commit-guard"]' "$settings" > "$settings.tmp" && mv "$settings.tmp" "$settings" \
+    | .env.CLAUDE_CODE_PLUGIN_DIRS |= (split(":") - $drop | join(":"))
+  ' --argjson mods "$mods" --argjson drop "$drop" "$settings" > "$settings.tmp" && mv "$settings.tmp" "$settings" \
     || { rm -f "$settings.tmp"; echo "⚠️  $settings illisible — réglages Claude non appliqués."; }
 
   # AGENTS.md lu en plus des CLAUDE.md : par défaut Claude Code ne le lit que sans aucun CLAUDE.md au-dessus,

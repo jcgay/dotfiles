@@ -47,6 +47,16 @@ mise upgrade
 echo -e "\033[0;34mUpdating npx skills...\033[0m"
 mise exec -- npx -y skills update -g -y </dev/null
 
+# The team harness clone behind ~/.claude/harnais, Work class only; cloned here when bootstrap could not
+if [ "$(yadm config local.class)" = Work ]; then
+  echo -e "\033[0;34mUpdating the harness clone...\033[0m"
+  if [ -d ~/.local/share/harnais ]; then
+    git -C ~/.local/share/harnais pull --ff-only -q
+  else
+    gh repo clone softwarevidal/harnais ~/.local/share/harnais
+  fi
+fi
+
 # show apple update
 softwareupdate -l
 
