@@ -45,11 +45,17 @@ db=${db:-$HOME/.agentsview/sessions.db}
 # Herdr watch launches: "<date> <time>  <repo>#<n>  agent <step> lancé (session <uuid>)".
 steps=$(sed -nE "s/^[0-9-]+ [0-9:]+  ([A-Za-z0-9._\/-]+#[0-9]+)  agent ([A-Za-z0-9_-]+) lancé \(session ([A-Za-z0-9-]+)\)$/INSERT OR REPLACE INTO temp.steps VALUES ('\3', '\2', '\1');/p" "$journal" 2> /dev/null)
 
-# Installed skills and commands, so a typed /pr-review is one before any Skill tool call names it.
-skills=$(find "$HOME/.claude/skills" "$HOME/.claude/commands" "$HOME/.claude/plugins/cache" "$HOME/.agents/skills" \
-    \( -name SKILL.md -o -path '*/commands/*.md' \) 2> /dev/null \
+# Installed skills and commands, so a typed /pr-review is one before any Skill tool call names it. Personal (1) ones
+# keep their bare name; plugin (0) ones, from the cache or ~/.claude/harnais (symlinked, loaded through
+# CLAUDE_CODE_PLUGIN_DIRS), take their namespaced one.
+installed() {
+  local personal=$1; shift
+  find -L "$@" \( -name SKILL.md -o -path '*/commands/*.md' \) 2> /dev/null \
   | sed -nE 's#.*/([a-z0-9_-]+)/SKILL\.md$#\1#p; s#.*/commands/([a-z0-9_-]+)\.md$#\1#p' | sort -u \
-  | sed "s/.*/INSERT INTO temp.skills VALUES ('&');/")
+  | sed "s/.*/INSERT INTO temp.skills VALUES ('&', $personal);/"
+}
+skills=$(installed 1 "$HOME/.claude/skills" "$HOME/.claude/commands" "$HOME/.agents/skills"
+  installed 0 "$HOME/.claude/plugins/cache" "$HOME/.claude/harnais")
 
 if [ -n "$compare" ]; then
   from="strftime('%Y-%m-%dT%H:%M:%fZ', '$compare', '-$since days')"
@@ -108,8 +114,13 @@ fi
 sql="
 CREATE TEMP TABLE steps (session_id TEXT PRIMARY KEY, step TEXT, pr TEXT);
 $steps
-CREATE TEMP TABLE skills (name TEXT);
+CREATE TEMP TABLE skills (name TEXT, personal INTEGER);
 $skills
+-- Top-level sessions. agentsview marks a headless run (claude -p) as a sub-agent with no parent: it is one too.
+CREATE TEMP TABLE tops AS SELECT id FROM sessions WHERE relationship_type != 'subagent'
+  OR (entrypoint = 'sdk-cli' AND coalesce(parent_session_id, '') = '' AND id NOT IN (SELECT subagent_session_id FROM tool_calls
+    WHERE subagent_session_id IS NOT NULL));
+CREATE UNIQUE INDEX temp.tops_id ON tops (id);
 -- Where a session's tokens count: its top-level session and, for a sub-agent, the ordinal of the
 -- top-level Agent call that started it (recursively), with its own type.
 CREATE TEMP TABLE origin AS
@@ -123,15 +134,15 @@ WITH RECURSIVE calls AS (
 -- in the archive, it is its own top, under (sous-agent non rattaché).
 up (id, cur, depth) AS (
   SELECT id, parent_session_id, 0 FROM sessions
-  WHERE relationship_type = 'subagent' AND id NOT IN (SELECT child FROM calls)
+  WHERE id NOT IN (SELECT id FROM tops) AND id NOT IN (SELECT child FROM calls)
   UNION ALL
   SELECT up.id, p.parent_session_id, up.depth + 1 FROM up JOIN sessions p ON p.id = up.cur
-  WHERE p.relationship_type = 'subagent' AND up.depth < 10),
+  WHERE p.id NOT IN (SELECT id FROM tops) AND up.depth < 10),
 loose AS (
-  SELECT id, CASE WHEN cur IN (SELECT id FROM sessions WHERE relationship_type != 'subagent') THEN cur ELSE id END AS top
+  SELECT id, CASE WHEN cur IN (SELECT id FROM tops) THEN cur ELSE id END AS top
   FROM (SELECT id, cur, max(depth) FROM up GROUP BY id)),
 tree (id, top, ord, type, unlinked, depth) AS (
-  SELECT id, id, NULL, NULL, 0, 0 FROM sessions WHERE relationship_type != 'subagent'
+  SELECT id, id, NULL, NULL, 0, 0 FROM tops
   UNION ALL
   SELECT id, top, (SELECT max(ordinal) FROM messages WHERE session_id = top
       AND timestamp <= (SELECT min(timestamp) FROM messages WHERE session_id = loose.id)),
@@ -157,6 +168,14 @@ SELECT session_id, ordinal, CASE WHEN name = 'clear' THEN NULL ELSE name END FRO
 WHERE name NOT GLOB '*[^a-z0-9:_-]*' AND (name = 'clear' OR name GLOB '*:*' OR name IN (SELECT name FROM temp.skills)
   OR name IN (SELECT skill_name FROM tool_calls WHERE tool_name = 'Skill'));
 CREATE INDEX temp.bounds_sid ON bounds (sid, ord);
+-- A plugin skill is called bare (/testing-api-pull-requests) or namespaced: one label, the namespaced one, when
+-- only one plugin has that name and no personal skill does.
+-- shortcut: a built-in skill (code-review) still merges with a lone plugin skill of its name; list them if one shows up.
+CREATE TEMP TABLE namespaced AS SELECT DISTINCT label, substr(label, instr(label, ':') + 1) AS bare FROM bounds
+WHERE label GLOB '*:*';
+UPDATE bounds SET label = (SELECT n.label FROM namespaced n WHERE n.bare = bounds.label)
+WHERE label NOT GLOB '*:*' AND label NOT IN (SELECT name FROM temp.skills WHERE personal)
+  AND (SELECT count(*) FROM namespaced n WHERE n.bare = bounds.label) = 1;
 
 -- One row per API message (a message split over several rows shares its claude_message_id).
 CREATE TEMP TABLE usage AS
@@ -175,7 +194,7 @@ CREATE TEMP TABLE timing AS
 SELECT session_id AS sid, ordinal AS ord, timestamp AS ts, model,
   min(900, (julianday(timestamp) - julianday(lag(timestamp) OVER w)) * 86400) AS secs,
   role = 'user' AND is_system = 0 AS prompt
-FROM messages WHERE session_id IN (SELECT id FROM sessions WHERE relationship_type != 'subagent')
+FROM messages WHERE session_id IN (SELECT id FROM tops)
 WINDOW w AS (PARTITION BY session_id ORDER BY ordinal);
 
 CREATE TEMP TABLE rows AS

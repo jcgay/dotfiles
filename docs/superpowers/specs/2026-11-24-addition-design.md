@@ -49,6 +49,10 @@ de fixture.
   été vu dans un appel au Skill tool. `/clear` termine le skill en cours ;
   les autres commandes (`/model`, `/compact`…) ne coupent rien.
 
+Un skill de plugin appelé sans préfixe (`/testing-api-pull-requests`) prend le
+nom à namespace déjà vu (`harnais:testing-api-pull-requests`) : une seule ligne,
+si un seul plugin a ce nom et aucun skill perso.
+
 Un segment court jusqu'à l'invocation suivante ou la fin de la session ;
 avant la première invocation, le segment s'appelle `(sans skill)`. Un skill
 appelé depuis un autre coupe le segment parent : on voit donc le détail
@@ -91,7 +95,9 @@ dernières sessions.
 ## Laissé au constructeur
 
 Format exact des colonnes, noms des options, structure de la fixture.
-Les sessions `claude -p` des scripts ne sont pas vérifiées : à tester.
+Une session `claude -p` est une session principale : agentsview la marque
+sous-agent sans parent (`entrypoint = sdk-cli`), `addition` la remet au premier
+niveau.
 
 ## Décisions prises par Claude (à vérifier)
 

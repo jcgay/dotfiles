@@ -9,12 +9,12 @@ db=$tmp/sessions.db
 # a duplicated API message, an unpriced model, /model and /reload-plugins (not skills); A3 a sub-agent of S1 with no
 # tool call linking it, started during humanizer, which starts A5 (Plan); A1 runs code-review; A4 a second Explore. S2: 20 days ago, no skill, a /clear, a typed /pr-review (installed skill).
 sqlite3 "$db" <<'SQL'
-CREATE TABLE sessions (id TEXT PRIMARY KEY, project TEXT, first_message TEXT, started_at TEXT, relationship_type TEXT NOT NULL DEFAULT '', parent_session_id TEXT);
+CREATE TABLE sessions (id TEXT PRIMARY KEY, project TEXT, first_message TEXT, started_at TEXT, relationship_type TEXT NOT NULL DEFAULT '', parent_session_id TEXT, entrypoint TEXT NOT NULL DEFAULT '');
 CREATE TABLE messages (id INTEGER PRIMARY KEY, session_id TEXT, ordinal INTEGER, role TEXT, content TEXT NOT NULL DEFAULT '', timestamp TEXT, is_system INTEGER NOT NULL DEFAULT 0, model TEXT NOT NULL DEFAULT '', token_usage TEXT NOT NULL DEFAULT '', claude_message_id TEXT NOT NULL DEFAULT '');
 CREATE TABLE tool_calls (id INTEGER PRIMARY KEY, message_id INTEGER, session_id TEXT, tool_name TEXT, input_json TEXT, skill_name TEXT, subagent_session_id TEXT);
 CREATE TABLE model_pricing (model_pattern TEXT PRIMARY KEY, input_microdollars_per_mtok INTEGER, output_microdollars_per_mtok INTEGER, cache_creation_microdollars_per_mtok INTEGER, cache_creation_1h_microdollars_per_mtok INTEGER, cache_read_microdollars_per_mtok INTEGER);
 INSERT INTO model_pricing VALUES ('m1', 1000000, 1000000, 1000000, 2000000, 100000);
-INSERT INTO sessions VALUES ('S1', 'p', 'hello', NULL, '', NULL), ('A1', 'p', '', NULL, 'subagent', 'S1'),
+INSERT INTO sessions (id, project, first_message, started_at, relationship_type, parent_session_id) VALUES ('S1', 'p', 'hello', NULL, '', NULL), ('A1', 'p', '', NULL, 'subagent', 'S1'),
   ('A2', 'p', '', NULL, 'subagent', 'A1'), ('A3', 'p', '', NULL, 'subagent', 'S1'),
   ('A4', 'p', '', NULL, 'subagent', 'S1'), ('A5', 'p', '', NULL, 'subagent', 'A3'), ('S2', 'p', 'old', NULL, '', NULL);
 INSERT INTO messages (id, session_id, ordinal, role, content, timestamp, model, token_usage, claude_message_id) VALUES
@@ -103,6 +103,46 @@ want '(sans skill)' .delta_pct 0
 want humanizer .n_before 0
 want humanizer .per_n_after 16
 want pr-review .delta_pct null          # no invocation after D: no change to show
+
+# H1: a headless run (claude -p), which agentsview marks as a sub-agent with no parent, typing /harnais:qa.
+# S3: the same skill called bare through the Skill tool. O1: an interactive sub-agent with no parent nor Agent call.
+# S4: /x:pr-review (a personal skill's name) and /b:dup, /c:dup typed, then dup called bare.
+# S5: /tq typed bare, a plugin skill symlinked under ~/.claude/harnais that no Skill call names, then /harnais:tq.
+cp "$db" "$tmp/headless.db"
+sqlite3 "$tmp/headless.db" <<'SQL'
+INSERT INTO sessions VALUES ('H1', 'p', '/harnais:qa 1', NULL, 'subagent', NULL, 'sdk-cli'), ('S3', 'p', 'go', NULL, '', NULL, ''),
+  ('O1', 'p', '', NULL, 'subagent', NULL, 'cli'), ('S4', 'p', '/x:pr-review', NULL, '', NULL, ''),
+  ('S5', 'p', '/tq 1', NULL, '', NULL, '');
+INSERT INTO messages (id, session_id, ordinal, role, content, timestamp, model, token_usage, claude_message_id) VALUES
+  (30, 'H1', 0, 'user', '/harnais:qa 1', strftime('%Y-%m-%dT%H:%M:%fZ','now','-2 days'), '', '', ''),
+  (31, 'H1', 1, 'assistant', '', strftime('%Y-%m-%dT%H:%M:%fZ','now','-2 days','+60 seconds'), 'm1', '{"input_tokens":1000000}', 'h1'),
+  (32, 'S3', 0, 'assistant', '', strftime('%Y-%m-%dT%H:%M:%fZ','now','-2 days'), 'm1', '{"input_tokens":2000000}', 's3'),
+  (33, 'O1', 1, 'assistant', '', strftime('%Y-%m-%dT%H:%M:%fZ','now','-2 days'), 'm1', '{"input_tokens":1000000}', 'o1'),
+  (34, 'S4', 0, 'user', '/x:pr-review', strftime('%Y-%m-%dT%H:%M:%fZ','now','-2 days'), '', '', ''),
+  (35, 'S4', 1, 'assistant', '', strftime('%Y-%m-%dT%H:%M:%fZ','now','-2 days','+10 seconds'), 'm1', '{"input_tokens":1000000}', 's4a'),
+  (36, 'S4', 2, 'user', '/b:dup', strftime('%Y-%m-%dT%H:%M:%fZ','now','-2 days','+20 seconds'), '', '', ''),
+  (37, 'S4', 3, 'user', '/c:dup', strftime('%Y-%m-%dT%H:%M:%fZ','now','-2 days','+30 seconds'), '', '', ''),
+  (38, 'S4', 4, 'assistant', '', strftime('%Y-%m-%dT%H:%M:%fZ','now','-2 days','+40 seconds'), 'm1', '{"input_tokens":1000000}', 's4b'),
+  (40, 'S5', 0, 'user', '/tq 1', strftime('%Y-%m-%dT%H:%M:%fZ','now','-2 days'), '', '', ''),
+  (41, 'S5', 1, 'assistant', '', strftime('%Y-%m-%dT%H:%M:%fZ','now','-2 days','+10 seconds'), 'm1', '{"input_tokens":1000000}', 's5a'),
+  (42, 'S5', 2, 'user', '/harnais:tq 2', strftime('%Y-%m-%dT%H:%M:%fZ','now','-2 days','+20 seconds'), '', '', ''),
+  (43, 'S5', 3, 'assistant', '', strftime('%Y-%m-%dT%H:%M:%fZ','now','-2 days','+30 seconds'), 'm1', '{"input_tokens":1000000}', 's5b');
+INSERT INTO tool_calls (message_id, session_id, tool_name, input_json, skill_name, subagent_session_id) VALUES
+  (32, 'S3', 'Skill', '{"skill":"qa"}', 'qa', NULL),
+  (38, 'S4', 'Skill', '{"skill":"dup"}', 'dup', NULL);
+SQL
+mkdir -p "$tmp/clone/tq" "$tmp/home/.claude/harnais/skills"; touch "$tmp/clone/tq/SKILL.md"
+ln -s "$tmp/clone/tq" "$tmp/home/.claude/harnais/skills/tq"
+db=$tmp/headless.db run
+want 'harnais:qa' .cost_usd 3
+want 'harnais:qa' .n 2
+want 'harnais:qa' .active_min 1
+row qa | grep -q . && fail "the bare skill name is a row of its own"
+want '(sous-agent non rattaché)' .cost_usd 1   # O1 only: H1 is a headless run
+want pr-review .cost_usd 1                # S2's bare personal skill stays apart from x:pr-review
+want 'x:pr-review' .cost_usd 1
+want dup .cost_usd 1                      # two plugins have a dup: the bare call keeps its name
+want 'harnais:tq' .cost_usd 2             # the typed bare /tq is a skill, merged into harnais:tq
 
 out=$(bash ./addition --db "$tmp/none.db" 2>&1) && fail "a missing archive should exit 1"
 grep -q 'agentsview' <<<"$out" || fail "no hint for a missing archive"
