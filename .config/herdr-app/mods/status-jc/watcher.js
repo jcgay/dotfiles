@@ -209,7 +209,7 @@ const pruned = (e) => {
 };
 
 // One watch round: reads my open PRs, decides, launches; returns the new registry, or null when another round
-// holds the lease (two status-jc copies must not launch twice). `cache` keeps `me`, this copy's lease id and the clones found.
+// holds or took the lease (two status-jc copies must not launch twice). `cache` keeps `me`, this copy's lease id and the clones found.
 export async function round(registry, cache = {}, owners) {
   const at = Date.now();
   cache.lease ??= `${at}-${Math.random()}`;
@@ -256,13 +256,19 @@ async function roundUnderLease(registry, cache, at, owners) {
   const toasts = new Map(); // PR key → this round's toast, for the journal
   // Read live, as paused: the panel's − / + may change it during the round.
   const maxAgents = () => shared("pr-watch")?.maxAgents ?? MAX_AGENTS;
+  // Read live too: switching the watch off mid-round must stop this round's launches, squashes and tab closing.
+  const isOn = () => Boolean(shared("pr-watch")?.on);
   for (const s of all) {
+    // A round may outlast LEASE_MS (gh timeouts, fetches): renewed per PR so another copy does not start a twin round.
+    // Already lost (the reads above took longer): the copy that took it runs the round, this one stops and writes nothing.
+    if (shared(LEASE)?.id !== cache.lease) return null;
+    setShared(LEASE, { at: Date.now(), id: cache.lease });
     const before = registry.prs[s.key] ?? emptyEntry();
     try {
       const busy = [...new Set([...heldTabs(all), ...launched])];
       const { clone, hasQa, hasDemo, hasCi, hasKaradoc, worktrees } = repos.get(s.repo);
       // paused read live: the PR panel's ⌨ may have paused this PR since the round started.
-      const ctx = { on: registry.on, paused: (shared("pr-watch")?.paused ?? registry.paused ?? []).includes(s.key), slots: maxAgents() - busy.length, karadocFree: !hasKaradoc || !karadocHeld(busy, karadocPrs, roundPrs), hasQa, hasDemo, hasCi };
+      const ctx = { on: isOn(), paused: (shared("pr-watch")?.paused ?? registry.paused ?? []).includes(s.key), slots: maxAgents() - busy.length, karadocFree: !hasKaradoc || !karadocHeld(busy, karadocPrs, roundPrs), hasQa, hasDemo, hasCi };
       const tab = { ...tabOf(before), busy: busy.some((t) => t.startsWith(`⟳ #${s.number} `)) };
       const r = decide(s, before, tab, ctx);
       if (r.toast) { notify({ title: r.toast, body: s.url, level: "warning" }); toasts.set(s.key, r.toast); }
@@ -277,6 +283,7 @@ async function roundUnderLease(registry, cache, at, owners) {
             else if (wt.dirty) entry = undoLaunch(entry, r.launch, LABELS.yours, null, `le worktree de surveillance a du travail non poussé : ${r.launch} pas lancé`);
             // Paused during prepareWorktree's fetch: the user may already be working in this worktree.
             else if (wt.paused || isPaused()) entry = undoLaunch(entry, r.launch, LABELS.paused, null, `mise en pause pendant la préparation : ${r.launch} pas lancé`);
+            else if (!isOn()) entry = undoLaunch(entry, r.launch, LABELS.waiting, null, `surveillance coupée pendant la préparation : ${r.launch} pas lancé`);
             else {
               // squash goes through git alone; only a conflict (false) needs its agent. A refusal spends the attempt.
               const squashed = r.launch === "squash" ? await autosquash(wt.path, s).catch((err) => err) : false;
@@ -314,7 +321,7 @@ async function roundUnderLease(registry, cache, at, owners) {
   }
   // After the PRs: decide() must still see the tab of a fix agent that pushed then stopped, or it takes that push for
   // mine and resets the attempts budget.
-  if (registry.on) {
+  if (isOn()) {
     // A watch space's folder is …/agents-worktree/<repo name>/<branch>-watch: tab names carry no repo. A PR whose signals
     // failed has no markers (null: its tabs stay); one missing from the round (undefined) is merged or closed.
     const markersOf = (n, folder) => {
