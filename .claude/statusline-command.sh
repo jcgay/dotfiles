@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# awk prints "5,26" under fr_FR, which the next awk compares as a string ("5,26" > "100")
+export LC_NUMERIC=C
 input=$(cat)
 
 cwd=$(echo "$input" | jq -r '.workspace.current_dir // .cwd // empty')
