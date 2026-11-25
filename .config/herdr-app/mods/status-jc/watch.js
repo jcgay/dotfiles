@@ -146,6 +146,8 @@ export const LABELS = Object.freeze({
 });
 
 export const BUDGET = 2; // attempts per check (rebase, jenkins, sonar, squash) and PR
+// Jenkins failing too: the sonar fix goes before the jenkins one while the quality gate fails and Sonar has attempts left.
+export const sonarFirst = (s, e) => s.sonar?.state === "ko" && Boolean(s.sonar.failed) && (e.attempts?.sonar ?? 0) < BUDGET;
 export const REVIEW = ["pr-review", "qa", "pr-demo", "pr-risk"]; // pr-review --fix pushes first: qa, demo and risk see the fixed code; qa finds bugs before the demo shows them
 const KARADOC = ["pr-demo", "qa"]; // start karadoc on fixed ports: one at a time
 const PUSHES = ["pr-review"]; // review steps that push fixups after their marker: they last until their tab closes
@@ -355,11 +357,12 @@ export function decide(s, entry, tab, ctx) {
     }
     step = "rebase";
   } else if (state("jenkins") === "ko") {
-    if (e.attempts.jenkins >= BUDGET) {
+    // A failed quality gate goes first: a Jenkinsfile that waits on it fails the build for it.
+    if (sonarFirst(s, e)) step = "sonar";
+    else if (e.attempts.jenkins >= BUDGET) {
       refuse("jenkins", `Jenkins encore en échec après ${BUDGET} corrections`);
       return out(LABELS.yours, yours, null, toast);
-    }
-    step = "jenkins";
+    } else step = "jenkins";
   } else if (state("jenkins") === "running" || s.pending || state("sonar") === "running") {
     const busy = [
       state("jenkins") === "running" && (s.jenkins ? "Jenkins tourne" : "Jenkins n'a pas encore démarré sur ce commit"),

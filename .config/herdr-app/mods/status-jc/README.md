@@ -63,7 +63,9 @@ flowchart TD
   X -->|"oui, moins de 2 tentatives"| Sx["étape rebase"]
   X -->|"oui, 2 tentatives"| Lyours0["à toi, toast une fois"]
   X -->|non| F{"Jenkins ko ?"}
-  F -->|oui| F2{"déjà 2 tentatives Jenkins ?"}
+  F -->|oui| F1{"quality gate Sonar en échec, moins de 2 tentatives Sonar ?"}
+  F1 -->|"oui : il fait échouer le build"| Ss
+  F1 -->|non| F2{"déjà 2 tentatives Jenkins ?"}
   F2 -->|oui| Lyours1["à toi, toast une fois"]
   F2 -->|non| Sj["étape jenkins"]
   F -->|non| G{"Jenkins, Sonar ou un autre check en cours ?"}

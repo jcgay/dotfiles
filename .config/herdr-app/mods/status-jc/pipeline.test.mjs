@@ -30,6 +30,10 @@ test("a conflict the watch gave up on is mine, CI waits behind it", () => {
 test("a failing Jenkins is red until its budget is spent", () => {
   assert.equal(band(green({ jenkins: { state: "ko" } }), {}).jenk, "ko");
   assert.equal(band(green({ jenkins: { state: "ko" } }), { attempts: { jenkins: 2, sonar: 0 } }).jenk, "me");
+  const gateRed = { state: "ko", failed: true };
+  assert.equal(band(green({ jenkins: { state: "ko" }, sonar: gateRed }), { attempts: { jenkins: 2, sonar: 0 } }).jenk, "ko", "the sonar fix goes first: not mine yet");
+  assert.equal(band(green({ jenkins: { state: "ko" }, sonar: gateRed }), { attempts: { jenkins: 2, sonar: 2 } }).jenk, "me");
+  assert.equal(band(green({ jenkins: { state: "ko" }, sonar: { state: "ko", failed: false } }), { attempts: { jenkins: 2, sonar: 0 } }).jenk, "me", "a green gate does not fail Jenkins");
   assert.equal(band(green({ jenkins: { state: "ko" } }), { launched: { step: "jenkins", head: "h1" } }).jenk, "run");
 });
 

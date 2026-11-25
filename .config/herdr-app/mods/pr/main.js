@@ -14,7 +14,7 @@ const FIELDS = "number,title,state,isDraft,headRefOid,reviewDecision,reviewReque
 // Contextual help: what each step of the watch's band does (status-jc's watch.js decide()), what each state and label means.
 const STEP_HELP = {
   git: "à jour avec la base, sans conflit ; en conflit, un agent rebase (2 essais)",
-  jenk: "la CI (Jenkins, ou les checks GitHub) ; en échec, un agent la corrige (2 essais)",
+  jenk: "la CI (Jenkins, ou les checks GitHub) ; en échec, un agent la corrige (2 essais), une fois le quality gate Sonar corrigé s'il échoue aussi",
   sonar: "l'analyse Sonar ; en échec, un agent la corrige (2 essais)",
   rev: "/pr-review --fix : un agent relit la PR, poste sa revue et corrige",
   qa: "un agent qa teste la PR pour y trouver des bugs (si le skill qa est dans le clone)",

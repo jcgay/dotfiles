@@ -210,8 +210,8 @@ test("my push resets attempts", () => {
   const launched = { step: "jenkins", head: "h1", tab: "⟳ #5462 jenkins" };
   for (const entry of [at({ attempts: { jenkins: 2, sonar: 2 } }), at({ attempts: { jenkins: 2, sonar: 2 }, launched })]) {
     const r = decide(green({ head: "h2", jenkins: jenkinsKo, sonar: sonarKo(true) }), entry, NO_TAB, CTX);
-    assert.equal(r.launch, "jenkins");
-    assert.deepEqual(r.entry.attempts, { jenkins: 1, sonar: 0 });
+    assert.equal(r.launch, "sonar");
+    assert.deepEqual(r.entry.attempts, { jenkins: 0, sonar: 1 });
     assert.equal(r.entry.head, "h2");
   }
 });
@@ -246,10 +246,22 @@ test("sonar at budget with green gate lets review go", () => {
 });
 
 test("jenkins at budget blocks everything", () => {
-  const r = decide(green({ jenkins: jenkinsKo, sonar: sonarKo(false) }), at({ attempts: { jenkins: 2, sonar: 0 } }), NO_TAB, CTX);
+  const r = decide(green({ jenkins: jenkinsKo, sonar: sonarKo(false) }), at({ attempts: { jenkins: 2, sonar: 2 } }), NO_TAB, CTX);
   assert.equal(r.launch, null);
   assert.equal(r.entry.label, "à toi");
-  assert.equal(r.entry.attempts.sonar, 0);
+  assert.equal(decide(green({ jenkins: jenkinsKo, sonar: sonarKo(false) }), at({ attempts: { jenkins: 2, sonar: 0 } }), NO_TAB, CTX).launch, null, "a green gate leaves it mine");
+});
+
+test("jenkins and sonar ko: sonar is fixed first, then jenkins", () => {
+  // The Jenkinsfile waits on the quality gate (arthur): Sonar's issues fail the build too.
+  const s = green({ jenkins: jenkinsKo, sonar: sonarKo(true) });
+  assert.equal(decide(s, at(), NO_TAB, CTX).launch, "sonar");
+  assert.equal(decide(s, at({ attempts: { jenkins: 2, sonar: 0 } }), NO_TAB, CTX).launch, "sonar", "jenkins at budget still gets its sonar fix");
+  assert.equal(decide({ ...s, pending: true }, at(), NO_TAB, CTX).launch, "sonar", "another check still running does not hold the fix back");
+  assert.equal(decide(green({ jenkins: jenkinsKo, sonar: sonarKo(false) }), at(), NO_TAB, CTX).launch, "jenkins", "a green gate does not fail Jenkins");
+  const r = decide(s, at({ attempts: { jenkins: 0, sonar: 2 } }), NO_TAB, CTX);
+  assert.equal(r.launch, "jenkins", "sonar at budget: back to the jenkins fix");
+  assert.equal(decide(green({ jenkins: jenkinsKo, sonar: { ...sonarKo(true), state: "running" } }), at(), NO_TAB, CTX).launch, "jenkins");
 });
 
 test("vanished tab ends the step", () => {
