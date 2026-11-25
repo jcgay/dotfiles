@@ -103,7 +103,7 @@
 - Produces:
   - `promptFor(step, s: Signals): string` (in `watch.js`):
     - `jenkins`: says the build of `<url>` failed on `<head, 8 chars>` (`<jenkins url>`), that the folder is a detached worktree reserved for the watch, to read the log with `jk run log <jobPath> <number>` (no VPN: say so and stop), to fix, commit and push with `git push origin HEAD:refs/heads/<branch>` if the PR's code is at fault (never force, never another branch), or to rerun with `jk run rerun <jobPath> <number>` without pushing if it is infrastructure or a flaky test.
-    - `sonar`: SonarCloud reports problems on `<url>` (`<sonar url>`); read the new issues and hotspots of pull request `<number>` (SonarQube MCP, `pullRequest` parameter), fix all of them, blocking or not, commit and push the same way.
+    - `sonar`: SonarCloud reports problems on `<url>` (`<sonar url>`); read the new issues and hotspots of pull request `<number>` (`sonar` CLI: `sonar list issues --pull-request`, `sonar api get /api/hotspots/search` with `status=TO_REVIEW`, the project key taken from the `id` of the Sonar URL), fix all of them, blocking or not, commit and push the same way.
     - `pr-risk`: `/pr-risk <url>`; `pr-demo`: `/pr-demo <url>`; `qa`: `/testing-api-pull-requests <url>` followed by: stop once the report is posted (step 7), no fix, no push.
   - `repoOfRemote(url: string): string | null` (in `watch.js`) — `git@github.com:softwarevidal/arthur.git` and `https://github.com/softwarevidal/arthur` → `softwarevidal/arthur`.
   - `round(registry: Registry): Promise<Registry>` (in `watcher.js`), using the herdr module. Steps:

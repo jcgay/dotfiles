@@ -377,7 +377,8 @@ test("promptFor jenkins reads the log and pushes to the PR branch only", () => {
 
 test("promptFor sonar reads the pull request issues", () => {
   const p = promptFor("sonar", PR);
-  assert.match(p, /pullRequest/);
+  assert.match(p, /sonar list issues .*--pull-request 5459/);
+  assert.match(p, /status=TO_REVIEW/);
   assert.match(p, /git push origin HEAD:refs\/heads\/MERLIN-2320/);
   assert.doesNotMatch(p, /--force/);
 });
