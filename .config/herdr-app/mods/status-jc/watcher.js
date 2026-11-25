@@ -4,7 +4,7 @@ import { randomUUID } from "crypto";
 import { watchPath } from "./open.js";
 import { roundLines, searchLine } from "./journal.js";
 import { appendJournal } from "./journal-file.js";
-import { readHint, searchSince, ownerArgs, signalsOf, withRiskTree, decide, emptyEntry, promptFor, repoOfRemote, undoLaunch, holdingTabs, karadocHeld, karadocHolder, appTaken, closing, stoppedQa, checkoutBases, checkoutsOf, LABELS } from "./watch.js";
+import { readHint, searchSince, ownerArgs, signalsOf, withRiskTree, decide, emptyEntry, promptFor, repoOfRemote, undoLaunch, holdingTabs, karadocHeld, karadocHolder, appTaken, closing, stoppedQa, freshTabs, checkoutBases, checkoutsOf, LABELS } from "./watch.js";
 import { bandOf, measure, addSamples, clockOf, workOf } from "./pipeline.js";
 
 const MAX_AGENTS = 3; // default; the PR panel's header sets pr-watch.maxAgents
@@ -332,10 +332,12 @@ async function roundUnderLease(registry, cache, at, owners) {
       return s && (s.markers ?? null);
     };
     const local = spaces().filter((sp) => !sp.machine);
-    for (const { cmd, args } of closing(local, markersOf, cache.qaStopped)) {
+    // Every copy's rounds and the squash button share these entries: a tab another copy just opened is kept too.
+    const fresh = new Set([...launched, ...freshTabs([...Object.values(registry.prs ?? {}), ...Object.values(prs)], shared("pr-squash"), Date.now())]);
+    for (const { cmd, args } of closing(local, markersOf, cache.qaStopped, fresh)) {
       try { run(cmd, args); } catch { /* already gone */ }
     }
-    cache.qaStopped = stoppedQa(local, markersOf);
+    cache.qaStopped = stoppedQa(local, markersOf, fresh);
   }
   await appendJournal(roundLines(registry, { on: registry.on, prs }, toasts));
   const durations = addSamples(registry.durations ?? {}, samples);

@@ -210,21 +210,32 @@ export function holdingTabs(tabs, markersOf) {
 // space when that tab is the space's only one. Never the tab I am looking at, nor one
 // I split. args are confirmed: Herdr asks before closing a space, and nobody is there to answer.
 // spaces: local SpaceInfo[]; markersOf(number, folder): the PR's Set, null when unknown, undefined when gone.
-// qaBefore: the ids stoppedQa() gave the round before.
+// qaBefore: the ids stoppedQa() gave the round before. fresh: freshTabs(), never closed: a Claude that just started
+// reads idle for a moment before its task reaches it, and closing it then kills it before its session.
 const qaStopped = (t, found) => ["done", "idle"].includes(t.status) && found?.has("qa") === false;
 
-// The ids of the qa tabs stopped without their report this round, for the next round's closing().
-export function stoppedQa(spaces, markersOf) {
+// The watch tab names launched less than FRESH_MS ago: by a watch round of any status-jc copy (entries: registry entries
+// of the rounds, launched { tab, at }) or by the squash button (squashes: shared("pr-squash"), { state: "agent", tab, at }).
+// shortcut: names carry no repo, a fresh "⟳ #3 jenkins" also keeps another repo's finished one a round longer
+export const FRESH_MS = 60000;
+export function freshTabs(entries, squashes, now) {
+  const recent = (x) => x?.tab && now - (x.at ?? 0) < FRESH_MS;
+  return new Set([...entries.map((e) => e?.launched), ...Object.values(squashes ?? {}).filter((q) => q?.state === "agent")]
+    .filter(recent).map((x) => x.tab));
+}
+
+// The ids of the qa tabs stopped without their report this round, for the next round's closing(). fresh: as in closing().
+export function stoppedQa(spaces, markersOf, fresh = new Set()) {
   return new Set(spaces.flatMap((sp) => sp.tabs.filter((t) => {
     const m = /^⟳ #(\d+) qa$/.exec(t.name);
-    return m !== null && qaStopped(t, markersOf(Number(m[1]), sp.folder));
+    return m !== null && !fresh.has(t.name) && qaStopped(t, markersOf(Number(m[1]), sp.folder));
   }).map((t) => t.id)));
 }
 
-export function closing(spaces, markersOf, qaBefore = new Set()) {
+export function closing(spaces, markersOf, qaBefore = new Set(), fresh = new Set()) {
   return spaces.flatMap((sp) => sp.tabs.filter((t) => {
     const m = /^⟳ #(\d+) (\S+)$/.exec(t.name);
-    if (m === null || t.panes !== 1 || (sp.active && t.active)) return false;
+    if (m === null || t.panes !== 1 || (sp.active && t.active) || fresh.has(t.name)) return false;
     if (CLOSES_DONE.includes(m[2])) return ["done", "idle"].includes(t.status);
     // A qa stopped without its report (a question nobody reads) would hold the repo's app (appTaken) for good.
     // One that posted its report stays open, to fix its bugs there. Markers are read at the round's start: a report
