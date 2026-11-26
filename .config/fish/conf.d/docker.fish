@@ -7,6 +7,7 @@ set -gx DOCKERSW2_KEY "$HOME/.dockersw2/client-jenkins-key.pem"
 abbr -a dco 'docker compose'
 alias ctopsw "dockersw run --rm -ti --name=ctop --volume /var/run/docker.sock:/var/run/docker.sock:ro quay.io/vektorlab/ctop:latest"
 alias ctopbo "dockerbo run --rm -ti --name=ctop --volume /var/run/docker.sock:/var/run/docker.sock:ro quay.io/vektorlab/ctop:latest"
+alias ctopsw2 "docker-sw2 run --rm -ti --name=ctop --volume /var/run/docker.sock:/var/run/docker.sock:ro quay.io/vektorlab/ctop:latest"
 
 function dockerclean --description 'Remove old stopped containers'
     docker ps -a | grep 'days ago\|weeks ago' | awk '{print $1}' | gxargs --no-run-if-empty docker rm
