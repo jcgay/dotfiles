@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# Ask the reviewers GitHub suggests (blame of the changed lines) to review my
+# pull request, up to the number of humans it needs:
+#   gh-pr-request-reviewers <owner>/<repo> <PR number> <humans>
+# Does nothing on someone else's PR, a draft or a closed one. Humans already requested
+# (a team counts as one) or who already reviewed count towards <humans>.
+# Copilot and bots never count and are never requested. Prints what it did.
+set -euo pipefail
+die() { echo "gh-pr-request-reviewers: $*" >&2; exit 1; }
+
+[ $# -eq 3 ] || { echo "usage: gh-pr-request-reviewers <owner>/<repo> <PR number> <humans>" >&2; exit 2; }
+repo=$1 pr=$2 want=$3
+[[ $repo == ?*/?* ]] || die "not an <owner>/<repo>: '$repo'"
+[[ $pr =~ ^[0-9]+$ ]] || die "not a PR number: '$pr'"
+[[ $want =~ ^[0-9]+$ ]] || die "not a number of humans: '$want'"
+[ "$want" -gt 0 ] || { echo "no human review asked: nothing requested"; exit 0; }
+
+me=$(gh api user --jq .login)
+pull=$(gh api graphql -F owner="${repo%%/*}" -F name="${repo#*/}" -F n="$pr" -f query='
+query($owner: String!, $name: String!, $n: Int!) { repository(owner: $owner, name: $name) { pullRequest(number: $n) {
+  state isDraft author { login }
+  suggestedReviewers { isAuthor reviewer { login } }
+  reviewRequests(first: 50) { nodes { requestedReviewer { __typename ... on User { login } ... on Team { slug } ... on Bot { login } } } }
+  reviews(first: 100) { nodes { author { __typename login } } }
+} } }' --jq .data.repository.pullRequest)
+
+[ "$(jq -r .author.login <<<"$pull")" = "$me" ] || { echo "not my pull request: nothing requested"; exit 0; }
+[ "$(jq -r .isDraft <<<"$pull")" = false ] || { echo "draft: nothing requested"; exit 0; }
+[ "$(jq -r .state <<<"$pull")" = OPEN ] || { echo "not open: nothing requested"; exit 0; }
+
+# The humans already on it, then the suggested ones not among them, in GitHub's order.
+names=$(jq -r --arg me "$me" --argjson want "$want" '
+  def bot: test("^copilot$|\\[bot\\]$"; "i");
+  ([.reviewRequests.nodes[].requestedReviewer | select(.__typename == "User" or .__typename == "Team") | .login // "team:\(.slug)"]
+   + [.reviews.nodes[].author | select(.__typename == "User") | .login]
+   | map(select(. != $me and (bot | not))) | unique) as $on
+  | [.suggestedReviewers[] | select(.isAuthor | not) | .reviewer.login
+     | select(. != $me and (bot | not) and (. as $l | $on | index($l) | not))]
+  | "\($on | length)\t\(join(" "))"' <<<"$pull")
+on=${names%%$'\t'*} names=${names#*$'\t'}
+
+[ "$on" -lt "$want" ] || { echo "$on human reviewer(s) already: nothing requested"; exit 0; }
+# One request per login: GitHub refuses the whole call for one login it rejects
+# (not a collaborator any more), and the next suggestion can take its place.
+asked=() refused=()
+for login in $names; do
+  [ $((on + ${#asked[@]})) -lt "$want" ] || break
+  if err=$(gh pr edit "$pr" -R "$repo" --add-reviewer "$login" 2>&1 >/dev/null); then asked+=("$login")
+  else refused+=("$login (${err//$'\n'/ })"); fi
+done
+if [ ${#asked[@]} -gt 0 ]; then (IFS=,; echo "requested: ${asked[*]}"); else echo "no suggested reviewer left: nothing requested"; fi
+[ ${#refused[@]} -eq 0 ] || (IFS=,; echo "refused by GitHub: ${refused[*]}")
