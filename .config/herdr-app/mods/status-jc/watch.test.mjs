@@ -1,7 +1,7 @@
 // node --test ~/.config/herdr-app/mods/status-jc/watch.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { fixups, searchSince, sonarFindings, markers, riskOf, noHuman, withRiskTree, signalsOf, checks, jenkinsBuild, decide, emptyEntry, tabName, LABELS, promptFor, repoOfRemote, undoLaunch, holdingTabs, closing, stoppedQa, freshTabs, FRESH_MS, karadocHeld, appTaken, checkoutBases, checkoutsOf, squashAgentOver, SQUASH_GRACE_MS } from "./watch.js";
+import { fixups, searchSince, sonarFindings, markers, riskOf, noHuman, withRiskTree, signalsOf, checks, jenkinsBuild, decide, emptyEntry, tabName, LABELS, promptFor, repoOfRemote, undoLaunch, holdingTabs, closing, stoppedQa, freshTabs, FRESH_MS, karadocHeld, appTaken, checkoutBases, checkoutsOf, squashAgentOver, SQUASH_GRACE_MS, KARADOC_MAX_MIN } from "./watch.js";
 
 // Real summaries: arthur#5458 (passed) and arthur#5449 (failed gate).
 const PASSED = `Issues  
@@ -185,6 +185,25 @@ test("review tab closed without marker: silent on that head, relaunched on a new
   assert.equal(decide(green({ markers: done, head: "h2" }), ended.entry, NO_TAB, CTX).launch, "pr-demo");
   const commented = decide(green({ markers: new Set([...done, "pr-risk"]) }), at({ launched: { step: "pr-risk", head: "h1", tab: "t" } }), DONE, CTX);
   assert.deepEqual(commented.entry.silent, {}, "a step that left its marker is not silent");
+});
+
+test("a qa or pr-demo open past KARADOC_MAX_MIN is mine, toasted once", () => {
+  const launched = { step: "pr-demo", head: "h1", tab: "⟳ #5462 pr-demo", at: 0 };
+  const ctx = (min) => ({ ...CTX, now: min * 60000 });
+  assert.equal(decide(green(), at({ launched }), DONE, ctx(KARADOC_MAX_MIN - 1)).entry.label, LABELS.running);
+  const late = decide(green(), at({ launched }), DONE, ctx(KARADOC_MAX_MIN));
+  assert.equal(late.entry.label, LABELS.yours);
+  assert.match(late.entry.why, /pr-demo ouvert depuis 45 min.*⟳ #5462 pr-demo/);
+  assert.equal(late.toast, "PR #5462 : pr-demo bloqué ? regarde ⟳ #5462 pr-demo");
+  assert.equal(decide(green(), late.entry, DONE, ctx(90)).toast, null, "one toast per launch");
+  const blocked = decide(green(), at({ launched }), RUNNING, ctx(90));
+  assert.equal(blocked.entry.label, LABELS.yours, "a permission prompt is stuck too");
+  const working = decide(green(), at({ launched }), { ...RUNNING, working: true }, ctx(90));
+  assert.equal(working.entry.label, LABELS.running, "an agent still working is not stuck");
+  const paused = decide(green(), at({ launched }), DONE, { ...ctx(90), paused: true });
+  assert.equal(paused.toast, null, "no toast on a paused PR");
+  const fix = { step: "jenkins", head: "h1", tab: "⟳ #5462 jenkins", at: 0 };
+  assert.equal(decide(green({ jenkins: jenkinsKo }), at({ launched: fix }), RUNNING, ctx(90)).entry.label, LABELS.running, "other steps never");
 });
 
 test("agent push keeps attempts", () => {

@@ -199,6 +199,7 @@ function tabOf(entry) {
   return {
     exists: spaces().some((s) => s.tabs.some((t) => t.name === name)),
     running: agents().some((a) => a.tab_name === name && ["working", "blocked"].includes(a.status)),
+    working: agents().some((a) => a.tab_name === name && a.status === "working"),
   };
 }
 
@@ -271,7 +272,7 @@ async function roundUnderLease(registry, cache, at, owners, leaseId) {
       const busy = [...new Set([...heldTabs(all), ...launched])];
       const { clone, hasQa, hasDemo, hasCi, hasKaradoc, worktrees } = repos.get(s.repo);
       // paused read live: the PR panel's ⌨ may have paused this PR since the round started.
-      const ctx = { on: isOn(), paused: (shared("pr-watch")?.paused ?? registry.paused ?? []).includes(s.key), slots: maxAgents() - busy.length, karadocFree: !hasKaradoc || !karadocHeld(busy, karadocPrs, roundPrs), hasQa, hasDemo, hasCi,
+      const ctx = { now: Date.now(), on: isOn(), paused: (shared("pr-watch")?.paused ?? registry.paused ?? []).includes(s.key), slots: maxAgents() - busy.length, karadocFree: !hasKaradoc || !karadocHeld(busy, karadocPrs, roundPrs), hasQa, hasDemo, hasCi,
         // busy holds this round's launches: two PRs of one round are covered.
         // shortcut: tabs name the PR number only, two repos' PRs of the same number share it; it only waits more
         app: appTaken(busy, all.filter((x) => x.repo === s.repo && x.number !== s.number).map((x) => x.number), roundPrs) };

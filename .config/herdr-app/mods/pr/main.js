@@ -25,11 +25,11 @@ const STEP_HELP = {
 };
 const STATE_HELP = {
   ok: "fait", run: "en cours : un agent, la CI ou le merge armé", wait: "attend une approbation humaine",
-  ko: "en échec, la surveillance le corrige", me: "à toi : la surveillance a abandonné", todo: "à venir",
+  ko: "en échec, la surveillance le corrige", me: "à toi : la surveillance a abandonné, ou un qa ou pr-demo attend dans son onglet", todo: "à venir",
   skip: "jamais fait dans ce dépôt",
 };
 const LABEL_HELP = {
-  "à toi": "la surveillance a besoin de toi : la raison est sous la ligne ; un clic ouvre le log Jenkins ou l'analyse Sonar en cause",
+  "à toi": "la surveillance a besoin de toi : la raison est sous la ligne ; un clic ouvre le log Jenkins ou l'analyse Sonar en cause, ou l'onglet d'un qa ou pr-demo ouvert depuis trop longtemps",
   erreur: "GitHub n'a pas pu lire la PR",
   "pas de clone local": "aucun clone du dépôt sur ce Mac : aucun agent ne peut être lancé",
   "agent en cours": "un agent travaille sur la PR ; clic pour aller à son onglet",
