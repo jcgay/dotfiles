@@ -150,6 +150,7 @@ export const BUDGET = 2; // attempts per check (rebase, jenkins, sonar, squash) 
 export const sonarFirst = (s, e) => s.sonar?.state === "ko" && Boolean(s.sonar.failed) && (e.attempts?.sonar ?? 0) < BUDGET;
 export const REVIEW = ["pr-review", "qa", "pr-demo", "pr-risk"]; // pr-review --fix pushes first: qa, demo and risk see the fixed code; qa finds bugs before the demo shows them
 const KARADOC = ["pr-demo", "qa"]; // start karadoc on fixed ports: one at a time
+export const KARADOC_MAX_MIN = 45; // past it, a qa or pr-demo is mine: they take 30 min at most
 const PUSHES = ["pr-review"]; // review steps that push fixups after their marker: they last until their tab closes
 
 const CLOSES = ["pr-risk", "pr-review", "pr-demo"]; // review steps over once their marker is posted and their agent stopped (pr-review fixes, pr-demo tears down, in the same turn): their tab closes
@@ -277,7 +278,7 @@ export function checkoutBases(reflog, branch) {
 }
 
 // What to do with one PR this round: a new entry, the step to launch (or null), a toast (or null). Pure.
-// tab: { exists, running } of entry.launched's tab, busy: another watch tab holds this PR (holdingTabs).
+// tab: { exists, running, working } of entry.launched's tab (running: working or blocked), busy: another watch tab holds this PR (holdingTabs).
 // ctx.hasCi: the local clone has a CI (Jenkinsfile, GitHub workflow); without it, no check is not worth waiting for.
 // entry.why says in French why the PR has its label, for the panel.
 export function decide(s, entry, tab, ctx) {
@@ -321,6 +322,14 @@ export function decide(s, entry, tab, ctx) {
   if (e.launched && !holds) {
     if (review) e.silent[e.launched.head] = [...(e.silent[e.launched.head] ?? []), e.launched.step];
     e.launched = null;
+  }
+  // A qa or pr-demo still open long after its usual run and not working (a question nobody reads, a permission prompt)
+  // holds karadoc and the repo's app for good. Paused: no toast, as for every paused PR.
+  const minutes = Math.floor((ctx.now - e.launched?.at) / 60000);
+  if (e.launched && holds && !tab.working && !ctx.paused && KARADOC.includes(e.launched.step) && minutes >= KARADOC_MAX_MIN) {
+    const toast = e.launched.told ? null : `PR #${s.number} : ${e.launched.step} bloqué ? regarde ${e.launched.tab}`;
+    e.launched.told = true;
+    return out(LABELS.yours, `${e.launched.step} ouvert depuis ${minutes} min et arrêté, les qa et pr-demo suivants l'attendent : regarde son onglet ${e.launched.tab}`, null, toast);
   }
   if (e.launched && holds) return out(LABELS.running, `agent ${e.launched.step} lancé sur ${short(e.launched.head)}`);
   if (tab.busy) return out(LABELS.running, "un autre onglet ⟳ de cette PR travaille encore");
