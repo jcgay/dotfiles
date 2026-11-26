@@ -209,23 +209,26 @@ const pruned = (e) => {
 };
 
 // One watch round: reads my open PRs, decides, launches; returns the new registry, or null when another round
-// holds or took the lease (two status-jc copies must not launch twice). `cache` keeps `me`, this copy's lease id and the clones found.
+// holds or took the lease (two status-jc copies must not launch twice). `cache` keeps `me` and the clones found.
 export async function round(registry, cache = {}, owners) {
   const at = Date.now();
-  cache.lease ??= `${at}-${Math.random()}`;
+  // One id per round, not per copy: a round main.js gave up on as stuck stops at its next PR if it ever resumes.
+  const leaseId = `${at}-${Math.random()}`;
   const lease = shared(LEASE);
-  if (lease && lease.id !== cache.lease && at - lease.at < LEASE_MS) return null;
-  setShared(LEASE, { at, id: cache.lease });
+  if (lease && at - lease.at < LEASE_MS) return null;
+  setShared(LEASE, { at, id: leaseId });
   // Only the copy running the round says so: a copy refused by the lease must not clear it.
   setShared("pr-watch", { ...(shared("pr-watch") ?? {}), running: true });
   try {
-    return await roundUnderLease(registry, cache, at, owners);
+    return await roundUnderLease(registry, cache, at, owners, leaseId);
   } finally {
-    if (shared(LEASE)?.id === cache.lease) setShared(LEASE, null);
+    if (shared(LEASE)?.id === leaseId) setShared(LEASE, null);
   }
 }
 
-async function roundUnderLease(registry, cache, at, owners) {
+async function roundUnderLease(registry, cache, at, owners, leaseId) {
+  // Read after every long await: a round main.js gave up on as stuck must not launch, close tabs or write once it resumes.
+  const held = () => shared(LEASE)?.id === leaseId;
   let found;
   try {
     cache.me ??= (await sh("gh", ["api", "user", "--jq", ".login"])).trim();
@@ -261,8 +264,8 @@ async function roundUnderLease(registry, cache, at, owners) {
   for (const s of all) {
     // A round may outlast LEASE_MS (gh timeouts, fetches): renewed per PR so another copy does not start a twin round.
     // Already lost (the reads above took longer): the copy that took it runs the round, this one stops and writes nothing.
-    if (shared(LEASE)?.id !== cache.lease) return null;
-    setShared(LEASE, { at: Date.now(), id: cache.lease });
+    if (!held()) return null;
+    setShared(LEASE, { at: Date.now(), id: leaseId });
     const before = registry.prs[s.key] ?? emptyEntry();
     try {
       const busy = [...new Set([...heldTabs(all), ...launched])];
@@ -282,6 +285,7 @@ async function roundUnderLease(registry, cache, at, owners) {
           try {
             const isPaused = () => (shared("pr-watch")?.paused ?? []).includes(s.key);
             const wt = await prepareWorktree(clone, s.repo, s.branch, isPaused);
+            if (!held()) return null;
             if (wt.busy) entry = undoLaunch(entry, r.launch, LABELS.yours, null, `tu travailles sur ${s.branch} dans ${wt.busy.split("/").pop()} (non poussé)`);
             else if (wt.dirty) entry = undoLaunch(entry, r.launch, LABELS.yours, null, `le worktree de surveillance a du travail non poussé : ${r.launch} pas lancé`);
             // Paused during prepareWorktree's fetch: the user may already be working in this worktree.
@@ -290,6 +294,7 @@ async function roundUnderLease(registry, cache, at, owners) {
             else {
               // squash goes through git alone; only a conflict (false) needs its agent. A refusal spends the attempt.
               const squashed = r.launch === "squash" ? await autosquash(wt.path, s).catch((err) => err) : false;
+              if (!held()) return null;
               if (squashed === true) entry = { ...entry, launched: null, label: LABELS.waiting, why: `fixups squashés et poussés sur ${s.branch}` };
               else if (squashed instanceof Error) entry = { ...entry, launched: null, label: LABELS.error, error: squashed.message, why: "squash refusé" };
               else {
@@ -322,6 +327,7 @@ async function roundUnderLease(registry, cache, at, owners) {
       prs[s.key] = pruned({ ...before, label: LABELS.error, why: "la surveillance a planté sur cette PR", error: e?.message ?? String(e), errorRounds: 0 });
     }
   }
+  if (!held()) return null;
   // After the PRs: decide() must still see the tab of a fix agent that pushed then stopped, or it takes that push for
   // mine and resets the attempts budget.
   if (isOn()) {
@@ -340,6 +346,7 @@ async function roundUnderLease(registry, cache, at, owners) {
     cache.qaStopped = stoppedQa(local, markersOf, fresh);
   }
   await appendJournal(roundLines(registry, { on: registry.on, prs }, toasts));
+  if (!held()) return null;
   const durations = addSamples(registry.durations ?? {}, samples);
   for (const key of Object.keys(prs)) prs[key] = { ...prs[key], clock: clockOf(prs[key], durations, Date.now()) };
   // For the panel's header: the watch agents at the end of the round and the one holding karadoc.

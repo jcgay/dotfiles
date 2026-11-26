@@ -12,6 +12,7 @@ import { usageWindows, resetLabel } from "./usage.js";
 const WATCH = "pr-watch";
 const NOW = "pr-watch-now"; // the PR panel's ↻ asks for a round now
 const ROUND_MS = 120000;
+const STUCK_MS = 600000; // a round still running after this may await an exec that never came back (seen across a Mac sleep): the next one starts, and takes over once the lease is 4 min old
 const FRESH = { on: false, prs: {}, error: null, at: 0, paused: [] }; // the PR panel's switch turns it on
 
 // workspace-status, plus the ports the shown space's programs listen on.
@@ -103,8 +104,9 @@ export default class WorkspaceStatus extends View {
 
   // Rounds run while the watch is off too: the panel stays fresh, decide launches nothing.
   watch(cx) {
-    if (this.watching) return;
-    this.watching = true;
+    if (this.watching && Date.now() - this.watching < STUCK_MS) return;
+    const started = Date.now();
+    this.watching = started;
     cx.spawn(async () => {
       let next;
       try {
@@ -112,10 +114,10 @@ export default class WorkspaceStatus extends View {
         next = error ? { ...(shared(WATCH) ?? FRESH), error: CONFIG_ERROR, at: Date.now() } : await round(shared(WATCH) ?? FRESH, this, config.owners);
       } catch (e) {
         next = { ...(shared(WATCH) ?? FRESH), error: e?.message ?? String(e), at: Date.now() };
-      } finally {
-        this.watching = false;
       }
-      // null: another copy's round holds the lease. The panel's switch, pauses and agent count may have changed during the round: keep them.
+      // A round replaced after STUCK_MS still writes if it kept the lease (slow, not stuck): round() returns null otherwise.
+      if (this.watching === started) this.watching = false;
+      // null: another round holds the lease. The panel's switch, pauses and agent count may have changed during the round: keep them.
       if (next) {
         // paused is never pruned: the search only sees PRs updated within 7 days, a quiet paused PR would lose its pause.
         const cur = shared(WATCH);
