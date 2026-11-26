@@ -398,7 +398,7 @@ test("promptFor sonar reads the pull request issues", () => {
 test("promptFor review steps run their skill", () => {
   assert.equal(promptFor("pr-risk", PR), `/pr-risk ${PR.url}`);
   const review = promptFor("pr-review", PR);
-  assert.ok(review.startsWith(`/pr-review ${PR.url} --fix`));
+  assert.ok(review.startsWith(`/pr-review ${PR.url} --fix --copilot`));
   assert.doesNotMatch(review, /git push/, "fix.md owns the push and its checks");
   const demo = promptFor("pr-demo", PR);
   assert.ok(demo.startsWith(`/pr-demo ${PR.url} --narrate --auto`));

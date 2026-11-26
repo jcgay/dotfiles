@@ -70,3 +70,7 @@ no-PR mode. `<base-sha>`, `<head>`, `headRefName`, `headRefOid` and
   One explicit call per reply, not a loop over `"<id> <file>"` pairs: zsh
   does not split `$p`, and every call then reads a wrong path.
   Findings in the body only get no reply.
+- A finding with a `copilot_comment_id` gets the same reply in Copilot's
+  thread too, when its `comment_id` is another one (or none: a merged
+  finding in the body). Answer every one, fixed or not, even a vague or
+  wrong comment (`Non corrigé : <why it does not apply>.`).
