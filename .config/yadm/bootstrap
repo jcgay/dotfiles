@@ -132,7 +132,7 @@ if claude --version &>/dev/null; then
     claude plugin install merlin@vidal || true
     claude plugin marketplace add 'softwarevidal/blaise#marketplace' || true
     claude plugin install blaise@blaise || true
-    # Du harnais d'équipe, seulement le skill testing-api-pull-requests et ses agents qa-* : le plugin
+    # Du harnais d'équipe, seulement le skill testing-pull-requests et ses agents qa-* : le plugin
     # ~/.claude/harnais (suivi, ajouté aux mods plus bas) pointe dans ce clone, que `dot` met à jour.
     # Le plugin harnais complet apporterait ses hooks, ses règles et ses dépendances.
     [ -d "$HOME/.local/share/harnais" ] || gh repo clone softwarevidal/harnais "$HOME/.local/share/harnais" \
