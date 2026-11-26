@@ -168,7 +168,7 @@ SELECT session_id, ordinal, CASE WHEN name = 'clear' THEN NULL ELSE name END FRO
 WHERE name NOT GLOB '*[^a-z0-9:_-]*' AND (name = 'clear' OR name GLOB '*:*' OR name IN (SELECT name FROM temp.skills)
   OR name IN (SELECT skill_name FROM tool_calls WHERE tool_name = 'Skill'));
 CREATE INDEX temp.bounds_sid ON bounds (sid, ord);
--- A plugin skill is called bare (/testing-api-pull-requests) or namespaced: one label, the namespaced one, when
+-- A plugin skill is called bare (/testing-pull-requests) or namespaced: one label, the namespaced one, when
 -- only one plugin has that name and no personal skill does.
 -- shortcut: a built-in skill (code-review) still merges with a lone plugin skill of its name; list them if one shows up.
 CREATE TEMP TABLE namespaced AS SELECT DISTINCT label, substr(label, instr(label, ':') + 1) AS bare FROM bounds
