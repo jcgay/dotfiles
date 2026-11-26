@@ -110,6 +110,14 @@ out=$("$here/publish-review.sh" o/r 7 "$sha" "$T" 2>&1) || { echo "FAIL old revi
 check 'old review without marker: posted' "$(grep -c 'method POST' "$GH_LOG")" 1
 echo '[]' > "$GH_REVIEWS"; cp "$T/before.json" "$GH_COMMENTS"
 
+# A finding from Copilot alone is not posted again, its replies go to Copilot's
+# thread; merged with another review's, it is posted as usual.
+echo '[{"id": 1, "severity": "bloquant", "confirmed": true, "sources": ["copilot"], "path": "src/a.ts", "line": 11, "side": "RIGHT", "title": "T1", "body": "B1", "copilot_comment_id": 77},
+ {"id": 2, "severity": "bloquant", "confirmed": true, "sources": ["copilot", "code-review"], "path": "src/a.ts", "line": 12, "side": "RIGHT", "title": "T2", "body": "B2", "copilot_comment_id": 78}]' > "$T/findings.json"
+out=$("$here/publish-review.sh" o/r 7 "$sha" "$T" --dry-run 2>&1) || { echo "FAIL copilot: $out"; fail=1; }
+check 'copilot: alone skipped, merged posted' "$(jq -c 'map([.where, .comment_id])' "$T/findings.json")" '[["skip",77],["inline",null]]'
+check 'copilot: the merged one inline' "$(jq -c '.comments | map(.line)' "$T/review.json")" '[12]'
+
 echo '[]' > "$T/findings.json"
 out=$("$here/publish-review.sh" o/r 7 "$sha" "$T" --dry-run 2>&1) || { echo "FAIL no finding: $out"; fail=1; }
 check 'no finding: body only' "$(jq -c '[.body, .comments]' "$T/review.json")" '["<!-- pr-review -->\nSummary.\n\n🤖 Jean-Claude",[]]'

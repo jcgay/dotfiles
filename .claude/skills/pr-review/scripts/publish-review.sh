@@ -8,7 +8,10 @@
 # (under the --off-diff heading when confirmed). The script:
 #   - marks each finding in findings.json: anchored (its line takes an inline
 #     comment), posted (a signed comment with its title is already on that
-#     line, or a signed review already lists it) and where (inline | body | skip);
+#     line, a signed review already lists it, or it comes from Copilot alone,
+#     sources ["copilot"] and a copilot_comment_id: Copilot already said it,
+#     and comment_id takes that id for the replies)
+#     and where (inline | body | skip);
 #   - writes <dir>/review.json: one inline comment per confirmed, anchored, not
 #     yet posted finding; the others not yet posted are listed in the body,
 #     under the two headings, after a <!-- pr-review --> line (the Herdr PR
@@ -70,7 +73,9 @@ jq --rawfile anchorable "$dir/anchorable.tsv" --rawfile posted "$dir/posted.tsv"
   | map((if .path == null or .line == null then null else "\(.path)\t\(.side // "RIGHT")\t\(.line)" end) as $k
       | "- **[\(.severity)]** \(.title)" as $item | "\($k)\t\(.title)" as $kt
       | .anchored = ($k != null and ($a | has($k)))
-      | .posted = (($k != null and ($p | has($kt))) or ($reviews | contains($item)))
+      | (.copilot_comment_id != null and .sources == ["copilot"]) as $copilot
+      | .posted = ($copilot or ($k != null and ($p | has($kt))) or ($reviews | contains($item)))
+      | (if $copilot then .comment_id = .copilot_comment_id else . end)
       | .where = (if .posted then "skip" elif .anchored and .confirmed != false then "inline" else "body" end))
 ' "$dir/findings.json" > "$dir/findings.json.tmp"
 mv "$dir/findings.json.tmp" "$dir/findings.json"

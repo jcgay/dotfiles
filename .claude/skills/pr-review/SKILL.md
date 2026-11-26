@@ -1,7 +1,7 @@
 ---
 name: pr-review
 description: 'Use when asked to review a pull request or a branch end to end — "review cette PR", "relis ma branche", "fais la review de #123", /pr-review — chaining code-review, ponytail-review, a conformity check against the PR description and JIRA ticket, impeccable audit on front files (critique with --ux), then posting one inline GitHub review and, with --fix, fixing, pushing and answering the threads. Not for risk triage (pr-risk).'
-argument-hint: "[PR number|URL|branch] [--ux] [--fix] [--effort low|medium|high|xhigh]"
+argument-hint: "[PR number|URL|branch] [--ux] [--fix] [--copilot] [--effort low|medium|high|xhigh]"
 ---
 
 # PR review
@@ -11,8 +11,9 @@ one GitHub review with inline comments. Nobody reads the findings before they
 are posted: only post what the reviews back with a concrete case.
 
 Arguments: a PR number, PR URL or branch (none: the current branch); `--ux`
-adds `impeccable critique`; `--fix` fixes after posting; `--effort <level>`
-for `code-review`, default `medium`.
+adds `impeccable critique`; `--fix` fixes after posting; `--copilot` asks
+GitHub Copilot for a review and reads it with the others (PR mode only);
+`--effort <level>` for `code-review`, default `medium`.
 
 Write GitHub texts and the final report in the language of the PR
 description (no PR: the language the user writes in). Every text posted on
@@ -86,6 +87,13 @@ another subagent, so the reviews that start their own are invoked from the
 main context. `code-review` forks itself into the background: its findings
 come back as a task notification.
 
+With `--copilot`: in no-PR mode, ignore it and say so in the report. In PR
+mode, first ask Copilot, so it works while the other reviews run:
+`"${CLAUDE_SKILL_DIR}/scripts/copilot-review.sh" request <owner>/<repo> <N> <head-sha>`.
+It asks nothing when Copilot already reviewed that head or its request is
+pending. Any other exit than 0 (4: Copilot review not available on that
+repository): skip step 4 and say why in the report.
+
 1. **In one message, start the subagents** (`general-purpose`), each told
    that its review is read-only and that it must return findings with path,
    line and severity:
@@ -105,6 +113,12 @@ come back as a task notification.
 3. Merge nothing before every review is back: each subagent, the
    `code-review` task notification, and the critique with `--ux`. A review
    that fails: go on with the others and name it in the report.
+4. With `--copilot`, once the others are back, wait for Copilot's review of
+   the head (Bash timeout 600000):
+   `"${CLAUDE_SKILL_DIR}/scripts/copilot-review.sh" wait <owner>/<repo> <N> <head-sha> > <scratchpad>/copilot.json`.
+   It writes Copilot's inline comments not answered yet (`id`, `path`,
+   `line`, `side`, `body`). Exit 3: no review after 5 minutes, go on
+   without it and say so in the report.
 
 ## 4. Merge
 
@@ -121,6 +135,16 @@ Severity:
 | ponytail-review | Must fix | Should fix | Nice to have |
 | impeccable audit | P0 | P1 | P2, P3 |
 | conformity | as it says | as it says | as it says |
+| Copilot | crash, data loss, security | other correctness bugs | the rest |
+
+- Copilot's comments (`copilot.json`) are already on the PR. Each one
+  becomes a finding with `copilot` in `sources` and `copilot_comment_id`
+  set to its `id`. Never merge two Copilot comments together: each thread
+  needs its own reply. One merged with another review's finding keeps its
+  `copilot_comment_id` and is posted like any finding; one from Copilot
+  alone is not posted again (`publish-review.sh` skips it). Keep every one,
+  vague or wrong included: `--fix` answers them all. Check each against
+  the code: `confirmed` is true only when you found the concrete case.
 
 - Same file, lines within ~5 of each other, same problem: one finding, the
   highest severity, every source listed, the clearest body.
@@ -129,7 +153,7 @@ Severity:
   "I did not check whether…"). At low and medium effort code-review gives no
   verdict: then that second rule is the only one. Unconfirmed findings never
   go inline: they are listed in the body under "À vérifier".
-- Drop vague findings with no concrete case (no "consider…").
+- Drop vague findings with no concrete case (no "consider…"), except Copilot's.
 - Each body says what goes wrong and the smallest fix, in two to four short
   sentences. No severity heading and no signature in `title` or `body`:
   section 5 adds them.
@@ -184,7 +208,8 @@ change no file of the reviewed repository.
 ## 7. Report
 
 In the terminal, short:
-- Target, reviews run (and skipped, with why), ticket read or not.
+- Target, reviews run (and skipped, with why), ticket read or not; with
+  `--copilot`, how many Copilot comments, or why there were none.
 - Findings by severity, numbered as in `findings.json`.
 - PR mode: the review URL, how many inline comments, how many in the body,
   how many skipped as already posted.

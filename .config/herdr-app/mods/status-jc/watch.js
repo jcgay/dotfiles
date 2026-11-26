@@ -458,7 +458,7 @@ export function promptFor(step, s) {
         + `Avant de pousser, \`git diff --quiet ${s.head} HEAD\` doit réussir ; sinon, ou si un conflit est ambigu, \`git rebase --abort\`, dis pourquoi et arrête-toi. `
         + `Pousse avec \`git push --force-with-lease=${s.branch}:${s.head} origin HEAD:refs/heads/${s.branch}\` (seul push forcé permis, jamais sur une autre branche).`;
     case "pr-review":
-      return `/pr-review ${s.url} --fix\n\n${folder}`;
+      return `/pr-review ${s.url} --fix --copilot\n\n${folder}`;
     case "pr-demo":
       return `/pr-demo ${s.url} --narrate --auto\n\nNarration et légendes en français, quelle que soit la langue de la description.`;
     case "qa":
