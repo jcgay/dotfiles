@@ -19,7 +19,7 @@ This skill runs in a forked subagent, so the diffs it reads stay out of the
 caller's conversation. You see nothing of that conversation: the target is
 the argument, or the current branch. Your last message is all the caller
 gets: make it the terminal verdict of step 7, complete, then the comment
-URL (no-PR mode: the comment body to paste).
+URL and the reviewers requested (no-PR mode: the comment body to paste).
 
 ## 1. Find the target
 
@@ -272,3 +272,16 @@ Post without asking:
 It edits the `<!-- pr-risk -->` comment you already posted on the PR, or
 creates it: never a second one. It refuses a body without the marker on its
 first line or without the signature. Print the comment URL it prints.
+
+Medium or High, PR mode only: ask the reviewers GitHub suggests, without
+asking first:
+
+```bash
+~/.claude/scripts/gh-pr-request-reviewers <owner>/<repo> <N> <1|2>
+```
+
+It acts only on my own open PR that is not a draft, counts the humans
+already requested or who already reviewed, and never requests Copilot or a
+bot. It can request nobody: GitHub often suggests no human. Print its
+lines after the comment URL. If it fails, print its error instead: the
+verdict and the comment stand.

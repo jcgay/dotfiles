@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+# Self-check for gh-pr-request-reviewers, with a fake gh: ./gh-pr-request-reviewers.test
+# (silent on success). Needs jq.
+cd "$(dirname "$0")" || exit 1
+T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
+export GH_LOG=$T/log GH_PULL=$T/pull.json
+cat > "$T/gh" <<'GH'
+#!/usr/bin/env bash
+# Logs its arguments; answers "api" calls by running their --jq on canned JSON.
+printf '%s\n' "$*" >> "$GH_LOG"
+filter=; args=("$@")
+for i in "${!args[@]}"; do [ "${args[$i]}" = --jq ] && filter=${args[$((i + 1))]}; done
+case "$*" in
+  'api user '*) jq -r "$filter" <<<'{"login":"me"}' ;;
+  'api graphql '*) jq -c "{data: {repository: {pullRequest: .}}} | $filter" "$GH_PULL" ;;
+  'pr edit '*) [ "${*: -1}" != "${GH_REFUSE:-}" ] || { echo "HTTP 422: Reviews may only be requested from collaborators" >&2; exit 1; } ;;
+  *) echo "unexpected gh call: $*" >&2; exit 1 ;;
+esac
+GH
+chmod +x "$T/gh"
+PATH=$T:$PATH
+
+fail=0
+# pull <author> <draft> <suggested logins> <requested "Type:login" items> <reviews "Type:login" items>
+pull() {
+  jq -n --arg a "$1" --argjson d "$2" --arg s "$3" --arg r "$4" --arg v "$5" '
+    def items($x): $x | split(" ") | map(select(. != "") | split(":") | {__typename: .[0], login: .[1]});
+    {author: {login: $a}, isDraft: $d, state: ($ENV.STATE // "OPEN"),
+     suggestedReviewers: ($s | split(" ") | map(select(. != "") | {isAuthor: (. == $a), reviewer: {login: .}})),
+     reviewRequests: {nodes: [items($r)[] | {requestedReviewer: (if .__typename == "Team" then {__typename, slug: .login} else . end)}]},
+     reviews: {nodes: [items($v)[] | {author: .}]}}' > "$GH_PULL"
+}
+# t <name> <expected output> <expected "pr edit" logins, space-separated, or "-" for none> <humans>
+t() {
+  local name=$1 out=$2 edit=$3; shift 3
+  : > "$GH_LOG"
+  got=$(./gh-pr-request-reviewers o/r 7 "$@" 2>&1); rc=$?
+  [ "$rc" = 0 ] || { echo "FAIL $name: exit $rc ($got)"; fail=1; }
+  [ "$got" = "$out" ] || { echo "FAIL $name: output '$got', want '$out'"; fail=1; }
+  if [ "$edit" = - ]; then ! grep -q '^pr edit' "$GH_LOG" || { echo "FAIL $name: $(grep '^pr edit' "$GH_LOG")"; fail=1; }
+  else [ "$(sed -n 's/^pr edit 7 -R o\/r --add-reviewer //p' "$GH_LOG" | paste -sd " " -)" = "$edit" ] || { echo "FAIL $name: edits $(grep '^pr edit' "$GH_LOG"), want '$edit'"; fail=1; }; fi
+}
+
+pull me false 'Copilot ana bob cid' '' ''
+t 'one human: the first suggested human' 'requested: ana' ana 1
+t 'two humans' 'requested: ana,bob' 'ana bob' 2
+t 'zero human' 'no human review asked: nothing requested' - 0
+
+pull me false 'Copilot me ana' '' ''
+t 'never me nor Copilot' 'requested: ana' ana 2
+
+pull me false 'Copilot' '' ''
+t 'only Copilot suggested' 'no suggested reviewer left: nothing requested' - 1
+
+# Copilot's request and review, from pr-review --copilot, do not count as a human.
+pull me false 'ana bob' 'Bot:copilot-pull-request-reviewer' 'Bot:copilot-pull-request-reviewer'
+t 'Copilot on it does not count' 'requested: ana' ana 1
+
+pull me false 'ana bob' 'User:ana' ''
+t 'one already requested' '1 human reviewer(s) already: nothing requested' - 1
+t 'one requested, a second asked' 'requested: bob' bob 2
+
+# A login GitHub refuses (no longer a collaborator): the next suggestion takes its place.
+pull me false 'old ana bob' '' ''
+GH_REFUSE=old t 'refused login skipped' 'requested: ana
+refused by GitHub: old (HTTP 422: Reviews may only be requested from collaborators)' 'old ana' 1
+
+# A request GitHub cannot resolve (secret team, Mannequin) is no human.
+pull me false 'ana' 'Mannequin:ghost' ''
+t 'unresolved request' 'requested: ana' ana 1
+
+pull me false 'ana bob' 'Team:back' 'User:bob User:me'
+t 'a team and a past reviewer count' '2 human reviewer(s) already: nothing requested' - 2
+
+pull other false 'ana' '' ''
+t 'not my PR' 'not my pull request: nothing requested' - 1
+
+pull me true 'ana' '' ''
+t 'draft' 'draft: nothing requested' - 1
+
+STATE=MERGED pull me false ana '' ''
+t 'merged' 'not open: nothing requested' - 1
+
+: > "$GH_LOG"
+./gh-pr-request-reviewers o/r 7 x >/dev/null 2>&1 && { echo "FAIL bad humans accepted"; fail=1; }
+./gh-pr-request-reviewers '' 7 1 >/dev/null 2>&1 && { echo "FAIL empty repo accepted"; fail=1; }
+./gh-pr-request-reviewers o/r 7 >/dev/null 2>&1; [ $? = 2 ] || { echo "FAIL usage exit"; fail=1; }
+[ ! -s "$GH_LOG" ] || { echo "FAIL gh called on bad arguments"; fail=1; }
+exit $fail

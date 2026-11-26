@@ -30,6 +30,8 @@
 !scripts/
 !scripts/gh-pr-upsert-comment
 !scripts/gh-pr-upsert-comment.test
+!scripts/gh-pr-request-reviewers
+!scripts/gh-pr-request-reviewers.test
 !hooks/
 !hooks/github-signature
 !hooks/github-signature.test
