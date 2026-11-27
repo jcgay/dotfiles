@@ -13,7 +13,7 @@ Journal                          surveillance et merge
             [ Plus ]  [ Tout le journal ]
 ```
 
-- Une non-lue qui demande d'agir (« à toi », « erreur », « merge refusé ») est en rouge (`t.blocked`), comme « N PR à toi » dans la barre d'état.
+- Une non-lue qui demande d'agir (« à toi », « erreur », « merge refusé ») est en rouge (`t.blocked`).
 - **Marqueur de lecture** : les lignes non lues en clair en haut, puis un trait « lu », puis les lues en grisé ; tout lu, le trait reste en tête. L'en-tête dit « N non lues » et propose **Tout lu**, qui pose le marqueur sur la dernière ligne. Le bouton Journal de la barre d'onglets porte, panneau fermé compris, une pastille rouge avec le nombre de non-lues qui demandent d'agir (« à toi », « erreur », « merge refusé », d'après `shared("journal-urgent")` publié par `status-jc`), ou un simple point s'il n'y a que des non-lues de routine.
 - Le marqueur est un nombre de lignes du fichier, dans `shared("journal-read")`. `status-jc` publie le nombre de lignes dans `shared("journal-lines")` après chaque écriture, et le panneau le pose seulement s'il est absent (fichier écrit avant cette fonction). Pas de marqueur, ou un fichier plus court que lui (supprimé puis recréé) : tout est non lu.
 - Les 20 dernières lignes, la plus récente en haut, lues avec le nombre de lignes du fichier en un seul passage `awk` (une écriture entre les deux décalerait le marqueur). **Plus** en lit 20 de plus, visible tant que le fichier en a davantage.

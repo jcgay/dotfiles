@@ -683,7 +683,7 @@ export default class PullRequest extends View {
         ["actions", "sous une PR quand elles servent : passer prête pour review (et lancer un tour), squasher les fixup! (en dernier : seulement sur un brouillon, une PR approuvée ou la ligne choisie au clavier ; push forcé, un second clic confirme), merger quand tout est vert (rebase and merge dès que tous les checks passent) ou désarmer"],
         [svg("mods/workspace-chrome/terminal.svg").size(14).text_color(t.dim), "ouvre un space Claude dans le worktree de la PR (une PR prête est mise en pause tant qu'il est ouvert)"],
         [h_flex().gap(4).child(svg("mods/pr/pause.svg").size(13).text_color(t.dim)).child(svg("mods/pr/play.svg").size(13).text_color(t.dim)), "met en pause ou reprend : rien n'est lancé sur une PR en pause"],
-        ["clic droit", "sur une ligne, brouillon hors surveillance compris : un menu avec ses actions (passer prête pour review, merger, squasher…), ouvrir la PR, travailler dessus, pause"],
+        ["clic droit", "sur une ligne, brouillon hors surveillance compris : un menu avec ses actions (passer prête pour review, merger, squasher, rebaser sur la base…), ouvrir la PR, travailler dessus, pause"],
         ["clic", "sur une ligne : le log Jenkins ou l'analyse Sonar d'une PR « à toi », sinon l'agent qui y travaille, sinon la PR ; sur le numéro : la PR ; sur une case d'agent de la bande entière (À toi, ligne choisie ; pas la barre fine) : rouvre sa dernière session Claude ; clic droit : toutes les actions de la ligne"],
       ]))
       .child(section("Clavier"))
