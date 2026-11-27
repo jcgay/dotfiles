@@ -632,7 +632,7 @@ export default class PullRequest extends View {
       .child(section("Boutons"))
       .child(legend([
         ["− +", "règle combien d'agents de surveillance tournent à la fois (1 à 9, 3 par défaut) ; en baisser le nombre n'arrête pas ceux en cours"],
-        ["actions", "sous une PR quand elles servent : passer prête pour review (et lancer un tour), squasher les fixup! (push forcé : un second clic confirme), merger quand tout est vert (rebase and merge dès que tous les checks passent) ou désarmer"],
+        ["actions", "sous une PR quand elles servent : passer prête pour review (et lancer un tour), squasher les fixup! (en dernier : seulement sur un brouillon, une PR approuvée ou la ligne choisie au clavier ; push forcé, un second clic confirme), merger quand tout est vert (rebase and merge dès que tous les checks passent) ou désarmer"],
         [svg("mods/workspace-chrome/terminal.svg").size(14).text_color(t.dim), "ouvre un space Claude dans le worktree de la PR (une PR prête est mise en pause tant qu'il est ouvert)"],
         [h_flex().gap(4).child(svg("mods/pr/pause.svg").size(13).text_color(t.dim)).child(svg("mods/pr/play.svg").size(13).text_color(t.dim)), "met en pause ou reprend : rien n'est lancé sur une PR en pause"],
         ["clic droit", "sur une ligne, brouillon hors surveillance compris : un menu avec ses actions (passer prête pour review, merger, squasher…), ouvrir la PR, travailler dessus, pause"],
