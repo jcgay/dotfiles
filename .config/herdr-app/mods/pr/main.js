@@ -525,7 +525,7 @@ export default class PullRequest extends View {
           // In « À toi » the section already says « à toi »: only another label (a refused merge) gets its chip.
           .when(showRepo && label !== "à toi", (e) => e.child(chip(label, look(label)[0], label === "agent en cours").tooltip(LABEL_HELP[label] ?? "")))
           )
-        .child(h_flex().gap(4).items_center().min_h(20)
+        .child(h_flex().gap(4).items_center().min_h(20).when(!thin, (e) => e.flex_wrap())
           .when(showRepo, (e) => e.child(repoMark(repo)).child(div().flex_none().pl(2).text_size(12).text_color(t.muted).child(repo.split("/").pop())))
           // The number always opens the PR, also on a row whose click opens its blocker.
           .child(h_flex().id(`num-${k}`).flex_none().h(20).px(4).items_center().rounded(4).text_size(12).text_color(t.muted).cursor_pointer().hover((s) => s.bg(t.hover).text_color(t.accent))
@@ -539,9 +539,10 @@ export default class PullRequest extends View {
           // Not when the why line starts with it (« en pause ; CI verte »).
           .when(!showRepo && !(why && !folded && why.startsWith(label)), (e) => e.child(div().id(`state-${k}`).flex_none().px(4).text_size(11).text_color(t.muted).tooltip(LABEL_HELP[label] ?? "").child(label)))
           // The thin bar says how far the PR went: one width, flush right, so the bars of a group form a column.
-          .when(thin && Array.isArray(entry.band), (e) => e.child(div().flex_1()).child(h_flex().flex_none().w(168).pl(8).child(band(k, entry, true).flex_1()))))
-        // The full band with step names on « À toi » rows and the picked one.
-        .when(!thin && Array.isArray(entry.band), (e) => e.child(band(k, entry, false)))
+          .when(thin && Array.isArray(entry.band), (e) => e.child(div().flex_1()).child(h_flex().flex_none().w(168).pl(8).child(band(k, entry, true).flex_1())))
+          // The full band with step names (« À toi », the picked row): on this line when 300 px are left for its nine named
+          // cells, which saves a line in a wide panel; the line wraps it under the number otherwise.
+          .when(!thin && Array.isArray(entry.band), (e) => e.child(h_flex().flex_1().min_w(300).child(band(k, entry, false).flex_1()))))
         // status-jc's « agent qa lancé sur 1a2b3c4d »: the commit goes to the tooltip, nobody reads a sha in passing.
         .when(Boolean(why) && !folded, (e) => e.child(div().id(`why-${k}`).text_size(11).text_color(t.dim).tooltip(why).child(why.replace(/ sur [0-9a-f]{7,40}\b/g, ""))))
         .when(actions.length > 0, (e) => e.child(h_flex().gap(6).flex_wrap().pt(4).children(actions)))
