@@ -1,7 +1,7 @@
 // node --test ~/.config/herdr-app/mods/pr/model.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { jenkinsBuild, checks, otherChecks, summary, minutes, parseContainers, deploymentsFor, deployKey, watchBranch, remember, clockText, workLook, rowActions, bandStates, nextRound, isDraft, hiddenDraft, sessionOf, watchSections, spaceShowing, realFolder, parseIcons, repoLetter, matchesFilter, chipLabel } from "./model.js";
+import { jenkinsBuild, checks, otherChecks, summary, minutes, parseContainers, deploymentsFor, deployKey, watchBranch, remember, clockText, workLook, rowActions, bandStates, nextRound, isDraft, hiddenDraft, sessionOf, watchSections, spaceShowing, realFolder, parseIcons, repoLetter, matchesFilter, chipLabel, menuItems } from "./model.js";
 
 test("jenkins build url", () => {
   assert.deepEqual(jenkinsBuild("https://jenkins.vidal.net/job/team.software/job/github/job/arthur/job/PR-5459/1/display/redirect"),
@@ -248,4 +248,21 @@ test("chipLabel: an ok PR says who acts next, from its band's appr cell and its 
   assert.equal(chipLabel({ label: "ok", band: band("todo") }, null), "ok");
   assert.equal(chipLabel({ label: "ok" }, null), "ok");
   assert.equal(chipLabel({ label: "en attente", band: band("wait") }, null), "en attente");
+});
+test("menuItems: a watched row's menu holds its actions, then open, work and pause", () => {
+  const ids = (xs) => xs.map((x) => x.id);
+  const draft = { draft: true, head: "a", fixups: 0, url: "u" };
+  assert.deepEqual(ids(menuItems(draft, {})), ["ready", "open", "work", "pause"]);
+  const ready = { draft: false, head: "a", fixups: 0, url: "u" };
+  assert.deepEqual(ids(menuItems(ready, { paused: true })), ["arm", "open", "work", "resume"]);
+  assert.deepEqual(ids(menuItems(ready, { merge: { head: "a" } })), ["disarm", "open", "work", "pause"]);
+  assert.deepEqual(ids(menuItems(ready, { merge: { refused: true } })), ["clear", "open", "work", "pause"]);
+  const blocked = { draft: false, head: "a", fixups: 2, label: "à toi", blocker: { url: "j", step: "jenkins" } };
+  assert.deepEqual(ids(menuItems(blocked, {})), ["blocker", "squash", "open", "work", "pause"], "a deliberate menu offers the squash, as the picked row");
+  assert.equal(menuItems(blocked, {})[0].label, "Ouvrir le log Jenkins");
+  assert.equal(menuItems(blocked, {})[1].label, "Squasher 2 fixup! (push forcé)");
+  assert.deepEqual(ids(menuItems(blocked, { squash: { state: "running" } })), ["blocker", "open", "work", "pause"]);
+});
+test("menuItems: a draft left aside can go ready for review, be opened or worked on", () => {
+  assert.deepEqual(menuItems({ key: "o/a#1", url: "u", title: "T" }, { aside: true }).map((x) => x.id), ["ready", "open", "work"]);
 });

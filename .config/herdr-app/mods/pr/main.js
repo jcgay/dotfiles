@@ -2,6 +2,7 @@ import { View, div, svg, image } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input, ScrollHandle } from "gpui-base";
 import { spaces, panes, agents, focused, exec, theme, layout, run, shared, setShared, props, appHome, readTextFile, home, settings } from "herdr";
 import { Ci } from "./ci.js";
+import { WatchMenu, openRowMenu, requestWork, togglePause, armMerge, dropMerge, requestSquash, askRound } from "./menu.js";
 import { parseConfig } from "./ci-model.js";
 import { moveSel, jenkinsBuild, checks, otherChecks, summary, minutes, deploymentsFor, parseContainers, watchBranch, remember, clockText, workLook, rowActions, bandStates, nextRound, isDraft, hiddenDraft, sessionOf, watchSections, spaceShowing, realFolder, parseIcons, repoLetter, matchesFilter, chipLabel } from "./model.js";
 
@@ -67,7 +68,9 @@ function visible(view) {
 export default class PullRequest extends View {
   init(_props, cx) {
     // Herdr gives a block's layout props through props(), not init's argument.
-    this.view = ["watch", "ci"].includes(props()?.view) ? props().view : "pr";
+    this.view = ["watch", "ci", "menu"].includes(props()?.view) ? props().view : "pr";
+    // A watch row's right-click menu: a popup copy of this mod (menu.js).
+    if (this.view === "menu") { this.menu = new WatchMenu(cx); return; }
     // The CI panel is its own file; this copy only hands it the timer and the render.
     if (this.view === "ci") {
       this.ci = new Ci();
@@ -208,6 +211,7 @@ export default class PullRequest extends View {
   }
 
   render(cx) {
+    if (this.view === "menu") return this.menu.render(cx);
     // Opening the panel, or another space or pane while it is open, asks again.
     const shown = visible(this.view);
     if (this.view === "ci") {
@@ -227,7 +231,6 @@ export default class PullRequest extends View {
     const chip = (text, color, filled = false) => div().px(6).py(1).rounded(4).border_1().border_color(color).text_size(11)
       .when(filled, (e) => e.bg(color).text_color(t.background)).when(!filled, (e) => e.text_color(color)).child(text);
     // Asks status-jc for a watch round now (the header's ↻).
-    const askRound = () => setShared("pr-watch-now", { at: Date.now() });
     const button = (id, text, onClick, primary) => div().id(id).h(28).px(12).flex().items_center().rounded(7).cursor_pointer().text_size(12)
       .bg(primary ? t.solid : t.raised).text_color(primary ? t.solid_foreground : t.foreground).hover((s) => s.opacity(0.85))
       .on_click((_e, cx) => onClick(cx)).child(text);
@@ -394,12 +397,6 @@ export default class PullRequest extends View {
       // t.muted at rest: t.dim fell under 3:1 for a control on the dark theme at 1x.
       .text_color(t.muted).cursor_pointer().hover((s) => s.bg(t.hover).text_color(t.foreground))
       .tooltip(tip).accessibility_label(tip).on_click((_e, cx) => { cx.stop_propagation(); onClick(cx); });
-    const togglePause = (k) => {
-      // A pause touched by hand is the user's now: the opening no longer lifts it on close.
-      if (shared("pr-open")?.[k]?.state === "held") { const { [k]: _, ...rest } = shared("pr-open"); setShared("pr-open", rest); }
-      setShared("pr-watch", { on: false, prs: {}, error: null, at: 0, ...reg,
-        paused: paused.includes(k) ? paused.filter((p) => p !== k) : [...paused, k] });
-    };
     const pause = (k) => rowButton(`pause-${k}`, paused.includes(k) ? "Reprendre la surveillance de cette PR (p)" : "Mettre cette PR en pause (p)", () => togglePause(k))
       .child(svg(paused.includes(k) ? "mods/pr/play.svg" : "mods/pr/pause.svg").size(13));
     // "Travailler dessus": status-jc opens a space in the PR's worktree (opener.js), the panel only asks.
@@ -415,7 +412,7 @@ export default class PullRequest extends View {
     });
     const local = localSpaces.flatMap((s) => s.folders);
     // held is kept: the opening still owns the PR's pause, reopening its space must not make it the user's.
-    const askWork = (k) => { if (!pending(k)) setShared("pr-open", { ...(shared("pr-open") ?? {}), [k]: { state: "asked", at: Date.now(), held: opens[k]?.state === "held", folders: opens[k]?.folders } }); };
+    const askWork = requestWork; // menu.js: shared with the right-click menu
     const work = (k, w) => {
       const { tip, missing, shown } = workLook(w, local);
       return rowButton(`work-${k}`, `${tip} (t)`, () => askWork(k))
@@ -429,18 +426,17 @@ export default class PullRequest extends View {
     const merges = shared("pr-merge") ?? {}, squashes = shared("pr-squash") ?? {};
     const actionsOf = (k, entry) => {
       const can = rowActions(entry, merges[k], squashes[k], keyboard && k === this.sel);
-      const disarm = () => { const { [k]: _, ...rest } = shared("pr-merge") ?? {}; setShared("pr-merge", rest); };
+      const disarm = () => dropMerge(k);
       return [
         blocked(entry) && action(`blocker-${k}`, BLOCKER_VERB[entry.blocker.step] ?? "Ouvrir le check en échec", () => exec("open", [entry.blocker.url])),
         isDraft(entry) && action(`ready-${k}`, "Passer prête pour review",
           (cx) => this.act(cx, "Passage en revue", ["gh", "pr", "ready", entry.url], { timeout: 30000 }, askRound)),
-        can.arm === "arm" && action(`arm-${k}`, "Merger quand tout est vert",
-          () => setShared("pr-merge", { ...(shared("pr-merge") ?? {}), [k]: { head: entry.head, at: Date.now(), why: null, error: null } })),
+        can.arm === "arm" && action(`arm-${k}`, "Merger quand tout est vert", () => armMerge(k, entry.head)),
         can.arm === "disarm" && action(`arm-${k}`, "Désarmer le merge", disarm),
         can.arm === "refused" && action(`arm-${k}`, `Effacer le refus du merge`, disarm, t.ansi1),
         // Last and muted: a force push, secondary to the merge (rowActions says when it shows).
         can.squash && guarded(`squash-${k}`, `Squasher ${entry.fixups} fixup!`, "Confirmer le push forcé",
-          () => setShared("pr-squash", { ...(shared("pr-squash") ?? {}), [k]: { state: "asked", at: Date.now() } }), t.muted),
+          () => requestSquash(k), t.muted),
       ].filter(Boolean);
     };
     // The step band status-jc computed (pipeline.js STEPS): nine slots, a draft fills three.
@@ -495,6 +491,7 @@ export default class PullRequest extends View {
         .border_1().border_color(picked ? t.accent : t.background).when(picked, (e) => e.bg(t.hover))
         .tooltip(blocked(entry) ? BLOCKER_VERB[entry.blocker.step] ?? "Ouvrir le check en échec" : entry.launched ? "Aller à l'agent" : "Ouvrir la PR")
         .on_click(() => open(entry))
+        .on_mouse_down("right", (_e, cx) => { cx.stop_propagation(); openRowMenu(k, false); })
         .child(h_flex().gap(6).items_center()
           .when(showRepo, (e) => e.child(repoMark(repo)).child(div().text_size(12).font_semibold().child(repo.split("/").pop())))
           // The number always opens the PR, also on a row whose click opens its blocker.
@@ -587,6 +584,7 @@ export default class PullRequest extends View {
       const [repo, number] = d.key.split("#");
       return h_flex().id(`aside-${d.key}`).gap(6).items_center().px(8).py(4).rounded(6).cursor_pointer().hover((x) => x.bg(t.hover))
         .tooltip("Ouvrir la PR").on_click(() => exec("open", [d.url]))
+        .on_mouse_down("right", (_e, cx) => { cx.stop_propagation(); openRowMenu(d.key, true); })
         .child(repoMark(repo)).child(div().flex_none().text_size(12).text_color(t.muted).child(`${repo.split("/").pop()} #${number}`))
         .child(div().flex_1().min_w(0).truncate().text_size(12).text_color(t.foreground).child(d.title))
         // The space opening (status-jc's opener) can take a while (wt switch) or fail: said on the row.
@@ -636,6 +634,7 @@ export default class PullRequest extends View {
         ["actions", "sous une PR quand elles servent : passer prête pour review (et lancer un tour), squasher les fixup! (push forcé : un second clic confirme), merger quand tout est vert (rebase and merge dès que tous les checks passent) ou désarmer"],
         [svg("mods/workspace-chrome/terminal.svg").size(14).text_color(t.dim), "ouvre un space Claude dans le worktree de la PR (une PR prête est mise en pause tant qu'il est ouvert)"],
         [h_flex().gap(4).child(svg("mods/pr/pause.svg").size(13).text_color(t.dim)).child(svg("mods/pr/play.svg").size(13).text_color(t.dim)), "met en pause ou reprend : rien n'est lancé sur une PR en pause"],
+        ["clic droit", "sur une ligne, brouillon hors surveillance compris : un menu avec ses actions (passer prête pour review, merger, squasher…), ouvrir la PR, travailler dessus, pause"],
         ["clic", "sur une ligne : le log Jenkins ou l'analyse Sonar d'une PR « à toi », sinon l'agent qui y travaille, sinon la PR ; sur le numéro : la PR ; sur une case d'agent : rouvre sa dernière session Claude"],
       ]))
       .child(section("Clavier"))

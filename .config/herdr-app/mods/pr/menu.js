@@ -1,0 +1,103 @@
+// The watch rows' right-click menu (a popup copy of this mod, layout prop view: "menu"), and the requests it shares with
+// the watch list: each writes what status-jc reads (pr-merge, pr-squash, pr-open, pr-watch.paused), read live.
+import { div } from "gpui-kit";
+import { v_flex, h_flex } from "gpui-base";
+import { exec, theme, shared, setShared, props, closeOverlay, openOverlay, notify } from "herdr";
+import { menuItems } from "./model.js";
+
+const blank = { on: false, prs: {}, error: null, at: 0 }; // a registry status-jc has not written yet
+
+// status-jc opens a space in the PR's worktree (opener.js); held: the opening owns the PR's pause.
+export function requestWork(k) {
+  const opens = shared("pr-open") ?? {};
+  if (["asked", "opening"].includes(opens[k]?.state)) return;
+  setShared("pr-open", { ...opens, [k]: { state: "asked", at: Date.now(), held: opens[k]?.state === "held", folders: opens[k]?.folders } });
+}
+
+export function togglePause(k) {
+  // A pause touched by hand is the user's now: the opening no longer lifts it on close.
+  if (shared("pr-open")?.[k]?.state === "held") { const { [k]: _, ...rest } = shared("pr-open"); setShared("pr-open", rest); }
+  const reg = shared("pr-watch") ?? {}, paused = reg.paused ?? [];
+  setShared("pr-watch", { ...blank, ...reg, paused: paused.includes(k) ? paused.filter((p) => p !== k) : [...paused, k] });
+}
+
+export const armMerge = (k, head) => setShared("pr-merge", { ...(shared("pr-merge") ?? {}), [k]: { head, at: Date.now(), why: null, error: null } });
+export const dropMerge = (k) => { const { [k]: _, ...rest } = shared("pr-merge") ?? {}; setShared("pr-merge", rest); };
+export const requestSquash = (k) => setShared("pr-squash", { ...(shared("pr-squash") ?? {}), [k]: { state: "asked", at: Date.now() } });
+// A round now: a PR just made ready for review starts its reviews without waiting the 2 min.
+export const askRound = () => setShared("pr-watch-now", { at: Date.now() });
+
+// Opens the menu of watch row k at the pointer; aside: a draft status-jc leaves aside (reg.aside).
+export function openRowMenu(k, aside) {
+  const n = menuItems(aside ? { key: k } : shared("pr-watch")?.prs?.[k] ?? {}, { aside }).length;
+  openOverlay({ mod: "pr", kind: "popup", width: 250, height: n * 31 + 10, props: { view: "menu", key: k, aside } });
+}
+
+export class WatchMenu {
+  constructor(cx) {
+    this.handle = cx.focus_handle();
+    this.handle.focus();
+    this.at = 0;
+    this.confirm = false; // the squash's first click: a force push asks a second
+    this.busy = null; // "Passage en revue…" while gh pr ready runs
+  }
+
+  // The row as status-jc wrote it, or the left-aside draft; ctx for menuItems.
+  target() {
+    const p = props() ?? {}, reg = shared("pr-watch") ?? {};
+    const entry = p.aside ? (reg.aside ?? []).find((d) => d.key === p.key) ?? { key: p.key } : reg.prs?.[p.key] ?? {};
+    const ctx = { aside: Boolean(p.aside), merge: shared("pr-merge")?.[p.key] ?? null, squash: shared("pr-squash")?.[p.key] ?? null, paused: (reg.paused ?? []).includes(p.key) };
+    return { k: p.key, entry, items: menuItems(entry, ctx) };
+  }
+
+  close() { closeOverlay(props()?.overlay); }
+
+  choose(item, cx) {
+    const { k, entry } = this.target();
+    if (item.id === "squash" && !this.confirm) { this.confirm = true; cx.notify(); return; }
+    if (item.id === "ready") return this.ready(entry, cx);
+    if (item.id === "open") exec("open", [entry.url]);
+    else if (item.id === "blocker") exec("open", [entry.blocker.url]);
+    else if (item.id === "work") requestWork(k);
+    else if (item.id === "pause" || item.id === "resume") togglePause(k);
+    else if (item.id === "arm") armMerge(k, entry.head);
+    else if (item.id === "disarm" || item.id === "clear") dropMerge(k);
+    else if (item.id === "squash") requestSquash(k);
+    this.close();
+  }
+
+  // gh pr ready, then a round: the menu stays open on « Passage en revue… » until gh answers, an error is a toast.
+  ready(entry, cx) {
+    if (this.busy) return;
+    this.busy = "Passage en revue…";
+    cx.notify();
+    cx.spawn(async () => {
+      const r = await exec("gh", ["pr", "ready", entry.url], { timeout: 30000 }).catch((e) => ({ code: 1, stderr: String(e) }));
+      if (r.code === 0) askRound();
+      else notify({ title: "Passage en revue impossible", body: (r.stderr || r.stdout).trim().split("\n")[0], level: "error" });
+      this.close();
+    });
+  }
+
+  render(cx) {
+    const t = theme(), { items } = this.target();
+    return v_flex().id("watch-menu").track_focus(this.handle).w_full().min_h(0).p(5).bg(t.popover).text_size(12.8)
+      .on_key_down((e, cx) => {
+        if (e.key === "down") this.at = (this.at + 1) % items.length;
+        else if (e.key === "up") this.at = (this.at + items.length - 1) % items.length;
+        else if (e.key === "enter" && items[this.at]) return this.choose(items[this.at], cx);
+        else if (e.key === "escape") return this.close();
+        else return;
+        cx.notify();
+      })
+      .when(Boolean(this.busy), (e) => e.child(h_flex().h(31).px(8).items_center().text_color(t.muted).child(this.busy)))
+      .when(!this.busy, (e) => e.children(items.map((it, i) => {
+        const label = it.id === "squash" && this.confirm ? "Confirmer le push forcé" : it.label;
+        return h_flex().id(`wm-${it.id}`).h(31).px(8).rounded(7).items_center().cursor_pointer()
+          .text_color(it.id === "squash" && this.confirm ? t.blocked : t.foreground)
+          .when(i === this.at, (el) => el.bg(t.selected)).hover((s) => s.bg(t.hover))
+          .on_click((_e, cx) => this.choose(it, cx))
+          .child(div().flex_1().child(label));
+      })));
+  }
+}

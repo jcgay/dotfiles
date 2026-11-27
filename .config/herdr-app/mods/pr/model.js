@@ -225,3 +225,23 @@ export function chipLabel(entry, merge) {
   if (appr === "todo" && entry.fixups > 0) return "squash à venir";
   return "ok";
 }
+
+// The right-click menu of a watch row: its own actions first (as under the row), then open, work on, pause. The menu
+// is a deliberate choice, like the row picked from the keyboard, so it offers the squash too. ctx: { merge, squash,
+// paused, aside } (aside: a draft status-jc leaves aside, with no entry: ready for review, open, work on).
+const BLOCKER_VERBS = { jenkins: "Ouvrir le log Jenkins", sonar: "Ouvrir l'analyse Sonar" };
+export function menuItems(entry, { merge = null, squash = null, paused = false, aside = false } = {}) {
+  const common = [{ id: "open", label: "Ouvrir la PR" }, { id: "work", label: "Travailler dessus" }];
+  if (aside) return [{ id: "ready", label: "Passer prête pour review" }, ...common];
+  const can = rowActions(entry, merge, squash, true);
+  return [
+    entry.label === "à toi" && entry.blocker?.url && { id: "blocker", label: BLOCKER_VERBS[entry.blocker.step] ?? "Ouvrir le check en échec" },
+    isDraft(entry) && { id: "ready", label: "Passer prête pour review" },
+    can.arm === "arm" && { id: "arm", label: "Merger quand tout est vert" },
+    can.arm === "disarm" && { id: "disarm", label: "Désarmer le merge" },
+    can.arm === "refused" && { id: "clear", label: "Effacer le refus du merge" },
+    can.squash && { id: "squash", label: `Squasher ${entry.fixups} fixup! (push forcé)` },
+    ...common,
+    paused ? { id: "resume", label: "Reprendre la surveillance" } : { id: "pause", label: "Mettre en pause" },
+  ].filter(Boolean);
+}
