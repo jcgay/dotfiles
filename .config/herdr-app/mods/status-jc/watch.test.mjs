@@ -1,7 +1,7 @@
 // node --test ~/.config/herdr-app/mods/status-jc/watch.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { fixups, searchSince, sonarFindings, markers, riskOf, noHuman, withRiskTree, signalsOf, checks, jenkinsBuild, decide, emptyEntry, tabName, LABELS, promptFor, repoOfRemote, undoLaunch, holdingTabs, closing, stoppedQa, freshTabs, FRESH_MS, karadocHeld, appTaken, checkoutBases, checkoutsOf, draftShown, watchedNow, asideDrafts, squashAgentOver, SQUASH_GRACE_MS, KARADOC_MAX_MIN } from "./watch.js";
+import { fixups, searchSince, sonarFindings, markers, riskOf, noHuman, withRiskTree, signalsOf, checks, jenkinsBuild, decide, emptyEntry, tabName, LABELS, promptFor, repoOfRemote, undoLaunch, holdingTabs, closing, stoppedQa, freshTabs, FRESH_MS, karadocHeld, appTaken, checkoutBases, checkoutsOf, draftShown, watchedNow, asideDrafts, squashAgentOver, violetOf, SQUASH_GRACE_MS, KARADOC_MAX_MIN } from "./watch.js";
 
 // Real summaries: arthur#5458 (passed) and arthur#5449 (failed gate).
 const PASSED = `Issues  
@@ -905,4 +905,8 @@ test("asideDrafts: the open drafts this round leaves aside, for the panel", () =
   assert.deepEqual(asideDrafts(read, new Set(["o/a#2"])), [{ key: "o/a#1", url: "u1", title: "T1" }]);
   // A draft already aside whose read fails stays aside (its entry, attempts included, is kept for when it comes back).
   assert.deepEqual(asideDrafts(read, new Set(["o/a#2"]), { "o/a#4": {} }).map((d) => d.key), ["o/a#1", "o/a#4"]);
+});
+
+test("violetOf: same as the PR panel's, for the bar's « N PR à toi »", () => {
+  assert.equal(violetOf("#b16286"), "#8a62b1");
 });

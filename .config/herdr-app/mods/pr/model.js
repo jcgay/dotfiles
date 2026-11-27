@@ -245,3 +245,18 @@ export function menuItems(entry, { merge = null, squash = null, paused = false, 
     paused ? { id: "resume", label: "Reprendre la surveillance" } : { id: "pause", label: "Mettre en pause" },
   ].filter(Boolean);
 }
+
+// The « à toi » violet: the theme's ansi5 with its saturation and lightness, its hue turned to violet (270°). Some
+// themes' ansi5 is a magenta (gruvbox #b16286) that read as the band's red failure; a mix with ansi4 went gray there.
+// status-jc's bar has a copy (a mod cannot import another's files).
+export function violetOf(hex) {
+  const m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex ?? "");
+  if (!m) return hex;
+  const [r, g, b] = m.slice(1).map((x) => parseInt(x, 16) / 255);
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), l = (max + min) / 2;
+  const s = max === min ? 0 : (max - min) / (1 - Math.abs(2 * l - 1));
+  // Back from HSL with h = 270°.
+  const c = (1 - Math.abs(2 * l - 1)) * s, x = c * (1 - Math.abs(((270 / 60) % 2) - 1)), o = l - c / 2;
+  const [rr, gg, bb] = [x, 0, c]; // 240° ≤ h < 300°: (x, 0, c)
+  return `#${[rr, gg, bb].map((v) => Math.round((v + o) * 255).toString(16).padStart(2, "0")).join("")}`;
+}

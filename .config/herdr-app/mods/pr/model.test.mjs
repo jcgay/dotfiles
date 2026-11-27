@@ -1,7 +1,7 @@
 // node --test ~/.config/herdr-app/mods/pr/model.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { jenkinsBuild, checks, otherChecks, summary, minutes, parseContainers, deploymentsFor, deployKey, watchBranch, remember, clockText, workLook, rowActions, bandStates, nextRound, isDraft, hiddenDraft, sessionOf, watchSections, spaceShowing, realFolder, parseIcons, repoLetter, matchesFilter, chipLabel, menuItems } from "./model.js";
+import { jenkinsBuild, checks, otherChecks, summary, minutes, parseContainers, deploymentsFor, deployKey, watchBranch, remember, clockText, workLook, rowActions, bandStates, nextRound, isDraft, hiddenDraft, sessionOf, watchSections, spaceShowing, realFolder, parseIcons, repoLetter, matchesFilter, chipLabel, menuItems, violetOf } from "./model.js";
 
 test("jenkins build url", () => {
   assert.deepEqual(jenkinsBuild("https://jenkins.vidal.net/job/team.software/job/github/job/arthur/job/PR-5459/1/display/redirect"),
@@ -265,4 +265,10 @@ test("menuItems: a watched row's menu holds its actions, then open, work and pau
 });
 test("menuItems: a draft left aside can go ready for review, be opened or worked on", () => {
   assert.deepEqual(menuItems({ key: "o/a#1", url: "u", title: "T" }, { aside: true }).map((x) => x.id), ["ready", "open", "work"]);
+});
+
+test("violetOf: the theme's ansi5 turned to violet, its saturation and lightness kept", () => {
+  assert.equal(violetOf("#b16286"), "#8a62b1"); // gruvbox's magenta, which read as the band's red
+  assert.equal(violetOf("#888888"), "#888888"); // a gray has no hue to turn
+  assert.equal(violetOf("#8b7cf68c"), "#8b7cf68c"); // not #rrggbb: kept as is
 });

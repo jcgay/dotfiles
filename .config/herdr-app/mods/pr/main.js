@@ -4,7 +4,7 @@ import { spaces, panes, agents, focused, exec, theme, layout, run, shared, setSh
 import { Ci } from "./ci.js";
 import { WatchMenu, openRowMenu, requestWork, togglePause, armMerge, dropMerge, requestSquash, askRound } from "./menu.js";
 import { parseConfig } from "./ci-model.js";
-import { moveSel, jenkinsBuild, checks, otherChecks, summary, minutes, deploymentsFor, parseContainers, watchBranch, remember, clockText, workLook, rowActions, bandStates, nextRound, isDraft, hiddenDraft, sessionOf, watchSections, spaceShowing, realFolder, parseIcons, repoLetter, matchesFilter, chipLabel } from "./model.js";
+import { moveSel, jenkinsBuild, checks, otherChecks, summary, minutes, deploymentsFor, parseContainers, watchBranch, remember, clockText, workLook, rowActions, bandStates, nextRound, isDraft, hiddenDraft, sessionOf, watchSections, spaceShowing, realFolder, parseIcons, repoLetter, matchesFilter, chipLabel, violetOf } from "./model.js";
 
 // How many spaces, checkouts and Jenkins builds the caches keep.
 const KEEP = 30;
@@ -230,6 +230,8 @@ export default class PullRequest extends View {
     // Type roles, shared with the Journal panel: 15 PR title, 13 panel title and base, 12 rows, 11 metadata and labels, 10 band cells.
     // filled: an agent at work, as the band's run cell; an outline stays for a wait on a human (the band's wait cell).
     // A theme color at alpha aa (hex): the tokens are #rrggbb; one already carrying alpha is kept as is.
+    // « à toi » everywhere: the theme's ansi5 turned to violet (model.js violetOf).
+    const violet = violetOf(t.ansi5);
     const tint = (c, aa) => (/^#[0-9a-f]{6}$/i.test(c) ? `${c}${aa}` : c);
     const chip = (text, color, filled = false) => div().px(6).py(1).rounded(4).border_1().border_color(color).text_size(11)
       .when(filled, (e) => e.bg(color).text_color(t.background)).when(!filled, (e) => e.text_color(color)).child(text);
@@ -378,7 +380,7 @@ export default class PullRequest extends View {
     // Each label's color, dot and rank: what needs me first, finished PRs last.
     // « à toi » is violet everywhere (chip, section, the band's me cell, the status bar): red is the band's ko, a
     // failure the watch fixes itself.
-    const looks = { "à toi": [t.ansi5, "ko"], erreur: [t.ansi1, "ko"], "pas de clone local": [t.blocked, "ko"],
+    const looks = { "à toi": [violet, "ko"], erreur: [t.ansi1, "ko"], "pas de clone local": [t.blocked, "ko"],
       "agent en cours": [t.working, "running"], "en attente": [t.muted, "idle"], brouillon: [t.dim, "idle"], "en pause": [t.dim, "idle"], ok: [t.done, "ok"],
       // The chips of an ok PR (model.js chipLabel): who acts next. Orange as the band's wait cell: a human must act.
       "attend relecture": [t.working, "idle"], "prête à merger": [t.done, "ok"], "squash à venir": [t.muted, "idle"], "merge armé": [t.done, "ok"] };
@@ -446,7 +448,7 @@ export default class PullRequest extends View {
     };
     // The step band status-jc computed (pipeline.js STEPS): nine slots, a draft fills three.
     const STEPS = ["git", "jenk", "sonar", "rev", "qa", "demo", "risk", "appr", "merge"];
-    const fills = { ok: t.done, run: t.working, ko: t.ansi1, me: t.ansi5 }; // me: violet, t.blocked reads red in some themes
+    const fills = { ok: t.done, run: t.working, ko: t.ansi1, me: violet }; // me: violet, t.blocked reads red in some themes
     // A cell with a Claude session behind it reopens it: its tab while the agent runs, else a new tab resuming it in its folder.
     const resume = (number, s) => {
       // A ↺ tab already resuming it: two claude --resume on one session would mix its transcript.
@@ -500,8 +502,8 @@ export default class PullRequest extends View {
       // a muted word, the thin band keeps the colors: what waits on someone else must not outshout what waits on me.
       const mineRow = showRepo && !picked;
       return v_flex().id(`watch-${k}`).gap(2).rounded(8).px(8).py(7).cursor_pointer().hover((s) => s.bg(t.hover).border_color(picked ? t.accent : t.hover))
-        .border_1().border_color(picked ? t.accent : mineRow ? tint(t.ansi5, "4d") : t.background).when(picked, (e) => e.bg(t.hover))
-        .when(mineRow, (e) => e.bg(tint(t.ansi5, "14")))
+        .border_1().border_color(picked ? t.accent : mineRow ? tint(violet, "4d") : t.background).when(picked, (e) => e.bg(t.hover))
+        .when(mineRow, (e) => e.bg(tint(violet, "14")))
         .tooltip(rowTip)
         .on_click(() => open(entry))
         .on_mouse_down("right", (_e, cx) => { cx.stop_propagation(); openRowMenu(k, false); })
@@ -637,7 +639,7 @@ export default class PullRequest extends View {
     // « À toi » as a section; a repo keeps its case, as on the rows, GitHub and the spaces.
     // px(8): the rows' own padding, so headers, icons and the rows' text share one left edge.
     const items = [
-      ...(mine ? [div().px(8).pt(10).pb(6).text_size(13).font_semibold().text_color(t.ansi5).child(`${mine.title} (${mine.rows.length})`), ...mine.rows.map((r) => row(r, true))] : []),
+      ...(mine ? [div().px(8).pt(10).pb(6).text_size(13).font_semibold().text_color(violet).child(`${mine.title} (${mine.rows.length})`), ...mine.rows.map((r) => row(r, true))] : []),
       ...(restCount ? [restHeader] : []),
       ...(restOpen ? rest.flatMap((x) => [
         h_flex().gap(6).items_center().px(8).pt(10).pb(4).text_size(12).font_semibold().text_color(t.muted).child(repoMark(x.repo)).child(x.title),
