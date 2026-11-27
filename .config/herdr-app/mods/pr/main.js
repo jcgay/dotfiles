@@ -270,7 +270,8 @@ export default class PullRequest extends View {
     // A 20 px box with a hover fill: bare 11 px text left a 14 px target, and a low click opened the row instead.
     // A small outlined button: the band's done cells are teal too, a teal word under them read as one more cell.
     const action = (id, text, onClick, color) => h_flex().id(id).flex_none().h(22).px(8).items_center().rounded(5).text_size(11)
-      .border_1().border_color(t.border).text_color(color ?? t.foreground).cursor_pointer().hover((s) => s.bg(t.hover))
+      // Muted at rest: in full white they outweighed the PR's title above them.
+      .border_1().border_color(t.border).text_color(color ?? t.muted).cursor_pointer().hover((s) => s.bg(t.hover).text_color(t.foreground))
       .on_click((_e, cx) => { cx.stop_propagation(); onClick(cx); cx.notify(); }).child(text);
     // A force push asks a second click within 4 s; a stale "Confirmer" only arms it again.
     const CONFIRM_MS = 4000;
@@ -608,7 +609,7 @@ export default class PullRequest extends View {
       .child(Input.new(this.query).flex_1().min_w(0).text_size(12).text_color(t.foreground));
     // The fold of the PRs that wait on nobody but the watch, a colleague or the CI; a typed filter opens it.
     const toggleRest = () => setShared("pr-watch-view", { ...(shared("pr-watch-view") ?? {}), restOpen: !shared("pr-watch-view")?.restOpen });
-    const restHeader = h_flex().id("watch-rest").gap(6).items_center().px(8).pt(12).pb(4).text_size(12).font_semibold().text_color(t.muted)
+    const restHeader = h_flex().id("watch-rest").gap(6).items_center().mt(10).px(8).pt(12).pb(4).border_t(1).border_color(t.border).text_size(12).font_semibold().text_color(t.muted)
       .when(!query, (e) => e.cursor_pointer().hover((x) => x.text_color(t.foreground)).on_click(toggleRest)
         .tooltip(restOpen ? "Replier" : "Déplier").accessibility_label(restOpen ? "Replier les autres PR" : "Déplier les autres PR"))
       .child(svg(`mods/workspace-chrome/chevron-${restOpen ? "down" : "right"}.svg`).size(12).flex_none())
@@ -619,7 +620,7 @@ export default class PullRequest extends View {
     const asideOpen = Boolean(query) || Boolean(shared("pr-watch-view")?.asideOpen);
     this.asideFirst = aside[0] ?? null;
     const toggleAside = () => setShared("pr-watch-view", { ...(shared("pr-watch-view") ?? {}), asideOpen: !shared("pr-watch-view")?.asideOpen });
-    const asideHeader = h_flex().id("watch-aside").gap(6).items_center().px(8).pt(12).pb(4).text_size(12).font_semibold().text_color(t.muted)
+    const asideHeader = h_flex().id("watch-aside").gap(6).items_center().mt(10).px(8).pt(12).pb(4).border_t(1).border_color(t.border).text_size(12).font_semibold().text_color(t.muted)
       .when(!query, (e) => e.cursor_pointer().hover((x) => x.text_color(t.foreground)).on_click(toggleAside)
         .tooltip("Brouillons qu'aucun space ne montre : la surveillance ne les suit pas").accessibility_label(asideOpen ? "Replier les brouillons hors surveillance" : "Déplier les brouillons hors surveillance"))
       .child(svg(`mods/workspace-chrome/chevron-${asideOpen ? "down" : "right"}.svg`).size(12).flex_none())
@@ -644,7 +645,8 @@ export default class PullRequest extends View {
       ...(mine ? [div().px(8).pt(10).pb(6).text_size(13).font_semibold().text_color(violet).child(`${mine.title} (${mine.rows.length})`), ...mine.rows.map((r) => row(r, true))] : []),
       ...(restCount ? [restHeader] : []),
       ...(restOpen ? rest.flatMap((x) => [
-        h_flex().gap(6).items_center().px(8).pt(10).pb(4).text_size(12).font_semibold().text_color(t.muted).child(repoMark(x.repo)).child(x.title),
+        // A repo group sits inside its fold: regular weight, under the fold header's semibold and rule.
+        h_flex().gap(6).items_center().px(8).pt(10).pb(4).text_size(12).text_color(t.muted).child(repoMark(x.repo)).child(x.title),
         ...x.rows.map((r) => row(r, false)),
       ]) : []),
       ...(aside.length ? [asideHeader] : []),
