@@ -521,7 +521,7 @@ export default class PullRequest extends View {
           .when(showRepo || picked || this.hoverKey === k || paused.includes(k), (e) => e.child(work(k, entry.work)).child(pause(k)))
           // In « À toi » the section already says « à toi »: only another label (a refused merge) gets its chip.
           .when(showRepo && label !== "à toi", (e) => e.child(chip(label, look(label)[0], label === "agent en cours").tooltip(LABEL_HELP[label] ?? "")))
-          .when(!showRepo, (e) => e.child(div().id(`state-${k}`).flex_none().text_size(11).text_color(t.muted).tooltip(LABEL_HELP[label] ?? "").child(label))))
+          )
         .child(h_flex().gap(4).items_center().min_h(20)
           .when(showRepo, (e) => e.child(repoMark(repo)).child(div().flex_none().pl(2).text_size(12).text_color(t.muted).child(repo.split("/").pop())))
           // The number always opens the PR, also on a row whose click opens its blocker.
@@ -532,8 +532,11 @@ export default class PullRequest extends View {
           .when(Boolean(shownIn), (e) => e.child(h_flex().id(`space-${k}`).min_w(0).h(20).px(4).items_center().rounded(4).truncate().text_size(11).text_color(t.muted)
             .cursor_pointer().hover((x) => x.bg(t.hover).text_color(t.accent)).tooltip("Aller au space").accessibility_label(`Aller au space ${shownIn}`)
             .on_click((_e, cx) => { cx.stop_propagation(); askWork(k); }).child(`space ${shownIn}`)))
-          // The thin bar says how far the PR went; min_w keeps its nine cells readable next to a long space name.
-          .when(thin && Array.isArray(entry.band), (e) => e.child(h_flex().flex_1().min_w(120).pl(8).child(band(k, entry, true).flex_1()))))
+          // Outside « À toi » the state is a muted word here, not on the title line: the title keeps the row's width.
+          // Not when the why line starts with it (« en pause ; CI verte »).
+          .when(!showRepo && !(why && !folded && why.startsWith(label)), (e) => e.child(div().id(`state-${k}`).flex_none().px(4).text_size(11).text_color(t.muted).tooltip(LABEL_HELP[label] ?? "").child(label)))
+          // The thin bar says how far the PR went: one width, flush right, so the bars of a group form a column.
+          .when(thin && Array.isArray(entry.band), (e) => e.child(div().flex_1()).child(h_flex().flex_none().w(168).pl(8).child(band(k, entry, true).flex_1()))))
         // The full band with step names on « À toi » rows and the picked one.
         .when(!thin && Array.isArray(entry.band), (e) => e.child(band(k, entry, false)))
         // status-jc's « agent qa lancé sur 1a2b3c4d »: the commit goes to the tooltip, nobody reads a sha in passing.
