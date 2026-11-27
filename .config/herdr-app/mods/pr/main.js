@@ -265,8 +265,9 @@ export default class PullRequest extends View {
       .on_click((_e, cx) => { cx.stop_propagation(); onClick(cx); }).child(glyph);
     // An action named by its verb, shown only where it applies; its click must not reach a clickable line.
     // A 20 px box with a hover fill: bare 11 px text left a 14 px target, and a low click opened the row instead.
-    const action = (id, text, onClick, color) => h_flex().id(id).flex_none().h(20).px(4).items_center().rounded(4).text_size(11)
-      .text_color(color ?? t.accent).cursor_pointer().hover((s) => s.bg(t.hover))
+    // A small outlined button: the band's done cells are teal too, a teal word under them read as one more cell.
+    const action = (id, text, onClick, color) => h_flex().id(id).flex_none().h(22).px(8).items_center().rounded(5).text_size(11)
+      .border_1().border_color(t.border).text_color(color ?? t.foreground).cursor_pointer().hover((s) => s.bg(t.hover))
       .on_click((_e, cx) => { cx.stop_propagation(); onClick(cx); cx.notify(); }).child(text);
     // A force push asks a second click within 4 s; a stale "Confirmer" only arms it again.
     const CONFIRM_MS = 4000;
@@ -484,7 +485,8 @@ export default class PullRequest extends View {
     const row = ([k, entry], showRepo) => {
       const [repo, number] = k.split("#"), label = chipLabel(entry, merges[k]);
       // The chip carries the status; "dépend de toi" would only repeat « à toi ».
-      const why = [entry.clock?.yours ? null : clockText(entry.clock, Date.now()), entry.why].filter(Boolean).join(" · ");
+      // A paused PR runs nothing: no step clock nor « prête à approuver dans ».
+      const why = [entry.clock?.yours || paused.includes(k) ? null : clockText(entry.clock, Date.now()), entry.why].filter(Boolean).join(" · ");
       const actions = actionsOf(k, entry), shownIn = spaceShowing(entry.work, localSpaces);
       // An ok PR folds its why: its title stays, the PR is found by it; the why comes back as soon as its label changes.
       // A refused merge puts the PR in « À toi »: its row must not fold as a finished one.
@@ -531,8 +533,9 @@ export default class PullRequest extends View {
           .when(thin && Array.isArray(entry.band), (e) => e.child(h_flex().flex_1().min_w(120).pl(8).child(band(k, entry, true).flex_1()))))
         // The full band with step names on « À toi » rows and the picked one.
         .when(!thin && Array.isArray(entry.band), (e) => e.child(band(k, entry, false)))
-        .when(Boolean(why) && !folded, (e) => e.child(div().text_size(11).text_color(t.dim).child(why)))
-        .when(actions.length > 0, (e) => e.child(h_flex().gap(12).flex_wrap().pt(2).children(actions)))
+        // status-jc's « agent qa lancé sur 1a2b3c4d »: the commit goes to the tooltip, nobody reads a sha in passing.
+        .when(Boolean(why) && !folded, (e) => e.child(div().id(`why-${k}`).text_size(11).text_color(t.dim).tooltip(why).child(why.replace(/ sur [0-9a-f]{7,40}\b/g, ""))))
+        .when(actions.length > 0, (e) => e.child(h_flex().gap(6).flex_wrap().pt(4).children(actions)))
         .when(Boolean(merges[k]?.refused && merges[k]?.error), (e) => e.child(div().text_size(11).text_color(t.ansi1).child(`merge refusé : ${merges[k].error}`)))
         .when(Boolean(entry.error), (e) => e.child(div().text_size(11).text_color(t.ansi1).child(entry.error)))
         .when(pending(k), (e) => e.child(div().text_size(11).text_color(t.dim).child("ouverture…")))
@@ -565,12 +568,19 @@ export default class PullRequest extends View {
     const strip = h_flex().gap(10).items_center().flex_wrap().text_size(11).text_color(t.muted)
         .child(h_flex().id("watch-switch").h(24).gap(8).items_center().rounded(6).px(4).text_size(12).text_color(t.foreground).cursor_pointer().hover((s) => s.bg(t.hover))
           .on_click(() => setShared("pr-watch", { on: false, prs: {}, error: null, at: 0, ...reg, on: !reg?.on }))
-          .child(dot(reg?.on ? "ok" : "ko")).child(div().child(reg?.on ? "Surveillance active" : "Surveillance coupée")))
+          .tooltip(reg?.on ? "Couper la surveillance" : "Lancer la surveillance").accessibility_label(reg?.on ? "Surveillance active : couper" : "Surveillance coupée : lancer")
+          // A drawn switch: the dot alone read as a status, not as something to click.
+          .child(h_flex().w(26).h(14).p(2).rounded(7).flex_none().when(Boolean(reg?.on), (e) => e.bg(t.done).justify_end())
+            .when(!reg?.on, (e) => e.bg(t.raised).border_1().border_color(t.border))
+            .child(div().size(10).rounded(5).bg(reg?.on ? t.background : t.muted)))
+          .child(div().child(reg?.on ? "Surveillance active" : "Surveillance coupée")))
         // The ceiling of watch agents at once: status-jc reads pr-watch.maxAgents live, its default (3) until set here.
+        // « 1 en cours, au plus − 3 + »: − and + sit on the ceiling they change; « 1/3 » mixed both and − read as « stop one ».
         .child(h_flex().gap(2).items_center()
+          .child(div().pr(4).child(`Agents : ${reg?.agents?.busy ?? 0} en cours, au plus`))
           .child(rowButton("agents-less", maxAgents <= 1 ? "Minimum : 1 agent de surveillance"
             : `Un agent de surveillance de moins (${maxAgents} au plus ; ceux en cours continuent)`, () => addMax(-1)).border_1().border_color(t.border).when(maxAgents <= 1, (e) => e.opacity(0.4)).child("−"))
-          .child(div().child(`Agents ${reg?.agents?.busy ?? 0}/${maxAgents}`))
+          .child(div().px(2).child(String(maxAgents)))
           .child(rowButton("agents-more", maxAgents >= 9 ? "Maximum : 9 agents de surveillance"
             : `Un agent de surveillance de plus (${maxAgents} au plus)`, () => addMax(1)).border_1().border_color(t.border).when(maxAgents >= 9, (e) => e.opacity(0.4)).child("+")))
         // Only when taken: a free karadoc needs nothing from anyone.
