@@ -4,7 +4,7 @@ import { randomUUID } from "crypto";
 import { watchPath } from "./open.js";
 import { roundLines, searchLine } from "./journal.js";
 import { appendJournal } from "./journal-file.js";
-import { readHint, searchSince, ownerArgs, signalsOf, withRiskTree, decide, emptyEntry, promptFor, repoOfRemote, undoLaunch, holdingTabs, karadocHeld, karadocHolder, appTaken, closing, stoppedQa, freshTabs, checkoutBases, checkoutsOf, draftShown, watchedNow, LABELS } from "./watch.js";
+import { readHint, searchSince, ownerArgs, signalsOf, withRiskTree, decide, emptyEntry, promptFor, repoOfRemote, undoLaunch, holdingTabs, karadocHeld, karadocHolder, appTaken, closing, stoppedQa, freshTabs, checkoutBases, checkoutsOf, draftShown, watchedNow, asideDrafts, LABELS } from "./watch.js";
 import { bandOf, measure, addSamples, clockOf, workOf } from "./pipeline.js";
 
 const MAX_AGENTS = 3; // default; the PR panel's header sets pr-watch.maxAgents
@@ -368,6 +368,6 @@ async function roundUnderLease(registry, cache, at, owners, leaseId) {
   // For the panel's header: the watch agents at the end of the round and the one holding karadoc.
   const busy = [...new Set([...heldTabs(all), ...launched])];
   // journalOn: `on` as this round saw it, so the next round writes a switch made in between.
-  return { ...registry, prs, hidden, error: null, searchFails: 0, at, journalOn: registry.on, durations, sonarRepos: [...sonarRepos],
+  return { ...registry, prs, hidden, aside: asideDrafts(read, watched), error: null, searchFails: 0, at, journalOn: registry.on, durations, sonarRepos: [...sonarRepos],
     agents: { busy: busy.length, max: maxAgents() }, karadoc: karadocHolder(busy, karadocPrs, roundPrs) };
 }

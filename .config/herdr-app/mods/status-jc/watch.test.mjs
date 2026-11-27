@@ -1,7 +1,7 @@
 // node --test ~/.config/herdr-app/mods/status-jc/watch.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { fixups, searchSince, sonarFindings, markers, riskOf, noHuman, withRiskTree, signalsOf, checks, jenkinsBuild, decide, emptyEntry, tabName, LABELS, promptFor, repoOfRemote, undoLaunch, holdingTabs, closing, stoppedQa, freshTabs, FRESH_MS, karadocHeld, appTaken, checkoutBases, checkoutsOf, draftShown, watchedNow, squashAgentOver, SQUASH_GRACE_MS, KARADOC_MAX_MIN } from "./watch.js";
+import { fixups, searchSince, sonarFindings, markers, riskOf, noHuman, withRiskTree, signalsOf, checks, jenkinsBuild, decide, emptyEntry, tabName, LABELS, promptFor, repoOfRemote, undoLaunch, holdingTabs, closing, stoppedQa, freshTabs, FRESH_MS, karadocHeld, appTaken, checkoutBases, checkoutsOf, draftShown, watchedNow, asideDrafts, squashAgentOver, SQUASH_GRACE_MS, KARADOC_MAX_MIN } from "./watch.js";
 
 // Real summaries: arthur#5458 (passed) and arthur#5449 (failed gate).
 const PASSED = `Issues  
@@ -894,4 +894,13 @@ test("watchedNow: before the layout is ready, a draft already watched stays and 
 test("watchedNow: a failed read (no draft flag) stays only if the PR was watched", () => {
   assert.equal(watchedNow({ error: "HTTP 502" }, { ready: true, known: true, shown: no }), true);
   assert.equal(watchedNow({ error: "HTTP 502" }, { ready: true, known: false, shown: no }), false);
+});
+test("asideDrafts: the open drafts this round leaves aside, for the panel", () => {
+  const read = [
+    { key: "o/a#1", draft: true, url: "u1", title: "T1", branch: "b1" },
+    { key: "o/a#2", draft: true, url: "u2", title: "T2" },
+    { key: "o/a#3", draft: false, url: "u3", title: "T3" },
+    { key: "o/a#4", error: "HTTP 502", url: "u4", title: "" },
+  ];
+  assert.deepEqual(asideDrafts(read, new Set(["o/a#2"])), [{ key: "o/a#1", url: "u1", title: "T1" }]);
 });

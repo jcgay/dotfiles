@@ -285,6 +285,11 @@ export function watchedNow(s, { ready, known, shown }) {
   return ready ? shown() : known;
 }
 
+// The open drafts this round leaves aside (no space shows them), for the PR panel's fold: key, url and title.
+export function asideDrafts(read, watched) {
+  return read.filter((s) => s.draft && !watched.has(s.key)).map((s) => ({ key: s.key, url: s.url, title: s.title }));
+}
+
 // `git reflog show --format=%H|%gs HEAD` of a watch worktree → the commits the watch itself checked out
 // (worktree add, checkout of origin/<branch>): what the agent found, not what it committed.
 export function checkoutBases(reflog, branch) {

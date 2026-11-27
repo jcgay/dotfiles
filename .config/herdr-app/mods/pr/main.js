@@ -573,6 +573,28 @@ export default class PullRequest extends View {
         .tooltip(restOpen ? "Replier" : "Déplier").accessibility_label(restOpen ? "Replier les autres PR" : "Déplier les autres PR"))
       .child(svg(`mods/workspace-chrome/chevron-${restOpen ? "down" : "right"}.svg`).size(12).flex_none())
       .child(`Rien d'autre pour toi (${restCount})`);
+    // The open drafts no space shows (status-jc leaves them aside: no agent, no row): folded at the bottom, to open one
+    // on GitHub or in a space, which brings it back into the watch at the next round. Out of the arrow keys.
+    const aside = (reg?.aside ?? []).filter((d) => !query || matchesFilter(d.key, d, null, query));
+    const asideOpen = Boolean(query) || Boolean(shared("pr-watch-view")?.asideOpen);
+    const toggleAside = () => setShared("pr-watch-view", { ...(shared("pr-watch-view") ?? {}), asideOpen: !shared("pr-watch-view")?.asideOpen });
+    const asideHeader = h_flex().id("watch-aside").gap(6).items_center().px(8).pt(12).pb(4).text_size(12).font_semibold().text_color(t.dim)
+      .when(!query, (e) => e.cursor_pointer().hover((x) => x.text_color(t.foreground)).on_click(toggleAside)
+        .tooltip("Brouillons qu'aucun space ne montre : la surveillance ne les suit pas").accessibility_label(asideOpen ? "Replier les brouillons hors surveillance" : "Déplier les brouillons hors surveillance"))
+      .child(svg(`mods/workspace-chrome/chevron-${asideOpen ? "down" : "right"}.svg`).size(12).flex_none())
+      .child(`Brouillons hors surveillance (${aside.length})`);
+    const asideRow = (d) => {
+      const [repo, number] = d.key.split("#");
+      return h_flex().id(`aside-${d.key}`).gap(6).items_center().px(8).py(4).rounded(6).cursor_pointer().hover((x) => x.bg(t.hover))
+        .tooltip("Ouvrir la PR").on_click(() => exec("open", [d.url]))
+        .child(repoMark(repo)).child(div().flex_none().text_size(12).text_color(t.muted).child(`${repo.split("/").pop()} #${number}`))
+        .child(div().flex_1().min_w(0).truncate().text_size(12).text_color(t.foreground).child(d.title))
+        // The space opening (status-jc's opener) can take a while (wt switch) or fail: said on the row.
+        .when(pending(d.key), (e) => e.child(div().flex_none().text_size(11).text_color(t.dim).child("ouverture…")))
+        .when(Boolean(opens[d.key]?.error) && !pending(d.key), (e) => e.child(div().id(`aside-err-${d.key}`).flex_none().text_size(11).text_color(t.ansi1).tooltip(opens[d.key].error).child("échec")))
+        .child(rowButton(`aside-work-${d.key}`, "Ouvrir un space sur sa branche : la surveillance la reprend", () => askWork(d.key))
+          .child(svg("mods/workspace-chrome/terminal.svg").size(14).text_color(t.muted)));
+    };
     // Each header and row is a direct child of the scroll area: scroll_to_item reaches the picked row.
     // « À toi » as a section; a repo keeps its case, as on the rows, GitHub and the spaces.
     // px(8): the rows' own padding, so headers, icons and the rows' text share one left edge.
@@ -583,13 +605,17 @@ export default class PullRequest extends View {
         h_flex().gap(6).items_center().px(8).pt(10).pb(4).text_size(12).font_semibold().text_color(t.dim).child(repoMark(x.repo)).child(x.title),
         ...x.rows.map((r) => row(r, false)),
       ]) : []),
-      ...(query && !sections.length ? [div().px(8).pt(12).text_size(12).text_color(t.dim).child(`Aucune PR ne correspond à « ${query} »`)] : []),
+      ...(aside.length ? [asideHeader] : []),
+      ...(aside.length && asideOpen ? aside.map(asideRow) : []),
+      ...(query && !sections.length && !aside.length ? [div().px(8).pt(12).text_size(12).text_color(t.dim).child(`Aucune PR ne correspond à « ${query} »`)] : []),
     ];
     const watch = [strip, filterField, reg?.error ? div().pt(6).text_size(11).text_color(t.ansi1).child(reg.error) : null, div().h(4), ...items].filter(Boolean);
     // The picked row's index among the body's children (the help, when open, comes first).
     const itemKeys = [
       ...(mine ? [null, ...mine.rows.map(([k]) => k)] : []), ...(restCount ? [null] : []),
-      ...(restOpen ? rest.flatMap((x) => [null, ...x.rows.map(([k]) => k)]) : []), ...(query && !sections.length ? [null] : []),
+      ...(restOpen ? rest.flatMap((x) => [null, ...x.rows.map(([k]) => k)]) : []),
+      ...(aside.length ? [null] : []), ...(aside.length && asideOpen ? aside.map(() => null) : []),
+      ...(query && !sections.length && !aside.length ? [null] : []),
     ];
     // Read when the key is handled: an arrow key folds the help first, so it is no longer a child then.
     const rowIndex = (k) => { const i = itemKeys.indexOf(k); return i < 0 ? null : (this.helpOpen ? 1 : 0) + watch.length - items.length + i; };

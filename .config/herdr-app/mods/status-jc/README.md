@@ -139,6 +139,7 @@ Pas d'autre ménage : la surveillance ne supprime aucun worktree, et les onglets
   karadoc: "⟳ #5471 qa" | null,        // l'onglet qui tient karadoc
   durations: { "agent:qa": [ms, …], "ci:jenkins": [ms, …] }, // 10 dernières durées par étape
   hidden: { "owner/repo#N": { … } }, // l'entrée des brouillons ouverts qu'aucun space ne montre, reprise à leur retour
+  aside: [{ key, url, title }],      // ces brouillons laissés de côté ce tour, pour le pli « Brouillons hors surveillance » du panneau
   sonarRepos: ["owner/repo"],         // repos où Sonar a déjà rapporté : ailleurs, case sonar en pointillé
   error: null,        // erreur du tour entier (gh search, gh api user), suivie de sa piste (readHint)
   searchFails: 0,     // tours d'affilée où la recherche des PR a échoué : le journal l'écrit au 2e
