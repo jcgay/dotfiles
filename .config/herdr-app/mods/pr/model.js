@@ -188,3 +188,17 @@ export function moveSel(keys, sel, delta) {
   if (i < 0) return keys[0];
   return keys[Math.min(keys.length - 1, Math.max(0, i + delta))];
 }
+
+// A repo's JetBrains icon, as the spaces and projects panels show it. Copied from projects/lib.js (a mod cannot import
+// another mod's files): the copy script prints "name\tlight\tdark" per repo of ~/dev that has one.
+export function parseIcons(stdout, dir) {
+  const out = {};
+  for (const l of stdout.split("\n")) {
+    const [name, light, dark] = l.split("\t");
+    if (name && light) out[name] = { light: `${dir}/${light}`, dark: `${dir}/${dark || light}` };
+  }
+  return out;
+}
+
+// The avatar of a repo without icon: its first letter, as a space's (owner/name: the name's).
+export const repoLetter = (repo) => [...(repo.split("/").pop() ?? "")][0]?.toUpperCase() ?? "?";

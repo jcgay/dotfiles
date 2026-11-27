@@ -1,7 +1,7 @@
 // node --test ~/.config/herdr-app/mods/pr/model.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { jenkinsBuild, checks, otherChecks, summary, minutes, parseContainers, deploymentsFor, deployKey, watchBranch, remember, clockText, workLook, rowActions, bandStates, nextRound, isDraft, hiddenDraft, sessionOf, watchSections, spaceShowing, realFolder } from "./model.js";
+import { jenkinsBuild, checks, otherChecks, summary, minutes, parseContainers, deploymentsFor, deployKey, watchBranch, remember, clockText, workLook, rowActions, bandStates, nextRound, isDraft, hiddenDraft, sessionOf, watchSections, spaceShowing, realFolder, parseIcons, repoLetter } from "./model.js";
 
 test("jenkins build url", () => {
   assert.deepEqual(jenkinsBuild("https://jenkins.vidal.net/job/team.software/job/github/job/arthur/job/PR-5459/1/display/redirect"),
@@ -213,4 +213,15 @@ test("spaceShowing: a space on the ~/dev form of the worktree, once resolved", (
 });
 test("realFolder: swapped arguments give the ~/dev form of a resolved folder", () => {
   assert.equal(realFolder("/Volumes/src/agents-worktree/a/x-watch", "/Volumes/src", "/Users/me/dev"), "/Users/me/dev/agents-worktree/a/x-watch");
+});
+test("parseIcons: name → light and dark icon paths, dark falling back to light", () => {
+  assert.deepEqual(parseIcons("arthur\tarthur.svg\tarthur.dark.svg\nvidal-mcp\tvidal-mcp.png\t\n\n", "mods/pr/.icons"), {
+    arthur: { light: "mods/pr/.icons/arthur.svg", dark: "mods/pr/.icons/arthur.dark.svg" },
+    "vidal-mcp": { light: "mods/pr/.icons/vidal-mcp.png", dark: "mods/pr/.icons/vidal-mcp.png" },
+  });
+});
+test("repoLetter: a repo without icon shows its first letter, as a space avatar", () => {
+  assert.equal(repoLetter("vidal-gpt"), "V");
+  assert.equal(repoLetter("softwarevidal/arthur"), "A");
+  assert.equal(repoLetter(""), "?");
 });

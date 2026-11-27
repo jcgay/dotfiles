@@ -1,9 +1,9 @@
-import { View, div, svg } from "gpui-kit";
+import { View, div, svg, image } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
-import { spaces, panes, agents, focused, exec, theme, layout, run, shared, setShared, props, appHome, readTextFile, home } from "herdr";
+import { spaces, panes, agents, focused, exec, theme, layout, run, shared, setShared, props, appHome, readTextFile, home, settings } from "herdr";
 import { Ci } from "./ci.js";
 import { parseConfig } from "./ci-model.js";
-import { moveSel, jenkinsBuild, checks, otherChecks, summary, minutes, deploymentsFor, parseContainers, watchBranch, remember, clockText, workLook, rowActions, bandStates, nextRound, isDraft, hiddenDraft, sessionOf, watchSections, spaceShowing, realFolder } from "./model.js";
+import { moveSel, jenkinsBuild, checks, otherChecks, summary, minutes, deploymentsFor, parseContainers, watchBranch, remember, clockText, workLook, rowActions, bandStates, nextRound, isDraft, hiddenDraft, sessionOf, watchSections, spaceShowing, realFolder, parseIcons, repoLetter } from "./model.js";
 
 // How many spaces, checkouts and Jenkins builds the caches keep.
 const KEEP = 30;
@@ -91,6 +91,20 @@ export default class PullRequest extends View {
     this.configReady = read();
     cx.spawn(async (cx) => { await this.configReady; cx.notify(); });
     cx.timer.every(60000, (cx) => cx.spawn(async (cx) => { await read(); cx.notify(); }));
+    // The watch's repo icons: each ~/dev repo's .idea/icon.svg (else icon.png) and icon_dark.svg, as the spaces and
+    // projects panels show them, copied under appHome for image(). Hidden folder: Herdr reloads a mod when a visible
+    // file of its folder changes. Only what changed is written; read again every 10 min (an icon added shows then).
+    this.icons = {};
+    if (this.view === "watch") {
+      const copyIcons = (cx) => cx.spawn(async (cx) => {
+        const dir = "mods/pr/.icons";
+        const script = 'cd "$1" || exit 0; mkdir -p "$2" || exit; for d in */.idea; do n=${d%/.idea}; l=; for e in svg png; do [ -f "$d/icon.$e" ] && l=$e && break; done; [ -n "$l" ] || continue; cmp -s "$d/icon.$l" "$2/$n.$l" || cp "$d/icon.$l" "$2/$n.$l"; k=; if [ -f "$d/icon_dark.svg" ]; then cmp -s "$d/icon_dark.svg" "$2/$n.dark.svg" || cp "$d/icon_dark.svg" "$2/$n.dark.svg"; k="$n.dark.svg"; fi; printf "%s\\t%s\\t%s\\n" "$n" "$n.$l" "$k"; done';
+        const r = await exec("sh", ["-c", script, "sh", `${home()}/dev/`, `${appHome()}/${dir}`], { timeout: 30000 }).catch(() => null);
+        if (r?.code === 0) { this.icons = parseIcons(r.stdout, dir); cx.notify(); } // cosmetic: a letter on failure
+      });
+      copyIcons(cx);
+      cx.timer.every(600000, copyIcons);
+    }
   }
 
   // Every container of the shared Docker hosts, through the wrappers in ~/.local/bin. One scan
@@ -201,6 +215,12 @@ export default class PullRequest extends View {
     const button = (id, text, onClick, primary) => div().id(id).h(28).px(12).flex().items_center().rounded(7).cursor_pointer().text_size(12)
       .bg(primary ? t.solid : t.raised).text_color(primary ? t.solid_foreground : t.foreground).hover((s) => s.opacity(0.85))
       .on_click((_e, cx) => onClick(cx)).child(text);
+    // A repo's icon, else its letter on a raised square, as a space's avatar in the spaces panel.
+    const repoMark = (repo) => {
+      const icon = this.icons?.[repo.split("/").pop()];
+      return icon ? image(icon[settings().dark ? "dark" : "light"]).size(14).flex_none().rounded(3)
+        : h_flex().size(14).flex_none().rounded(3).bg(t.raised).items_center().justify_center().text_size(9).font_bold().text_color(t.muted).child(repoLetter(repo));
+    };
     const section = (title) => div().pt(10).pb(4).text_size(11).font_semibold().text_color(t.dim).child(title.toUpperCase());
 
     const state = pr && (pr.isDraft ? ["Brouillon", t.muted] : pr.state === "MERGED" ? ["Mergée", t.ansi5] : pr.state === "CLOSED" ? ["Fermée", t.ansi1] : ["Ouverte", t.done]);
@@ -452,7 +472,7 @@ export default class PullRequest extends View {
         .tooltip(blocked(entry) ? BLOCKER_VERB[entry.blocker.step] ?? "Ouvrir le check en échec" : entry.launched ? "Aller à l'agent" : "Ouvrir la PR")
         .on_click(() => open(entry))
         .child(h_flex().gap(6).items_center()
-          .when(showRepo, (e) => e.child(div().text_size(12).font_semibold().child(repo.split("/").pop())))
+          .when(showRepo, (e) => e.child(repoMark(repo)).child(div().text_size(12).font_semibold().child(repo.split("/").pop())))
           // The number always opens the PR, also on a row whose click opens its blocker.
           .child(h_flex().id(`num-${k}`).h(20).px(4).items_center().rounded(4).text_size(12).text_color(t.dim).cursor_pointer().hover((s) => s.bg(t.hover).text_color(t.accent))
             .tooltip("Ouvrir la PR").accessibility_label(`Ouvrir la PR ${repo.split("/").pop()} #${number}`)
@@ -513,8 +533,9 @@ export default class PullRequest extends View {
       .when(Boolean(reg?.error), (e) => e.child(div().text_size(11).text_color(t.ansi1).child(reg.error)))
       .child(v_flex().gap(1).pt(4).children(sections.flatMap((x) => [
         // « À toi » as a section; a repo keeps its case, as on the rows, GitHub and the spaces.
-        x.repo === null ? section(`${x.title} (${x.rows.length})`).text_color(t.blocked)
-          : div().pt(10).pb(4).text_size(12).font_semibold().text_color(t.dim).child(x.title),
+        // px(8): the rows' own padding, so headers, icons and the rows' text share one left edge.
+        x.repo === null ? section(`${x.title} (${x.rows.length})`).px(8).text_color(t.blocked)
+          : h_flex().gap(6).items_center().px(8).pt(10).pb(4).text_size(12).font_semibold().text_color(t.dim).child(repoMark(x.repo)).child(x.title),
         ...x.rows.map((r) => row(r, x.repo === null)),
       ])));
 

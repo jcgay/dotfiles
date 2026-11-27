@@ -13,6 +13,7 @@
 # Herdr: icon copies written by the spaces-jc mod.
 /.config/herdr-app/mods/spaces-jc/icons/
 /.config/herdr-app/mods/projects/.icons/
+/.config/herdr-app/mods/pr/.icons/
 
 # Herdr: type stubs and editor config it writes into every mod.
 /.config/herdr-app/mods/*/gpui-kit.d.ts
