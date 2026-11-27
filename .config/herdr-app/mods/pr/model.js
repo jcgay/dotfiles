@@ -139,10 +139,13 @@ export function watchSections(entries, merges, rank) {
 }
 
 // The row's ⤵ and ⇥/✕: merge and squash are the PR's requests in shared("pr-merge") and shared("pr-squash").
-export function rowActions(entry, merge, squash) {
+// picked: the row the keyboard picked. A squash is a force push: before approval it wipes the reviewer's "changes since
+// last review", so a ready PR offers it only once approved (chipLabel « squash à venir ») or on the picked row; a draft
+// has no reviewer. The Pull request panel keeps it at any time.
+export function rowActions(entry, merge, squash, picked = false) {
+  const cleared = entry.draft === true || picked || entry.approved === true || chipLabel(entry, null) === "squash à venir";
   return {
-    // At any time, as the Pull request panel: only the watch's own squash waits for approval.
-    squash: entry.fixups > 0 && (!squash || squash.state === "error"),
+    squash: entry.fixups > 0 && (!squash || squash.state === "error") && cleared,
     // status-jc cancels a merge armed over fixup! commits; after a squash the stale count hides ⇥ until the next round.
     arm: entry.draft === false && entry.head ? (merge ? (merge.refused ? "refused" : "disarm") : entry.fixups > 0 ? null : "arm") : null,
   };

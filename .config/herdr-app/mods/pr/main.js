@@ -263,10 +263,10 @@ export default class PullRequest extends View {
       .on_click((_e, cx) => { cx.stop_propagation(); onClick(cx); cx.notify(); }).child(text);
     // A force push asks a second click within 4 s; a stale "Confirmer" only arms it again.
     const CONFIRM_MS = 4000;
-    const guarded = (id, text, confirm, onConfirm) => Date.now() - (this.confirms[id] ?? 0) < CONFIRM_MS
+    const guarded = (id, text, confirm, onConfirm, color) => Date.now() - (this.confirms[id] ?? 0) < CONFIRM_MS
       ? action(id, confirm, (cx) => { delete this.confirms[id]; onConfirm(cx); }, t.blocked)
       // The repaint at the end of the window puts the label back, or a stale "Confirmer" would only arm it again.
-      : action(id, text, (cx) => { this.confirms[id] = Date.now(); cx.timer.after(CONFIRM_MS + 50, (cx) => cx.notify()); });
+      : action(id, text, (cx) => { this.confirms[id] = Date.now(); cx.timer.after(CONFIRM_MS + 50, (cx) => cx.notify()); }, color);
     const buildRow = b && ["Build", b.unreachable ? div().text_color(t.dim).child("Jenkins injoignable (VPN ?)")
       : v_flex().gap(3)
         .child(h_flex().id("build-link").gap(8).items_center()
@@ -424,18 +424,19 @@ export default class PullRequest extends View {
     // Ready for review: the round it asks starts the reviews without waiting.
     const merges = shared("pr-merge") ?? {}, squashes = shared("pr-squash") ?? {};
     const actionsOf = (k, entry) => {
-      const can = rowActions(entry, merges[k], squashes[k]);
+      const can = rowActions(entry, merges[k], squashes[k], keyboard && k === this.sel);
       const disarm = () => { const { [k]: _, ...rest } = shared("pr-merge") ?? {}; setShared("pr-merge", rest); };
       return [
         blocked(entry) && action(`blocker-${k}`, BLOCKER_VERB[entry.blocker.step] ?? "Ouvrir le check en échec", () => exec("open", [entry.blocker.url])),
         isDraft(entry) && action(`ready-${k}`, "Passer prête pour review",
           (cx) => this.act(cx, "Passage en revue", ["gh", "pr", "ready", entry.url], { timeout: 30000 }, askRound)),
-        can.squash && guarded(`squash-${k}`, `Squasher ${entry.fixups} fixup!`, "Confirmer le push forcé",
-          () => setShared("pr-squash", { ...(shared("pr-squash") ?? {}), [k]: { state: "asked", at: Date.now() } })),
         can.arm === "arm" && action(`arm-${k}`, "Merger quand tout est vert",
           () => setShared("pr-merge", { ...(shared("pr-merge") ?? {}), [k]: { head: entry.head, at: Date.now(), why: null, error: null } })),
         can.arm === "disarm" && action(`arm-${k}`, "Désarmer le merge", disarm),
         can.arm === "refused" && action(`arm-${k}`, `Effacer le refus du merge`, disarm, t.ansi1),
+        // Last and muted: a force push, secondary to the merge (rowActions says when it shows).
+        can.squash && guarded(`squash-${k}`, `Squasher ${entry.fixups} fixup!`, "Confirmer le push forcé",
+          () => setShared("pr-squash", { ...(shared("pr-squash") ?? {}), [k]: { state: "asked", at: Date.now() } }), t.muted),
       ].filter(Boolean);
     };
     // The step band status-jc computed (pipeline.js STEPS): nine slots, a draft fills three.

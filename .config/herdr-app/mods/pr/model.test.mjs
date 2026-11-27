@@ -119,7 +119,10 @@ test("rowActions: squash a PR's fixups unless one runs, arm a ready PR, disarm a
   assert.equal(rowActions(ready, null, { state: "error" }).squash, true, "a failed squash can be asked again");
   assert.deepEqual(rowActions({ draft: true, head: "abc", fixups: 0 }, null, null), { squash: false, arm: null });
   assert.equal(rowActions({ head: "abc" }, null, null).arm, null, "an entry from before the band has no draft flag");
-  assert.equal(rowActions({ ...ready, approved: false }, null, null).squash, true, "by hand before approval too: only the watch waits");
+  assert.equal(rowActions({ ...ready, approved: false }, null, null).squash, false, "before approval a force push wipes the reviewer's changes since last review: not on every row");
+  assert.equal(rowActions({ ...ready, approved: false }, null, null, true).squash, true, "the row picked from the keyboard still offers it");
+  const band = ["ok", "ok", "ok", "ok", "ok", "ok", "ok", "todo", "todo"];
+  assert.equal(rowActions({ draft: false, head: "abc", fixups: 2, label: "ok", band }, null, null).squash, true, "approved, the squash is next: offered");
   assert.equal(rowActions({ draft: true, head: "abc", fixups: 2 }, null, null).squash, true, "a draft too, as the Pull request panel");
 });
 
