@@ -331,7 +331,7 @@ async function roundUnderLease(registry, cache, at, owners, leaseId) {
         const m = measure(before, entry, s, Date.now());
         samples.push(...m.samples);
         entry = {
-          ...entry, ci: m.ci, fixups: s.fixups, draft: s.draft,
+          ...entry, ci: m.ci, fixups: s.fixups, draft: s.draft, approved: s.approved,
           band: bandOf(s, entry, { hasCi, hasQa, hasDemo, hasSonar: sonarRepos.has(s.repo) }),
           work: clone === null ? null : workOf(worktrees, { draft: s.draft, branch: s.branch, watch: watchPath(home(), s.repo, s.branch) }),
         };
