@@ -285,9 +285,10 @@ export function watchedNow(s, { ready, known, shown }) {
   return ready ? shown() : known;
 }
 
-// The open drafts this round leaves aside (no space shows them), for the PR panel's fold: key, url and title.
-export function asideDrafts(read, watched) {
-  return read.filter((s) => s.draft && !watched.has(s.key)).map((s) => ({ key: s.key, url: s.url, title: s.title }));
+// The open drafts this round leaves aside (no space shows them), for the PR panel's fold: key, url and title. hidden: the
+// last round's left-aside entries; a failed read has no draft flag, so one already aside stays aside through the outage.
+export function asideDrafts(read, watched, hidden = {}) {
+  return read.filter((s) => (s.draft || (s.error && s.key in hidden)) && !watched.has(s.key)).map((s) => ({ key: s.key, url: s.url, title: s.title }));
 }
 
 // `git reflog show --format=%H|%gs HEAD` of a watch worktree → the commits the watch itself checked out

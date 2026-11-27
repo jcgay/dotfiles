@@ -248,7 +248,7 @@ async function roundUnderLease(registry, cache, at, owners, leaseId) {
   }
 
   cache.trees ??= {}; // shortcut: never pruned (two shas per push), prune it if the app runs for months
-  const read = await Promise.all(found.map((pr) => signals(pr, cache.me, registry.prs[`${pr.repository.nameWithOwner}#${pr.number}`], cache.trees)));
+  const read = await Promise.all(found.map((pr) => signals(pr, cache.me, registry.prs[`${pr.repository.nameWithOwner}#${pr.number}`] ?? registry.hidden?.[`${pr.repository.nameWithOwner}#${pr.number}`], cache.trees)));
   // Rebuilt each round from this round's repos: a repo with no open PR left drops out.
   const names = [...new Set(read.map((s) => s.repo))];
   const repos = new Map(await Promise.all(names.map(async (repo) => [repo, await cloneOf(repo, cache.clones ?? new Map())])));
@@ -262,8 +262,8 @@ async function roundUnderLease(registry, cache, at, owners, leaseId) {
   // A draft left aside keeps its entry (attempts, sessions, clock) for when a space shows it again: otherwise its fix
   // agents get a fresh budget each time its space is reopened. Only drafts still open: the map stays bounded.
   const watched = new Set(all.map((s) => s.key));
-  const hidden = Object.fromEntries(read.filter((s) => s.draft && !watched.has(s.key))
-    .map((s) => [s.key, registry.prs?.[s.key] ?? registry.hidden?.[s.key]]).filter(([, e]) => e));
+  const aside = asideDrafts(read, watched, registry.hidden ?? {});
+  const hidden = Object.fromEntries(aside.map((d) => [d.key, registry.prs?.[d.key] ?? registry.hidden?.[d.key]]).filter(([, e]) => e));
 
   const roundPrs = new Set(all.map((s) => s.number));
   const karadocPrs = new Set(all.filter((s) => repos.get(s.repo).hasKaradoc).map((s) => s.number));
@@ -368,6 +368,6 @@ async function roundUnderLease(registry, cache, at, owners, leaseId) {
   // For the panel's header: the watch agents at the end of the round and the one holding karadoc.
   const busy = [...new Set([...heldTabs(all), ...launched])];
   // journalOn: `on` as this round saw it, so the next round writes a switch made in between.
-  return { ...registry, prs, hidden, aside: asideDrafts(read, watched), error: null, searchFails: 0, at, journalOn: registry.on, durations, sonarRepos: [...sonarRepos],
+  return { ...registry, prs, hidden, aside, error: null, searchFails: 0, at, journalOn: registry.on, durations, sonarRepos: [...sonarRepos],
     agents: { busy: busy.length, max: maxAgents() }, karadoc: karadocHolder(busy, karadocPrs, roundPrs) };
 }

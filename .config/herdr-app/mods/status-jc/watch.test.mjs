@@ -903,4 +903,6 @@ test("asideDrafts: the open drafts this round leaves aside, for the panel", () =
     { key: "o/a#4", error: "HTTP 502", url: "u4", title: "" },
   ];
   assert.deepEqual(asideDrafts(read, new Set(["o/a#2"])), [{ key: "o/a#1", url: "u1", title: "T1" }]);
+  // A draft already aside whose read fails stays aside (its entry, attempts included, is kept for when it comes back).
+  assert.deepEqual(asideDrafts(read, new Set(["o/a#2"]), { "o/a#4": {} }).map((d) => d.key), ["o/a#1", "o/a#4"]);
 });
