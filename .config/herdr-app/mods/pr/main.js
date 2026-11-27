@@ -1,9 +1,9 @@
 import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
-import { spaces, panes, agents, focused, exec, theme, layout, run, shared, setShared, props, appHome, readTextFile } from "herdr";
+import { spaces, panes, agents, focused, exec, theme, layout, run, shared, setShared, props, appHome, readTextFile, home } from "herdr";
 import { Ci } from "./ci.js";
 import { parseConfig } from "./ci-model.js";
-import { moveSel, jenkinsBuild, checks, otherChecks, summary, minutes, deploymentsFor, parseContainers, watchBranch, remember, clockText, workLook, rowActions, bandStates, nextRound, isDraft, hiddenDraft, sessionOf } from "./model.js";
+import { moveSel, jenkinsBuild, checks, otherChecks, summary, minutes, deploymentsFor, parseContainers, watchBranch, remember, clockText, workLook, rowActions, bandStates, nextRound, isDraft, hiddenDraft, sessionOf, watchSections, spaceShowing, realFolder } from "./model.js";
 
 // How many spaces, checkouts and Jenkins builds the caches keep.
 const KEEP = 30;
@@ -34,7 +34,7 @@ const LABEL_HELP = {
   "pas de clone local": "aucun clone du dépôt sur ce Mac : aucun agent ne peut être lancé",
   "agent en cours": "un agent travaille sur la PR ; clic pour aller à son onglet",
   "en attente": "rien à lancer pour l'instant : CI en cours, GitHub qui calcule, agents tous pris…",
-  brouillon: "brouillon : seuls git, la CI et Sonar sont surveillés, pas de revue",
+  brouillon: "brouillon : seuls git, la CI et Sonar sont surveillés, pas de revue ; un brouillon qu'aucun space ne montre n'est pas surveillé",
   "en pause": "en pause : rien n'est lancé (le bouton lecture reprend)",
   ok: "la surveillance a tout fait : reste ton approbation ou le merge",
 };
@@ -82,6 +82,9 @@ export default class PullRequest extends View {
     cx.timer.every(60000, (cx) => { if (this.view === "pr" && visible("pr")) this.refresh(cx); });
     // config.json: the owners in the watch's help, dockerQa for the containers. Re-read every minute: `yadm alt` applies without a restart.
     this.config = null;
+    // ~/dev is a symlink: git (a draft's worktree) prints the resolved form, Herdr may show a space in the other.
+    this.devReal = null;
+    exec("realpath", [`${home()}/dev`]).then((r) => { if (r.code === 0) this.devReal = r.stdout.trim(); }).catch(() => {});
     const read = () => readTextFile(`${appHome()}/config.json`).catch(() => null)
       .then((text) => { this.config = parseConfig(text).config ?? null; });
     // containers() waits for the first read: before it, the work machine would get no deployments for a minute.
@@ -363,10 +366,14 @@ export default class PullRequest extends View {
     const opens = shared("pr-open") ?? {};
     const pending = (k) => ["asked", "opening"].includes(opens[k]?.state);
     // ⌨ tells what its click does from the folder status-jc found (entry.work): missing, there, or shown by a local space.
-    const local = spaces().filter((s) => !s.machine).flatMap((s) => {
+    const localSpaces = spaces().filter((s) => !s.machine).map((s) => {
       const tabs = new Set(s.tabs.map((x) => x.id));
-      return [s.folder, ...panes().filter((p) => tabs.has(p.tab)).map((p) => p.cwd)];
-    }).filter(Boolean);
+      const folders = [s.folder, ...panes().filter((p) => tabs.has(p.tab)).map((p) => p.cwd)].filter(Boolean);
+      // Both forms: a draft's worktree comes from git (resolved), a ready PR's -watch folder is built under ~/dev.
+      const dev = `${home()}/dev`;
+      return { name: s.name, folders: [...new Set(folders.flatMap((f) => [f, realFolder(f, dev, this.devReal), this.devReal ? realFolder(f, this.devReal, dev) : f]))] };
+    });
+    const local = localSpaces.flatMap((s) => s.folders);
     // held is kept: the opening still owns the PR's pause, reopening its space must not make it the user's.
     const askWork = (k) => { if (!pending(k)) setShared("pr-open", { ...(shared("pr-open") ?? {}), [k]: { state: "asked", at: Date.now(), held: opens[k]?.state === "held", folders: opens[k]?.folders } }); };
     const work = (k, w) => {
@@ -430,27 +437,33 @@ export default class PullRequest extends View {
     };
     const band = (k, entry) => h_flex().gap(2).py(3)
       .children(bandStates(entry.band, merges[k]).map((state, i) => cellOf(k, entry, STEPS[i], state, paused.includes(k))));
-    const row = ([k, entry]) => {
+    // showRepo: in « À toi », PRs of several repos; in a repo's group its header names it.
+    const row = ([k, entry], showRepo) => {
       const [color] = look(entry.label), [repo, number] = k.split("#");
       // The chip carries the status; "dépend de toi" would only repeat « à toi ».
       const why = [entry.clock?.yours ? null : clockText(entry.clock, Date.now()), entry.why].filter(Boolean).join(" · ");
-      const actions = actionsOf(k, entry);
-      // An ok PR folds to its name and band: its title and why come back as soon as its label changes.
-      const folded = entry.label === "ok" && !entry.error && !pending(k) && !opens[k]?.error;
+      const actions = actionsOf(k, entry), shownIn = spaceShowing(entry.work, localSpaces);
+      // An ok PR folds its why: its title stays, the PR is found by it; the why comes back as soon as its label changes.
+      // A refused merge puts the PR in « À toi »: its row must not fold as a finished one.
+      const folded = entry.label === "ok" && !entry.error && !merges[k]?.refused && !pending(k) && !opens[k]?.error;
       const picked = keyboard && k === this.sel;
       return v_flex().id(`watch-${k}`).gap(2).rounded(8).px(8).py(7).cursor_pointer().hover((s) => s.bg(t.hover).border_color(picked ? t.accent : t.hover))
         .border_1().border_color(picked ? t.accent : t.background).when(picked, (e) => e.bg(t.hover))
-        .tooltip(blocked(entry) ? BLOCKER_VERB[entry.blocker.step] ?? "Ouvrir le check en échec" : folded && entry.title ? entry.title : entry.launched ? "Aller à l'agent" : "Ouvrir la PR")
+        .tooltip(blocked(entry) ? BLOCKER_VERB[entry.blocker.step] ?? "Ouvrir le check en échec" : entry.launched ? "Aller à l'agent" : "Ouvrir la PR")
         .on_click(() => open(entry))
         .child(h_flex().gap(6).items_center()
-          .child(div().text_size(12).font_semibold().child(repo.split("/").pop()))
+          .when(showRepo, (e) => e.child(div().text_size(12).font_semibold().child(repo.split("/").pop())))
           // The number always opens the PR, also on a row whose click opens its blocker.
           .child(h_flex().id(`num-${k}`).h(20).px(4).items_center().rounded(4).text_size(12).text_color(t.dim).cursor_pointer().hover((s) => s.bg(t.hover).text_color(t.accent))
-            .tooltip("Ouvrir la PR").accessibility_label(`Ouvrir la PR #${number}`)
+            .tooltip("Ouvrir la PR").accessibility_label(`Ouvrir la PR ${repo.split("/").pop()} #${number}`)
             .on_click((_e, cx) => { cx.stop_propagation(); exec("open", [entry.url]); }).child(`#${number}`))
+          // Goes to that space, as ⌨ does: a label that names a space must not open the PR.
+          .when(Boolean(shownIn), (e) => e.child(h_flex().id(`space-${k}`).min_w(0).h(20).px(4).items_center().rounded(4).truncate().text_size(11).text_color(t.dim)
+            .cursor_pointer().hover((x) => x.bg(t.hover).text_color(t.accent)).tooltip("Aller au space").accessibility_label(`Aller au space ${shownIn}`)
+            .on_click((_e, cx) => { cx.stop_propagation(); askWork(k); }).child(`space ${shownIn}`)))
           .child(div().flex_1())
           .child(work(k, entry.work)).child(pause(k)).child(chip(entry.label ?? "", color).tooltip(LABEL_HELP[entry.label] ?? "")))
-        .when(Boolean(entry.title) && !folded, (e) => e.child(div().text_size(12).text_color(t.muted).truncate().child(entry.title)))
+        .when(Boolean(entry.title), (e) => e.child(div().text_size(12).text_color(t.muted).truncate().child(entry.title)))
         .when(Array.isArray(entry.band), (e) => e.child(band(k, entry)))
         .when(Boolean(why) && !folded, (e) => e.child(div().text_size(11).text_color(t.dim).child(why)))
         .when(actions.length > 0, (e) => e.child(h_flex().gap(12).flex_wrap().pt(2).children(actions)))
@@ -470,8 +483,12 @@ export default class PullRequest extends View {
       if (n >= 1 && n <= 9) setShared("pr-watch", { on: false, prs: {}, error: null, at: 0, ...cur, maxAgents: n });
     };
     const drafts = entries.filter(([, e]) => isDraft(e)).length;
-    const sorted = [...entries].filter(([, e]) => !hiddenDraft(e, hideDrafts)).sort(([, a], [, b]) => rank(a.label) - rank(b.label)); // stable: registry order within a label
-    // shortcut: the selected row is not scrolled into view; with ok PRs folded the list rarely outgrows the panel.
+    // « À toi » first, then one group per repo (model.js watchSections); the keys follow the shown order.
+    const sections = watchSections(entries.filter(([, e]) => !hiddenDraft(e, hideDrafts)), merges, rank);
+    const sorted = sections.flatMap((x) => x.rows);
+    // shortcut: the selected row is not scrolled into view (the rows are not the scroll area's direct children, which
+    // ScrollHandle.scroll_to_item needs); with group headers and ok titles the list does outgrow the panel: give the list
+    // its own scroll handle once picking an off-screen row bites.
     this.keys = sorted.map(([k]) => k); this.byKey = Object.fromEntries(sorted);
     // Nothing is picked until an arrow key picks it: a click that gave the list the keys must not arm p, t or Enter on a row.
     if (this.sel && !this.keys.includes(this.sel)) this.sel = null;
@@ -494,13 +511,18 @@ export default class PullRequest extends View {
           .when(hideDrafts, (c) => c.text_color(t.dim))
           .child(hideDrafts ? `Brouillons masqués (${drafts})` : `Brouillons (${drafts})`))))
       .when(Boolean(reg?.error), (e) => e.child(div().text_size(11).text_color(t.ansi1).child(reg.error)))
-      .child(v_flex().gap(1).pt(4).children(sorted.map(row)));
+      .child(v_flex().gap(1).pt(4).children(sections.flatMap((x) => [
+        // « À toi » as a section; a repo keeps its case, as on the rows, GitHub and the spaces.
+        x.repo === null ? section(`${x.title} (${x.rows.length})`).text_color(t.blocked)
+          : div().pt(10).pb(4).text_size(12).font_semibold().text_color(t.dim).child(x.title),
+        ...x.rows.map((r) => row(r, x.repo === null)),
+      ])));
 
     // The "?" help: the watch's workflow, its colors and the buttons; the details sit in each tooltip.
     const legend = (items) => v_flex().gap(4).children(items.map(([mark, text]) => h_flex().gap(8).items_start()
       .child(div().w(44).flex_none().child(mark)).child(div().flex_1().min_w(0).text_color(t.muted).child(text))));
     const help = v_flex().gap(4).mb(10).p(10).rounded(8).bg(t.raised).text_size(11)
-      .child(div().text_color(t.muted).child(`Tes PR ouvertes de ${this.config?.owners.join(", ") ?? "tes organisations (config.json absent ou invalide : lance yadm alt)"} touchées depuis 7 jours, `
+      .child(div().text_color(t.muted).child(`Tes PR ouvertes de ${this.config?.owners.join(", ") ?? "tes organisations (config.json absent ou invalide : lance yadm alt)"} touchées depuis 7 jours (un brouillon seulement si un space montre sa branche), `
         + "qu'un tour (toutes les 2 min, le bouton rafraîchir de l'en-tête pour tout de suite) fait avancer en lançant un agent pour l'étape suivante. La PR de la branche affichée a son propre panneau, Pull request."))
       .child(section("Étapes, dans l'ordre"))
       .child(legend(STEPS.map((s) => [cellOf("help", {}, s, "todo"), STEP_HELP[s]])))

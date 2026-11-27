@@ -1,7 +1,7 @@
 // node --test ~/.config/herdr-app/mods/pr/model.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { jenkinsBuild, checks, otherChecks, summary, minutes, parseContainers, deploymentsFor, deployKey, watchBranch, remember, clockText, workLook, rowActions, bandStates, nextRound, isDraft, hiddenDraft, sessionOf } from "./model.js";
+import { jenkinsBuild, checks, otherChecks, summary, minutes, parseContainers, deploymentsFor, deployKey, watchBranch, remember, clockText, workLook, rowActions, bandStates, nextRound, isDraft, hiddenDraft, sessionOf, watchSections, spaceShowing, realFolder } from "./model.js";
 
 test("jenkins build url", () => {
   assert.deepEqual(jenkinsBuild("https://jenkins.vidal.net/job/team.software/job/github/job/arthur/job/PR-5459/1/display/redirect"),
@@ -174,4 +174,43 @@ test("moveSel: arrows walk the rows, stop at the ends, start on the first", asyn
   assert.equal(moveSel(["a", "b", "c"], "a", 1), "b");
   assert.equal(moveSel(["a", "b", "c"], "c", 1), "c");
   assert.equal(moveSel(["a", "b", "c"], "a", -1), "a");
+});
+
+const rankOf = (l) => ["à toi", "erreur", "agent en cours", "en attente", "ok"].indexOf(l);
+const E = (label) => ({ label });
+test("watchSections: mine first, then repos by their most urgent PR, a PR shown once", () => {
+  const s = watchSections([["o/b#1", E("ok")], ["o/a#2", E("en attente")], ["o/b#3", E("à toi")], ["o/a#4", E("ok")], ["o/b#5", E("erreur")]], {}, rankOf);
+  assert.deepEqual(s.map((x) => [x.title, x.rows.map(([k]) => k)]), [["À toi", ["o/b#3"]], ["b", ["o/b#5", "o/b#1"]], ["a", ["o/a#2", "o/a#4"]]]);
+});
+test("watchSections: a refused merge goes to À toi", () => {
+  assert.equal(watchSections([["o/a#1", E("ok")]], { "o/a#1": { refused: true } }, rankOf)[0].title, "À toi");
+});
+test("watchSections: no À toi section when nothing waits on me", () => {
+  assert.deepEqual(watchSections([["o/a#1", E("ok")]], {}, rankOf).map((x) => x.title), ["a"]);
+});
+test("watchSections: two owners' repos of one name keep their owner", () => {
+  assert.deepEqual(watchSections([["o/a#1", E("ok")], ["p/a#2", E("ok")]], {}, rankOf).map((x) => x.title), ["o/a", "p/a"]);
+});
+test("watchSections: repos of equal urgency by name", () => {
+  assert.deepEqual(watchSections([["o/z#1", E("ok")], ["o/a#2", E("ok")]], {}, rankOf).map((x) => x.title), ["a", "z"]);
+});
+test("spaceShowing: the space whose folders hold the worktree", () => {
+  const sp = [{ name: "renono", folders: ["/r/wt/x/src"] }];
+  assert.equal(spaceShowing({ folder: "/r/wt/x" }, sp), "renono");
+  assert.equal(spaceShowing({ folder: "/r/wt/y" }, sp), null);
+  assert.equal(spaceShowing({ folder: "/r/wt/x" }, [{ name: "n", folders: ["/r/wt/x2"] }]), null);
+  assert.equal(spaceShowing(null, sp), null);
+});
+test("realFolder: a folder under the ~/dev link takes git's resolved form", () => {
+  assert.equal(realFolder("/Users/me/dev/arthur", "/Users/me/dev", "/Volumes/src"), "/Volumes/src/arthur");
+  assert.equal(realFolder("/Users/me/dev", "/Users/me/dev", "/Volumes/src"), "/Volumes/src");
+  assert.equal(realFolder("/Users/me/devel/x", "/Users/me/dev", "/Volumes/src"), "/Users/me/devel/x");
+  assert.equal(realFolder("/Users/me/dev/x", "/Users/me/dev", null), "/Users/me/dev/x");
+});
+test("spaceShowing: a space on the ~/dev form of the worktree, once resolved", () => {
+  const sp = [{ name: "arthur", folders: ["/Users/me/dev/agents-worktree/arthur/feat-x"].map((f) => realFolder(f, "/Users/me/dev", "/Volumes/src")) }];
+  assert.equal(spaceShowing({ folder: "/Volumes/src/agents-worktree/arthur/feat-x" }, sp), "arthur");
+});
+test("realFolder: swapped arguments give the ~/dev form of a resolved folder", () => {
+  assert.equal(realFolder("/Volumes/src/agents-worktree/a/x-watch", "/Volumes/src", "/Users/me/dev"), "/Users/me/dev/agents-worktree/a/x-watch");
 });

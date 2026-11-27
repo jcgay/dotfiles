@@ -99,11 +99,43 @@ export function clockText(clock, now) {
   ].filter(Boolean).join(" · ") || null;
 }
 
+const holds = (folder, f) => f === folder || f.startsWith(`${folder}/`);
+
 // What ⌨ shows for entry.work ({ folder, exists } or null without a clone), given the folders local spaces show.
 export function workLook(work, folders) {
-  const shown = Boolean(work?.folder) && folders.some((f) => f === work.folder || f.startsWith(`${work.folder}/`));
+  const shown = Boolean(work?.folder) && folders.some((f) => holds(work.folder, f));
   const tip = !work ? "Travailler dessus" : shown ? "Aller au space" : work.exists ? "Ouvrir le worktree" : "Créer le worktree et travailler dessus";
   return { tip, missing: Boolean(work) && !work.exists, shown };
+}
+
+// ~/dev is a symlink (to /Volumes/sourcecode): Herdr shows a space in either form, git prints the resolved one.
+// path under link → the same under real; real null (not resolved yet): unchanged.
+export function realFolder(path, link, real) {
+  if (!real || !(path === link || path.startsWith(`${link}/`))) return path;
+  return real + path.slice(link.length);
+}
+
+// The name of the local space showing entry.work's folder, or null. spaces: [{ name, folders }].
+export function spaceShowing(work, spaces) {
+  if (!work?.folder) return null;
+  return spaces.find((s) => s.folders.some((f) => holds(work.folder, f)))?.name ?? null;
+}
+
+// The watch list's sections: « À toi » (status-jc's waitingOnMe, copied: a label « à toi » or a refused merge), then one
+// per repo, the repo of the most urgent PR first, then by name. Within a section: by rank, registry order on a tie.
+// entries: [key "owner/repo#N", entry], merges: shared("pr-merge"), rank: label → number (lower first).
+export function watchSections(entries, merges, rank) {
+  const byRank = (rows) => [...rows].sort(([, a], [, b]) => rank(a.label) - rank(b.label));
+  const mine = entries.filter(([k, e]) => e.label === "à toi" || merges?.[k]?.refused);
+  const rest = entries.filter((x) => !mine.includes(x));
+  const repos = new Map();
+  for (const x of rest) { const repo = x[0].split("#")[0]; repos.set(repo, [...(repos.get(repo) ?? []), x]); }
+  const names = [...repos.keys()].map((r) => r.split("/").pop());
+  const groups = [...repos].map(([repo, rows]) => {
+    const short = repo.split("/").pop();
+    return { title: names.filter((n) => n === short).length > 1 ? repo : short, repo, rows: byRank(rows), best: Math.min(...rows.map(([, e]) => rank(e.label))) };
+  }).sort((a, b) => a.best - b.best || a.title.localeCompare(b.title)).map(({ best, ...g }) => g);
+  return [...(mine.length ? [{ title: "À toi", repo: null, rows: byRank(mine) }] : []), ...groups];
 }
 
 // The row's ⤵ and ⇥/✕: merge and squash are the PR's requests in shared("pr-merge") and shared("pr-squash").

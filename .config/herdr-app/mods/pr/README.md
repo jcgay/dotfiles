@@ -3,7 +3,7 @@
 Notre mod (pas un clone). Il remplit trois blocs du panneau latéral du layout `jc`, choisis par sa prop `view` :
 
 - `pr` (bouton Pull request de `tabs-jc`, `⌘⇧R`) : la PR de la branche affichée, son build Jenkins, où elle est déployée et ses checks ;
-- `watch` (`view: watch`, bouton Surveillance des PR, `⌘⇧U`) : la **Surveillance**, la liste des PR que `status-jc` suit, avec l'interrupteur, le bouton ⌨ « Travailler dessus » et le bouton pause. ⌨ ouvre un espace Claude dans le worktree de la PR : celui de la branche pour un brouillon, le `-watch` pour une PR prête, qui est alors mise en pause jusqu'à la fermeture de cet espace ; « ouverture… » puis l'éventuelle erreur s'affichent sous la ligne. Le panneau ne fait que l'afficher et écrire l'interrupteur, les pauses et les demandes d'ouverture (`shared("pr-open")`) ; toute la logique est dans [`status-jc`](../status-jc/README.md).
+- `watch` (`view: watch`, bouton Surveillance des PR, `⌘⇧U`) : la **Surveillance**, la liste des PR que `status-jc` suit (un brouillon seulement tant qu'un space ou une pane montre sa branche), avec l'interrupteur, le bouton ⌨ « Travailler dessus » et le bouton pause. ⌨ ouvre un espace Claude dans le worktree de la PR : celui de la branche pour un brouillon, le `-watch` pour une PR prête, qui est alors mise en pause jusqu'à la fermeture de cet espace ; « ouverture… » puis l'éventuelle erreur s'affichent sous la ligne. Le panneau ne fait que l'afficher et écrire l'interrupteur, les pauses et les demandes d'ouverture (`shared("pr-open")`) ; toute la logique est dans [`status-jc`](../status-jc/README.md).
 
 - `ci` (`view: ci`, bouton CI, `⌘⇧I`) : le dernier build Jenkins (ou les derniers runs GitHub Actions sans `jenkins` dans `config.json`) des branches longues des dépôts où j'ai contribué, avec **Corriger** (voir [plus bas](#ci-des-branches-longues-view-ci)).
 
@@ -31,12 +31,21 @@ feat/x → master · revue demandée à alice
 Surveillance des PR               tour dans 1 min  [rafraîchir]  ?
 ────────────────────────────────────────────────────────────
 ● Surveillance active  − Agents 2/3 +  karadoc libre
-arthur #5471                         [terminal] [pause] [agent en cours]
+À TOI (1)                                                ← ce que toi seul peux débloquer
+arthur #5480                         [terminal] [pause] [à toi]
+  Corrige le tri des ordonnances
+  [git][jenk][sonar][rev][qa][demo][risk][appr][merge]
+  Jenkins encore en échec après 2 corrections
+  Ouvrir le log Jenkins
+arthur                                                   ← puis un groupe par dépôt
+#5471  space export-pdf              [terminal] [pause] [agent en cours]
   Ajoute l'export PDF des ordonnances
   [git][jenk][sonar][rev][qa][demo][risk][appr][merge]   ← la bande d'étapes
   qa depuis 12 min · prête à approuver dans ~35 min · agent qa lancé sur 1a2b3c4d
   Squasher 2 fixup!                                      ← les actions qui s'appliquent
-ordostruct #74                       [terminal] [pause] [ok]   ← une PR ok se replie : nom et bande
+ordostruct
+#74                                  [terminal] [pause] [ok]   ← une PR ok replie son explication
+  Ajoute la posologie pédiatrique
   [git][jenk][sonar][rev][qa][demo][risk][appr][merge]
 ```
 
@@ -47,7 +56,9 @@ ordostruct #74                       [terminal] [pause] [ok]   ← une PR ok se 
 - **Bande d'étapes**, calculée par `status-jc` : vert fait, orange clignotant en cours (agent, CI, merge armé), orange fixe en attente d'une approbation humaine, rouge en échec que la surveillance corrige, violet à toi, gris à venir, pointillé jamais fait dans ce repo (pas de CI, de Sonar, de qa ou de `## Demo`). Un brouillon n'a que git, jenk et sonar ; une PR en pause a sa bande en contours (les étapes faites gardent leur teinte, rien ne clignote). Un clic sur une case d'agent (git, jenk, sonar, rev, qa, demo, risk) rouvre sa dernière session Claude : l'onglet `⟳` tant que l'agent tourne, sinon un onglet `↺ #N <étape>` qui lance `claude --resume` dans le worktree où il a tourné (`status-jc` lance chaque agent avec `--session-id` et garde l'id dans `entry.sessions`).
 - **Clavier** : ouvert par `⌘⇧U`, le bouton ou « N PR à toi » de la barre d'état (chacun écrit `shared("watch-focus")`), ou après un clic dans le panneau, la liste prend le clavier, et le cadre du panneau passe en couleur d'accent. ↑/↓ choisit une PR (cadre en couleur d'accent), Entrée va à son agent ou ouvre la PR, `p` la met en pause ou la reprend, `t` ouvre son worktree, Échap rend le clavier au terminal affiché (`pane.focus`). Aucune PR n'est choisie avant une flèche : Entrée, `p` et `t` ne font rien tant qu'une flèche n'a pas désigné une ligne, et une flèche replie l'aide pour que la ligne reste visible. Fermer le panneau pendant qu'il a le clavier le rend aussi au terminal. Un panneau rouvert par un changement de space ne prend pas le clavier. La ligne choisie ne défile pas toute seule dans la vue.
 - Une PR **à toi** abandonnée sur Jenkins ou Sonar ouvre au clic ce qui bloque (la console du build, ou l'analyse Sonar : `entry.blocker`, publié par `status-jc`), avec le verbe « Ouvrir le log Jenkins » ou « Ouvrir l'analyse Sonar » sous la ligne. Son numéro ouvre toujours la PR. Sans blocage connu (conflit, worktree occupé…), le clic reste l'agent ou la PR.
-- Une PR **ok** se replie sur son nom et sa bande : son titre passe en infobulle, son explication disparaît. Tout revient dès que son étiquette change. Le statut est porté par la puce seule (plus de point à gauche), et l'explication d'une PR « à toi » ne répète plus « dépend de toi ».
+- **Sections** : d'abord **À toi (N)**, les PR que la barre d'état compte dans « N PR à toi » (étiquette « à toi », ou merge armé refusé), avec leur dépôt sur la ligne ; puis un groupe par dépôt, son nom en en-tête (avec le propriétaire si deux dépôts ont le même nom), le dépôt de la PR la plus urgente en premier, puis par nom. Une PR n'apparaît qu'une fois. Dans une section, le tri par urgence reste (à toi, erreur, pas de clone local, agent en cours, en attente, brouillon, en pause, ok). ↑/↓ suit cet ordre.
+- **space &lt;nom&gt;** après le numéro : le space local qui montre le worktree de la PR (le même que la pastille du terminal, sous ses deux formes, `~/dev` étant un lien vers `/Volumes/sourcecode`) ; un clic y va, comme le terminal.
+- Une PR **ok** replie son explication (sauf si son merge armé a été refusé : elle est alors dans À toi) ; son titre reste, c'est par lui qu'on la retrouve. Tout revient dès que son étiquette change. Le statut est porté par la puce seule (plus de point à gauche), et l'explication d'une PR « à toi » ne répète plus « dépend de toi ».
 - La ligne du dessous commence par l'étape en cours et sa durée, puis l'estimation « prête à approuver dans ~X » (médiane des passages précédents, rien avant 3 mesures), ou « dépend de toi ».
 - **Actions**, en toutes lettres sous la ligne, seulement quand elles s'appliquent : **Passer prête pour review** (brouillon : `gh pr ready`, comme le bouton **Prête pour review** de Pull request, puis un tour : ses reviews partent sans attendre les 2 min), **Squasher N fixup!** (à tout moment, brouillon compris, comme le panneau Pull request ; sans clic, la surveillance attend l'approbation ; un premier clic la change en « Confirmer le push forcé » pendant 4 s, un second la lance), **Merger quand tout est vert**, **Désarmer le merge**, ou **Effacer le refus du merge** sous l'erreur de GitHub.
 - Les icônes à droite du nom : **terminal** (« Travailler dessus », voir plus haut) et **pause / lecture**. Le terminal est pâli quand son worktree n'existe pas encore, a une pastille quand un space le montre déjà.
@@ -133,7 +144,7 @@ Design : [CI des branches longues](../../docs/2026-11-24-ci-watch-design.md).
 | Fichier | Rôle |
 |---|---|
 | `main.js` | La vue : récupération (gh, jk, Docker), caches, rendu des deux parties. |
-| `model.js` | Fonctions pures testées : URL Jenkins → job, checks de gh, résumé, durées, parsing Docker, correspondance des déploiements, branche d'un worktree de surveillance, cache borné, et ce que montre la Surveillance (texte du temps, aspect de ⌨, actions Squasher et Merger, cases de la bande, prochain tour). |
+| `model.js` | Fonctions pures testées : URL Jenkins → job, checks de gh, résumé, durées, parsing Docker, correspondance des déploiements, branche d'un worktree de surveillance, cache borné, et ce que montre la Surveillance (sections À toi et par dépôt, space qui montre une PR, texte du temps, aspect de ⌨, actions Squasher et Merger, cases de la bande, prochain tour). |
 | `model.test.mjs` | Tests de `model.js`. |
 | `ci.js` | La vue CI : récupération (gh, jk), cache des dépôts et jobs, rendu, relance et Corriger. |
 | `ci-model.js` | Fonctions pures de la vue CI : branches longues, lecture des réponses gh / jk, état d'une ligne, fix en cours, tri, consigne de l'agent. |
@@ -151,4 +162,4 @@ Tests : `node --test ~/.config/herdr-app/mods/pr/*.test.mjs`. Vérification du m
 - `model.js` n'importe rien de Herdr, sinon Node ne peut pas le tester.
 - Jenkins n'a pas le plugin Pipeline Graph View : pas d'étapes, seulement résultat, tests et durée.
 
-Designs : [bande d'étapes](../../docs/2026-11-20-pr-watch-pipeline-design.md), [brouillons masqués](../../docs/2026-11-20-pr-watch-drafts-filter-design.md), [aspect du panneau](../../docs/2026-11-16-pr-panel-look-design.md), [surveillance](../../docs/2026-11-14-pr-watch-design.md), [merge armé](../../docs/2026-11-17-pr-armed-merge-design.md).
+Designs : [bande d'étapes](../../docs/2026-11-20-pr-watch-pipeline-design.md), [brouillons masqués](../../docs/2026-11-20-pr-watch-drafts-filter-design.md), [aspect du panneau](../../docs/2026-11-16-pr-panel-look-design.md), [surveillance](../../docs/2026-11-14-pr-watch-design.md), [retrouver une PR](../../docs/2026-11-27-pr-watch-find-design.md), [merge armé](../../docs/2026-11-17-pr-armed-merge-design.md).
