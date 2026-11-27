@@ -79,7 +79,7 @@ export default class PullRequest extends View {
     // The watch list scrolls the picked row into view (its rows are the body's direct children) and filters on what is
     // typed in its field: repo, title, space or #N. "/" from the list goes to the field, Escape back to the list.
     this.scroll = ScrollHandle.new();
-    this.query = InputState.new({ placeholder: "Filtrer : dépôt, titre, space, #N  ( / )" });
+    this.query = InputState.new({ placeholder: "Filtrer (/) : dépôt, titre, space, #N" });
     this.queryFocused = false;
     this.query.on("change", (_e, cx) => { this.sel = null; this.scroll.scroll_to_item(0); cx.notify(); });
     this.query.on("focus", (_e, cx) => { this.queryFocused = true; cx.notify(); });
@@ -468,7 +468,7 @@ export default class PullRequest extends View {
       if (!state) return cell;
       const s = sessionOf(entry.sessions, label);
       const tip = [`${label} : ${STATE_HELP[state] ?? state}`, s && `clic : rouvrir la session Claude de ${s.step}`].filter(Boolean).join(" · ");
-      return cell.when(!thin, (e) => e.child(label)).when(thin, (e) => e.tooltip(tip))
+      return cell.accessibility_label(tip).when(!thin, (e) => e.child(label)).when(thin, (e) => e.tooltip(tip))
         .when(Boolean(s), (e) => e.cursor_pointer().hover((x) => x.opacity(0.8)).when(!thin, (x) => x.tooltip(`Rouvrir la session Claude de ${s.step}`))
           .on_click((_e, cx) => { cx.stop_propagation(); resume(k.split("#")[1], s); }))
         .when(Boolean(fills[state]) && !quiet, (e) => e.bg(fills[state]).text_color(t.background))
@@ -498,7 +498,7 @@ export default class PullRequest extends View {
         .child(h_flex().gap(6).items_center()
           .when(showRepo, (e) => e.child(repoMark(repo)).child(div().text_size(12).font_semibold().child(repo.split("/").pop())))
           // The number always opens the PR, also on a row whose click opens its blocker.
-          .child(h_flex().id(`num-${k}`).h(20).px(4).items_center().rounded(4).text_size(12).text_color(t.dim).cursor_pointer().hover((s) => s.bg(t.hover).text_color(t.accent))
+          .child(h_flex().id(`num-${k}`).h(20).px(4).items_center().rounded(4).text_size(12).text_color(t.muted).cursor_pointer().hover((s) => s.bg(t.hover).text_color(t.accent))
             .tooltip("Ouvrir la PR").accessibility_label(`Ouvrir la PR ${repo.split("/").pop()} #${number}`)
             .on_click((_e, cx) => { cx.stop_propagation(); exec("open", [entry.url]); }).child(`#${number}`))
           // Goes to that space, as ⌨ does: a label that names a space must not open the PR.
@@ -549,11 +549,12 @@ export default class PullRequest extends View {
         // The ceiling of watch agents at once: status-jc reads pr-watch.maxAgents live, its default (3) until set here.
         .child(h_flex().gap(2).items_center()
           .child(rowButton("agents-less", maxAgents <= 1 ? "Minimum : 1 agent de surveillance"
-            : `Un agent de surveillance de moins (${maxAgents} au plus ; ceux en cours continuent)`, () => addMax(-1)).when(maxAgents <= 1, (e) => e.opacity(0.4)).child("−"))
+            : `Un agent de surveillance de moins (${maxAgents} au plus ; ceux en cours continuent)`, () => addMax(-1)).border_1().border_color(t.border).when(maxAgents <= 1, (e) => e.opacity(0.4)).child("−"))
           .child(div().child(`Agents ${reg?.agents?.busy ?? 0}/${maxAgents}`))
           .child(rowButton("agents-more", maxAgents >= 9 ? "Maximum : 9 agents de surveillance"
-            : `Un agent de surveillance de plus (${maxAgents} au plus)`, () => addMax(1)).when(maxAgents >= 9, (e) => e.opacity(0.4)).child("+")))
-        .when(Boolean(reg?.agents), (e) => e.child(div().child(reg.karadoc ? `karadoc pris (${reg.karadoc.replace(/^⟳ /, "")})` : "karadoc libre")))
+            : `Un agent de surveillance de plus (${maxAgents} au plus)`, () => addMax(1)).border_1().border_color(t.border).when(maxAgents >= 9, (e) => e.opacity(0.4)).child("+")))
+        // Only when taken: a free karadoc needs nothing from anyone.
+        .when(Boolean(reg?.karadoc), (e) => e.child(div().child(`karadoc pris (${reg.karadoc.replace(/^⟳ /, "")})`)))
         .when(drafts > 0, (e) => e.child(h_flex().id("watch-drafts").h(22).px(8).items_center().rounded(11).border_1().border_color(t.border).cursor_pointer()
           .hover((s) => s.bg(t.hover)).tooltip(hideDrafts ? "Afficher les brouillons" : "Masquer les brouillons")
           .on_click(() => setShared("pr-watch-view", { ...(shared("pr-watch-view") ?? {}), hideDrafts: !hideDrafts }))
@@ -567,16 +568,16 @@ export default class PullRequest extends View {
       .child(Input.new(this.query).flex_1().min_w(0).text_size(12).text_color(t.foreground));
     // The fold of the PRs that wait on nobody but the watch, a colleague or the CI; a typed filter opens it.
     const toggleRest = () => setShared("pr-watch-view", { ...(shared("pr-watch-view") ?? {}), restOpen: !shared("pr-watch-view")?.restOpen });
-    const restHeader = h_flex().id("watch-rest").gap(6).items_center().px(8).pt(12).pb(4).text_size(11).font_semibold().text_color(t.dim)
+    const restHeader = h_flex().id("watch-rest").gap(6).items_center().px(8).pt(12).pb(4).text_size(12).font_semibold().text_color(t.dim)
       .when(!query, (e) => e.cursor_pointer().hover((x) => x.text_color(t.foreground)).on_click(toggleRest)
         .tooltip(restOpen ? "Replier" : "Déplier").accessibility_label(restOpen ? "Replier les autres PR" : "Déplier les autres PR"))
       .child(svg(`mods/workspace-chrome/chevron-${restOpen ? "down" : "right"}.svg`).size(12).flex_none())
-      .child(`RIEN D'AUTRE POUR TOI (${restCount})`);
+      .child(`Rien d'autre pour toi (${restCount})`);
     // Each header and row is a direct child of the scroll area: scroll_to_item reaches the picked row.
     // « À toi » as a section; a repo keeps its case, as on the rows, GitHub and the spaces.
     // px(8): the rows' own padding, so headers, icons and the rows' text share one left edge.
     const items = [
-      ...(mine ? [section(`${mine.title} (${mine.rows.length})`).px(8).text_color(t.ansi5), ...mine.rows.map((r) => row(r, true))] : []),
+      ...(mine ? [div().px(8).pt(10).pb(4).text_size(12).font_semibold().text_color(t.ansi5).child(`${mine.title} (${mine.rows.length})`), ...mine.rows.map((r) => row(r, true))] : []),
       ...(restCount ? [restHeader] : []),
       ...(restOpen ? rest.flatMap((x) => [
         h_flex().gap(6).items_center().px(8).pt(10).pb(4).text_size(12).font_semibold().text_color(t.dim).child(repoMark(x.repo)).child(x.title),

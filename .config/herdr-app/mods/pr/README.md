@@ -30,27 +30,29 @@ feat/x → master · revue demandée à alice
 ```
 Surveillance des PR               tour dans 1 min  [rafraîchir]  ?
 ────────────────────────────────────────────────────────────
-● Surveillance active  − Agents 2/3 +  karadoc libre
-À TOI (1)                                                ← ce que toi seul peux débloquer
+● Surveillance active  [−] Agents 2/3 [+]  karadoc pris (#5471 qa)
+[⌕ Filtrer (/) : dépôt, titre, space, #N            ]
+À toi (1)                                                ← ce que toi seul peux débloquer
 arthur #5480                         [terminal] [pause] [à toi]
   Corrige le tri des ordonnances
   [git][jenk][sonar][rev][qa][demo][risk][appr][merge]
   Jenkins encore en échec après 2 corrections
   Ouvrir le log Jenkins
-arthur                                                   ← puis un groupe par dépôt
+› Rien d'autre pour toi (2)                              ← replié par défaut ; déplié :
+arthur                                                   ← un groupe par dépôt
 #5471  space export-pdf              [terminal] [pause] [agent en cours]
-  Ajoute l'export PDF des ordonnances
-  [git][jenk][sonar][rev][qa][demo][risk][appr][merge]   ← la bande d'étapes
+  Ajoute l'export PDF des ordonnances                    ← le titre, en avant
+  ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬                   ← la bande, fine hors À toi et ligne choisie
   qa depuis 12 min · prête à approuver dans ~35 min · agent qa lancé sur 1a2b3c4d
-  Squasher 2 fixup!                                      ← les actions qui s'appliquent
 ordostruct
-#74                                  [terminal] [pause] [ok]   ← une PR ok replie son explication
+#74                                  [terminal] [pause] [attend relecture]   ← qui agit ensuite
   Ajoute la posologie pédiatrique
-  [git][jenk][sonar][rev][qa][demo][risk][appr][merge]
+  ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+  Merger quand tout est vert                             ← les actions qui s'appliquent
 ```
 
 - **En-tête** de la Surveillance : le temps avant le prochain tour (toutes les 2 min) ; le bouton rafraîchir en demande un tout de suite. C'est son seul rafraîchissement : elle ne fait que lire le registre de `status-jc`, sans appel gh. **Rafraîchir**, dans l'en-tête de Pull request, relit la PR de la branche.
-- **Bandeau** : l'interrupteur, les agents de surveillance occupés sur leur maximum (3 par défaut, de 1 à 9 avec − et +), l'onglet qui tient karadoc.
+- **Bandeau** : l'interrupteur, les agents de surveillance occupés sur leur maximum (3 par défaut, de 1 à 9 avec − et +), et l'onglet qui tient karadoc seulement quand il est pris.
 - **?** dans l'en-tête de la Surveillance déplie une aide : les neuf étapes dans l'ordre, les couleurs, les boutons et le clavier. Chaque statut a aussi son infobulle.
 - **Brouillons (N)** dans le bandeau masque les brouillons (il devient « Brouillons masqués (N) ») (en pause compris, sauf ceux « à toi », « erreur » ou « pas de clone local ») et les réaffiche ; le choix est gardé dans `shared("pr-watch-view")`, que `status-jc` ne réécrit pas.
 - **Titre** en couleur de texte, au-dessus de la bande : c'est par lui qu'on reconnaît une PR ; son infobulle donne le titre entier quand il est tronqué.
