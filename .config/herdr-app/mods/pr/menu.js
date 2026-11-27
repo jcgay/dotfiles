@@ -5,6 +5,7 @@ import { v_flex, h_flex } from "gpui-base";
 import { exec, theme, shared, setShared, props, closeOverlay, openOverlay, notify } from "herdr";
 import { menuItems } from "./model.js";
 
+const CONFIRM_MS = 4000; // as the row's squash link (main.js guarded)
 const blank = { on: false, prs: {}, error: null, at: 0 }; // a registry status-jc has not written yet
 
 // status-jc opens a space in the PR's worktree (opener.js); held: the opening owns the PR's pause.
@@ -27,9 +28,17 @@ export const requestSquash = (k) => setShared("pr-squash", { ...(shared("pr-squa
 // A round now: a PR just made ready for review starts its reviews without waiting the 2 min.
 export const askRound = () => setShared("pr-watch-now", { at: Date.now() });
 
+// Row k as status-jc wrote it, or the left-aside draft, and its menu items: the popup is sized and drawn from the same.
+function rowMenu(k, aside) {
+  const reg = shared("pr-watch") ?? {};
+  const entry = aside ? (reg.aside ?? []).find((d) => d.key === k) ?? { key: k } : reg.prs?.[k] ?? {};
+  const ctx = { aside: Boolean(aside), merge: shared("pr-merge")?.[k] ?? null, squash: shared("pr-squash")?.[k] ?? null, paused: (reg.paused ?? []).includes(k) };
+  return { k, entry, items: menuItems(entry, ctx) };
+}
+
 // Opens the menu of watch row k at the pointer; aside: a draft status-jc leaves aside (reg.aside).
 export function openRowMenu(k, aside) {
-  const n = menuItems(aside ? { key: k } : shared("pr-watch")?.prs?.[k] ?? {}, { aside }).length;
+  const n = rowMenu(k, aside).items.length;
   openOverlay({ mod: "pr", kind: "popup", width: 250, height: n * 31 + 10, props: { view: "menu", key: k, aside } });
 }
 
@@ -38,23 +47,26 @@ export class WatchMenu {
     this.handle = cx.focus_handle();
     this.handle.focus();
     this.at = 0;
-    this.confirm = false; // the squash's first click: a force push asks a second
+    this.confirm = 0; // when the squash was first clicked: a force push asks a second within CONFIRM_MS, as on the row
     this.busy = null; // "Passage en revue…" while gh pr ready runs
   }
 
-  // The row as status-jc wrote it, or the left-aside draft; ctx for menuItems.
   target() {
-    const p = props() ?? {}, reg = shared("pr-watch") ?? {};
-    const entry = p.aside ? (reg.aside ?? []).find((d) => d.key === p.key) ?? { key: p.key } : reg.prs?.[p.key] ?? {};
-    const ctx = { aside: Boolean(p.aside), merge: shared("pr-merge")?.[p.key] ?? null, squash: shared("pr-squash")?.[p.key] ?? null, paused: (reg.paused ?? []).includes(p.key) };
-    return { k: p.key, entry, items: menuItems(entry, ctx) };
+    const p = props() ?? {};
+    return rowMenu(p.key, p.aside);
   }
+
+  confirming() { return Date.now() - this.confirm < CONFIRM_MS; }
 
   close() { closeOverlay(props()?.overlay); }
 
   choose(item, cx) {
     const { k, entry } = this.target();
-    if (item.id === "squash" && !this.confirm) { this.confirm = true; cx.notify(); return; }
+    if (item.id === "squash" && !this.confirming()) {
+      this.confirm = Date.now();
+      cx.timer.after(CONFIRM_MS + 50, (cx) => cx.notify());
+      return cx.notify();
+    }
     if (item.id === "ready") return this.ready(entry, cx);
     if (item.id === "open") exec("open", [entry.url]);
     else if (item.id === "blocker") exec("open", [entry.blocker.url]);
@@ -81,6 +93,7 @@ export class WatchMenu {
 
   render(cx) {
     const t = theme(), { items } = this.target();
+    this.at = Math.max(0, Math.min(this.at, items.length - 1)); // a round may drop an item while the menu is open
     return v_flex().id("watch-menu").track_focus(this.handle).w_full().min_h(0).p(5).bg(t.popover).text_size(12.8)
       .on_key_down((e, cx) => {
         if (e.key === "down") this.at = (this.at + 1) % items.length;
@@ -92,9 +105,9 @@ export class WatchMenu {
       })
       .when(Boolean(this.busy), (e) => e.child(h_flex().h(31).px(8).items_center().text_color(t.muted).child(this.busy)))
       .when(!this.busy, (e) => e.children(items.map((it, i) => {
-        const label = it.id === "squash" && this.confirm ? "Confirmer le push forcé" : it.label;
+        const label = it.id === "squash" && this.confirming() ? "Confirmer le push forcé" : it.label;
         return h_flex().id(`wm-${it.id}`).h(31).px(8).rounded(7).items_center().cursor_pointer()
-          .text_color(it.id === "squash" && this.confirm ? t.blocked : t.foreground)
+          .text_color(it.id === "squash" && this.confirming() ? t.blocked : t.foreground)
           .when(i === this.at, (el) => el.bg(t.selected)).hover((s) => s.bg(t.hover))
           .on_click((_e, cx) => this.choose(it, cx))
           .child(div().flex_1().child(label));
