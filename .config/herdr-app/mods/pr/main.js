@@ -228,6 +228,8 @@ export default class PullRequest extends View {
       : div().size(7).rounded(4).flex_none().border_1().border_color(t.working).loop("opacity", { from: 0.3, to: 1, period: 1200 });
     // Type roles, shared with the Journal panel: 15 PR title, 13 panel title and base, 12 rows, 11 metadata and labels, 10 band cells.
     // filled: an agent at work, as the band's run cell; an outline stays for a wait on a human (the band's wait cell).
+    // A theme color at alpha aa (hex): the tokens are #rrggbb; one already carrying alpha is kept as is.
+    const tint = (c, aa) => (/^#[0-9a-f]{6}$/i.test(c) ? `${c}${aa}` : c);
     const chip = (text, color, filled = false) => div().px(6).py(1).rounded(4).border_1().border_color(color).text_size(11)
       .when(filled, (e) => e.bg(color).text_color(t.background)).when(!filled, (e) => e.text_color(color)).child(text);
     // Asks status-jc for a watch round now (the header's ↻).
@@ -488,8 +490,12 @@ export default class PullRequest extends View {
       // A refused merge puts the PR in « À toi »: its row must not fold as a finished one.
       const folded = entry.label === "ok" && !entry.error && !merges[k]?.refused && !pending(k) && !opens[k]?.error;
       const picked = keyboard && k === this.sel;
+      // « À toi » (showRepo) is the only colored part of the list: a faint violet fill and border. Elsewhere the state is
+      // a muted word, the thin band keeps the colors: what waits on someone else must not outshout what waits on me.
+      const mineRow = showRepo && !picked;
       return v_flex().id(`watch-${k}`).gap(2).rounded(8).px(8).py(7).cursor_pointer().hover((s) => s.bg(t.hover).border_color(picked ? t.accent : t.hover))
-        .border_1().border_color(picked ? t.accent : t.background).when(picked, (e) => e.bg(t.hover))
+        .border_1().border_color(picked ? t.accent : mineRow ? tint(t.ansi5, "4d") : t.background).when(picked, (e) => e.bg(t.hover))
+        .when(mineRow, (e) => e.bg(tint(t.ansi5, "14")))
         .tooltip(blocked(entry) ? BLOCKER_VERB[entry.blocker.step] ?? "Ouvrir le check en échec" : entry.launched ? "Aller à l'agent" : "Ouvrir la PR")
         .on_click(() => open(entry))
         .on_mouse_down("right", (_e, cx) => { cx.stop_propagation(); openRowMenu(k, false); })
@@ -504,7 +510,8 @@ export default class PullRequest extends View {
             .cursor_pointer().hover((x) => x.bg(t.hover).text_color(t.accent)).tooltip("Aller au space").accessibility_label(`Aller au space ${shownIn}`)
             .on_click((_e, cx) => { cx.stop_propagation(); askWork(k); }).child(`space ${shownIn}`)))
           .child(div().flex_1())
-          .child(work(k, entry.work)).child(pause(k)).child(chip(label, look(label)[0], label === "agent en cours").tooltip(LABEL_HELP[label] ?? "")))
+          .child(work(k, entry.work)).child(pause(k)).child(showRepo ? chip(label, look(label)[0], label === "agent en cours").tooltip(LABEL_HELP[label] ?? "")
+            : div().id(`state-${k}`).flex_none().text_size(11).text_color(t.muted).tooltip(LABEL_HELP[label] ?? "").child(label)))
         // The title is how a PR is found: foreground, its whole text in the tooltip when truncated.
         .when(Boolean(entry.title), (e) => e.child(div().id(`title-${k}`).text_size(13).text_color(t.foreground).truncate().tooltip(entry.title).child(entry.title)))
         // The full band with step names on « À toi » rows and the picked one; a thin bar elsewhere.
@@ -598,7 +605,7 @@ export default class PullRequest extends View {
     // « À toi » as a section; a repo keeps its case, as on the rows, GitHub and the spaces.
     // px(8): the rows' own padding, so headers, icons and the rows' text share one left edge.
     const items = [
-      ...(mine ? [div().px(8).pt(10).pb(4).text_size(12).font_semibold().text_color(t.ansi5).child(`${mine.title} (${mine.rows.length})`), ...mine.rows.map((r) => row(r, true))] : []),
+      ...(mine ? [div().px(8).pt(10).pb(6).text_size(13).font_semibold().text_color(t.ansi5).child(`${mine.title} (${mine.rows.length})`), ...mine.rows.map((r) => row(r, true))] : []),
       ...(restCount ? [restHeader] : []),
       ...(restOpen ? rest.flatMap((x) => [
         h_flex().gap(6).items_center().px(8).pt(10).pb(4).text_size(12).font_semibold().text_color(t.dim).child(repoMark(x.repo)).child(x.title),
