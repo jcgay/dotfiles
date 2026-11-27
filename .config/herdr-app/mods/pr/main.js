@@ -500,7 +500,7 @@ export default class PullRequest extends View {
             .tooltip("Ouvrir la PR").accessibility_label(`Ouvrir la PR ${repo.split("/").pop()} #${number}`)
             .on_click((_e, cx) => { cx.stop_propagation(); exec("open", [entry.url]); }).child(`#${number}`))
           // Goes to that space, as ⌨ does: a label that names a space must not open the PR.
-          .when(Boolean(shownIn), (e) => e.child(h_flex().id(`space-${k}`).min_w(0).h(20).px(4).items_center().rounded(4).truncate().text_size(11).text_color(t.dim)
+          .when(Boolean(shownIn), (e) => e.child(h_flex().id(`space-${k}`).min_w(0).h(20).px(4).items_center().rounded(4).truncate().text_size(11).text_color(t.muted)
             .cursor_pointer().hover((x) => x.bg(t.hover).text_color(t.accent)).tooltip("Aller au space").accessibility_label(`Aller au space ${shownIn}`)
             .on_click((_e, cx) => { cx.stop_propagation(); askWork(k); }).child(`space ${shownIn}`)))
           .child(div().flex_1())
@@ -566,7 +566,7 @@ export default class PullRequest extends View {
       .child(Input.new(this.query).flex_1().min_w(0).text_size(12).text_color(t.foreground));
     // The fold of the PRs that wait on nobody but the watch, a colleague or the CI; a typed filter opens it.
     const toggleRest = () => setShared("pr-watch-view", { ...(shared("pr-watch-view") ?? {}), restOpen: !shared("pr-watch-view")?.restOpen });
-    const restHeader = h_flex().id("watch-rest").gap(6).items_center().px(8).pt(12).pb(4).text_size(12).font_semibold().text_color(t.dim)
+    const restHeader = h_flex().id("watch-rest").gap(6).items_center().px(8).pt(12).pb(4).text_size(12).font_semibold().text_color(t.muted)
       .when(!query, (e) => e.cursor_pointer().hover((x) => x.text_color(t.foreground)).on_click(toggleRest)
         .tooltip(restOpen ? "Replier" : "Déplier").accessibility_label(restOpen ? "Replier les autres PR" : "Déplier les autres PR"))
       .child(svg(`mods/workspace-chrome/chevron-${restOpen ? "down" : "right"}.svg`).size(12).flex_none())
@@ -576,7 +576,7 @@ export default class PullRequest extends View {
     const aside = (reg?.aside ?? []).filter((d) => !query || matchesFilter(d.key, d, null, query));
     const asideOpen = Boolean(query) || Boolean(shared("pr-watch-view")?.asideOpen);
     const toggleAside = () => setShared("pr-watch-view", { ...(shared("pr-watch-view") ?? {}), asideOpen: !shared("pr-watch-view")?.asideOpen });
-    const asideHeader = h_flex().id("watch-aside").gap(6).items_center().px(8).pt(12).pb(4).text_size(12).font_semibold().text_color(t.dim)
+    const asideHeader = h_flex().id("watch-aside").gap(6).items_center().px(8).pt(12).pb(4).text_size(12).font_semibold().text_color(t.muted)
       .when(!query, (e) => e.cursor_pointer().hover((x) => x.text_color(t.foreground)).on_click(toggleAside)
         .tooltip("Brouillons qu'aucun space ne montre : la surveillance ne les suit pas").accessibility_label(asideOpen ? "Replier les brouillons hors surveillance" : "Déplier les brouillons hors surveillance"))
       .child(svg(`mods/workspace-chrome/chevron-${asideOpen ? "down" : "right"}.svg`).size(12).flex_none())
