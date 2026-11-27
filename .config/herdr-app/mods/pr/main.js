@@ -89,7 +89,7 @@ export default class PullRequest extends View {
     this.query.on("blur", (_e, cx) => { this.queryFocused = false; cx.notify(); });
     // Enter in the field: the first match, as a click on its row.
     // Only left-aside drafts match: Enter opens the first on GitHub (they are out of the arrow keys).
-    this.query.on("submit", () => { const k = this.keys?.[0]; if (k) this.openKey?.(k); else if (this.asideFirst) exec("open", [this.asideFirst.url]); });
+    this.query.on("submit", () => { const k = this.keys?.[0]; if (k) this.openKey?.(k); else if (this.query.value().trim() && this.asideFirst) exec("open", [this.asideFirst.url]); });
     this.context = null; this.pr = null; this.build = null; this.error = null; this.loading = false; this.note = null; this.checksOpen = false;
     this.confirms = {}; // action id -> time of its first click (squash pushes with --force: a second click confirms)
     this.deployed = []; this.scan = { at: 0, list: null, pending: null };
@@ -229,10 +229,11 @@ export default class PullRequest extends View {
       : div().size(7).rounded(4).flex_none().border_1().border_color(t.working).loop("opacity", { from: 0.3, to: 1, period: 1200 });
     // Type roles, shared with the Journal panel: 15 PR title, 13 panel title and base, 12 rows, 11 metadata and labels, 10 band cells.
     // filled: an agent at work, as the band's run cell; an outline stays for a wait on a human (the band's wait cell).
-    // A theme color at alpha aa (hex): the tokens are #rrggbb; one already carrying alpha is kept as is.
-    // « à toi » everywhere: the theme's ansi5 turned to violet (model.js violetOf).
-    const violet = violetOf(t.ansi5);
-    const tint = (c, aa) => (/^#[0-9a-f]{6}$/i.test(c) ? `${c}${aa}` : c);
+    // « à toi » everywhere: the theme's ansi5 turned to violet (model.js violetOf) for fills and borders; text and the
+    // band's me cell (dark text on it) take the bright ansi13 turned the same way: ansi5's violet is 2.97:1 on gruvbox.
+    const violet = violetOf(t.ansi5), violetText = violetOf(t.ansi13);
+    // A theme color at alpha aa (hex): #rrggbb gets it, #rrggbbaa has its own alpha replaced (kept, it painted opaque).
+    const tint = (c, aa) => (/^#[0-9a-f]{6}([0-9a-f]{2})?$/i.test(c) ? `${c.slice(0, 7)}${aa}` : c);
     const chip = (text, color, filled = false) => div().px(6).py(1).rounded(4).border_1().border_color(color).text_size(11)
       .when(filled, (e) => e.bg(color).text_color(t.background)).when(!filled, (e) => e.text_color(color)).child(text);
     // Asks status-jc for a watch round now (the header's ↻).
@@ -271,7 +272,8 @@ export default class PullRequest extends View {
     // A small outlined button: the band's done cells are teal too, a teal word under them read as one more cell.
     const action = (id, text, onClick, color) => h_flex().id(id).flex_none().h(22).px(8).items_center().rounded(5).text_size(11)
       // Muted at rest: in full white they outweighed the PR's title above them.
-      .border_1().border_color(t.border).text_color(color ?? t.muted).cursor_pointer().hover((s) => s.bg(t.hover).text_color(t.foreground))
+      // A colored one (red: a confirmation, a refused merge) keeps its color on hover.
+      .border_1().border_color(t.border).text_color(color ?? t.muted).cursor_pointer().hover((s) => (color ? s.bg(t.hover) : s.bg(t.hover).text_color(t.foreground)))
       .on_click((_e, cx) => { cx.stop_propagation(); onClick(cx); cx.notify(); }).child(text);
     // A force push asks a second click within 4 s; a stale "Confirmer" only arms it again.
     const CONFIRM_MS = 4000;
@@ -381,7 +383,7 @@ export default class PullRequest extends View {
     // Each label's color, dot and rank: what needs me first, finished PRs last.
     // « à toi » is violet everywhere (chip, section, the band's me cell, the status bar): red is the band's ko, a
     // failure the watch fixes itself.
-    const looks = { "à toi": [violet, "ko"], erreur: [t.ansi1, "ko"], "pas de clone local": [t.blocked, "ko"],
+    const looks = { "à toi": [violetText, "ko"], erreur: [t.ansi1, "ko"], "pas de clone local": [t.blocked, "ko"],
       "agent en cours": [t.working, "running"], "en attente": [t.muted, "idle"], brouillon: [t.dim, "idle"], "en pause": [t.dim, "idle"], ok: [t.done, "ok"],
       // The chips of an ok PR (model.js chipLabel): who acts next. Orange as the band's wait cell: a human must act.
       "attend relecture": [t.working, "idle"], "prête à merger": [t.done, "ok"], "squash à venir": [t.muted, "idle"], "merge armé": [t.done, "ok"] };
@@ -449,7 +451,7 @@ export default class PullRequest extends View {
     };
     // The step band status-jc computed (pipeline.js STEPS): nine slots, a draft fills three.
     const STEPS = ["git", "jenk", "sonar", "rev", "qa", "demo", "risk", "appr", "merge"];
-    const fills = { ok: t.done, run: t.working, ko: t.ansi1, me: violet }; // me: violet, t.blocked reads red in some themes
+    const fills = { ok: t.done, run: t.working, ko: t.ansi1, me: violetText }; // me: violet, t.blocked reads red in some themes
     // A cell with a Claude session behind it reopens it: its tab while the agent runs, else a new tab resuming it in its folder.
     const resume = (number, s) => {
       // A ↺ tab already resuming it: two claude --resume on one session would mix its transcript.
@@ -643,7 +645,7 @@ export default class PullRequest extends View {
     // « À toi » as a section; a repo keeps its case, as on the rows, GitHub and the spaces.
     // px(8): the rows' own padding, so headers, icons and the rows' text share one left edge.
     const items = [
-      ...(mine ? [div().px(8).pt(10).pb(6).text_size(13).font_semibold().text_color(violet).child(`${mine.title} (${mine.rows.length})`), ...mine.rows.map((r) => row(r, true))] : []),
+      ...(mine ? [div().px(8).pt(10).pb(6).text_size(13).font_semibold().text_color(violetText).child(`${mine.title} (${mine.rows.length})`), ...mine.rows.map((r) => row(r, true))] : []),
       ...(restCount ? [restHeader] : []),
       ...(restOpen ? rest.flatMap((x) => [
         // A repo group sits inside its fold: regular weight, under the fold header's semibold and rule.
@@ -682,7 +684,7 @@ export default class PullRequest extends View {
         [svg("mods/workspace-chrome/terminal.svg").size(14).text_color(t.dim), "ouvre un space Claude dans le worktree de la PR (une PR prête est mise en pause tant qu'il est ouvert)"],
         [h_flex().gap(4).child(svg("mods/pr/pause.svg").size(13).text_color(t.dim)).child(svg("mods/pr/play.svg").size(13).text_color(t.dim)), "met en pause ou reprend : rien n'est lancé sur une PR en pause"],
         ["clic droit", "sur une ligne, brouillon hors surveillance compris : un menu avec ses actions (passer prête pour review, merger, squasher…), ouvrir la PR, travailler dessus, pause"],
-        ["clic", "sur une ligne : le log Jenkins ou l'analyse Sonar d'une PR « à toi », sinon l'agent qui y travaille, sinon la PR ; sur le numéro : la PR ; sur une case d'agent : rouvre sa dernière session Claude"],
+        ["clic", "sur une ligne : le log Jenkins ou l'analyse Sonar d'une PR « à toi », sinon l'agent qui y travaille, sinon la PR ; sur le numéro : la PR ; sur une case d'agent de la bande entière (À toi, ligne choisie ; pas la barre fine) : rouvre sa dernière session Claude ; clic droit : toutes les actions de la ligne"],
       ]))
       .child(section("Clavier"))
       .child(legend([
