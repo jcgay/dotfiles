@@ -364,8 +364,9 @@ export default class PullRequest extends View {
     }
     const keyboard = this.view === "watch" && shown && (this.handle.is_focused() || this.queryFocused);
     // Closed while it held the keys (⌘⇧U again, the tab button): give them back to the terminal, as Escape does.
-    if (this.view === "watch" && !shown && this.handle.is_focused()) {
+    if (this.view === "watch" && !shown && (this.handle.is_focused() || this.queryFocused)) {
       this.sel = null;
+      this.queryFocused = false; // the hidden filter may not get its blur
       cx.timer.after(0, () => { const f = focused(); if (f?.pane) run("pane.focus", { pane: f.pane }); });
     }
     // The PR watch (status-jc writes it): all PRs, so it shows even without one in this space.
