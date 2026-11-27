@@ -241,6 +241,8 @@ export function menuItems(entry, { merge = null, squash = null, paused = false, 
     can.arm === "disarm" && { id: "disarm", label: "Désarmer le merge" },
     can.arm === "refused" && { id: "clear", label: "Effacer le refus du merge" },
     can.squash && { id: "squash", label: `Squasher ${entry.fixups} fixup! (push forcé)` },
+    // GitHub rebases the branch on its base (gh pr update-branch --rebase): the watch only does it on a conflict.
+    Boolean(entry.url) && { id: "rebase", label: "Rebaser sur la base (push forcé)" },
     ...common,
     paused ? { id: "resume", label: "Reprendre la surveillance" } : { id: "pause", label: "Mettre en pause" },
   ].filter(Boolean);

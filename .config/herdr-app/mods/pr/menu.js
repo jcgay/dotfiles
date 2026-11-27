@@ -5,7 +5,8 @@ import { v_flex, h_flex } from "gpui-base";
 import { exec, theme, shared, setShared, props, closeOverlay, openOverlay, notify } from "herdr";
 import { menuItems } from "./model.js";
 
-const CONFIRM_MS = 4000; // as the row's squash link (main.js guarded)
+const CONFIRM_MS = 4000;
+const FORCED = new Set(["squash", "rebase"]); // force pushes: a second click confirms // as the row's squash link (main.js guarded)
 const blank = { on: false, prs: {}, error: null, at: 0 }; // a registry status-jc has not written yet
 
 // status-jc opens a space in the PR's worktree (opener.js); held: the opening owns the PR's pause.
@@ -47,7 +48,7 @@ export class WatchMenu {
     this.handle = cx.focus_handle();
     this.handle.focus();
     this.at = 0;
-    this.confirm = 0; // when the squash was first clicked: a force push asks a second within CONFIRM_MS, as on the row
+    this.confirm = null; // { id, at }: a force push (squash, rebase) asks a second click within CONFIRM_MS, as on the row
     this.busy = null; // "Passage en revue…" while gh pr ready runs
   }
 
@@ -56,18 +57,19 @@ export class WatchMenu {
     return rowMenu(p.key, p.aside);
   }
 
-  confirming() { return Date.now() - this.confirm < CONFIRM_MS; }
+  confirming(id) { return this.confirm?.id === id && Date.now() - this.confirm.at < CONFIRM_MS; }
 
   close() { closeOverlay(props()?.overlay); }
 
   choose(item, cx) {
     const { k, entry } = this.target();
-    if (item.id === "squash" && !this.confirming()) {
-      this.confirm = Date.now();
+    if (FORCED.has(item.id) && !this.confirming(item.id)) {
+      this.confirm = { id: item.id, at: Date.now() };
       cx.timer.after(CONFIRM_MS + 50, (cx) => cx.notify());
       return cx.notify();
     }
-    if (item.id === "ready") return this.ready(entry, cx);
+    if (item.id === "ready") return this.run(cx, "Passage en revue…", "Passage en revue impossible", ["pr", "ready", entry.url]);
+    if (item.id === "rebase") return this.run(cx, "Rebase sur la base…", "Rebase impossible", ["pr", "update-branch", entry.url, "--rebase"]);
     if (item.id === "open") exec("open", [entry.url]);
     else if (item.id === "blocker") exec("open", [entry.blocker.url]);
     else if (item.id === "work") requestWork(k);
@@ -78,15 +80,16 @@ export class WatchMenu {
     this.close();
   }
 
-  // gh pr ready, then a round: the menu stays open on « Passage en revue… » until gh answers, an error is a toast.
-  ready(entry, cx) {
+  // gh, then a round (the watch sees the new state now, not in 2 min): the menu stays open on busy until gh answers,
+  // an error is a toast. A rebase gives the PR a new head: status-jc disarms its armed merge, as after any push.
+  run(cx, busy, failed, args) {
     if (this.busy) return;
-    this.busy = "Passage en revue…";
+    this.busy = busy;
     cx.notify();
     cx.spawn(async () => {
-      const r = await exec("gh", ["pr", "ready", entry.url], { timeout: 30000 }).catch((e) => ({ code: 1, stderr: String(e) }));
+      const r = await exec("gh", args, { timeout: 30000 }).catch((e) => ({ code: 1, stderr: String(e) }));
       if (r.code === 0) askRound();
-      else notify({ title: "Passage en revue impossible", body: (r.stderr || r.stdout).trim().split("\n")[0], level: "error" });
+      else notify({ title: failed, body: (r.stderr || r.stdout).trim().split("\n")[0], level: "error" });
       this.close();
     });
   }
@@ -105,9 +108,9 @@ export class WatchMenu {
       })
       .when(Boolean(this.busy), (e) => e.child(h_flex().h(31).px(8).items_center().text_color(t.muted).child(this.busy)))
       .when(!this.busy, (e) => e.children(items.map((it, i) => {
-        const label = it.id === "squash" && this.confirming() ? "Confirmer le push forcé" : it.label;
+        const label = this.confirming(it.id) ? "Confirmer le push forcé" : it.label;
         return h_flex().id(`wm-${it.id}`).h(31).px(8).rounded(7).items_center().cursor_pointer()
-          .text_color(it.id === "squash" && this.confirming() ? t.blocked : t.foreground)
+          .text_color(this.confirming(it.id) ? t.blocked : t.foreground)
           .when(i === this.at, (el) => el.bg(t.selected)).hover((s) => s.bg(t.hover))
           .on_click((_e, cx) => this.choose(it, cx))
           .child(div().flex_1().child(label));

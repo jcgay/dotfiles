@@ -252,16 +252,17 @@ test("chipLabel: an ok PR says who acts next, from its band's appr cell and its 
 test("menuItems: a watched row's menu holds its actions, then open, work and pause", () => {
   const ids = (xs) => xs.map((x) => x.id);
   const draft = { draft: true, head: "a", fixups: 0, url: "u" };
-  assert.deepEqual(ids(menuItems(draft, {})), ["ready", "open", "work", "pause"]);
+  assert.deepEqual(ids(menuItems(draft, {})), ["ready", "rebase", "open", "work", "pause"]);
   const ready = { draft: false, head: "a", fixups: 0, url: "u" };
-  assert.deepEqual(ids(menuItems(ready, { paused: true })), ["arm", "open", "work", "resume"]);
-  assert.deepEqual(ids(menuItems(ready, { merge: { head: "a" } })), ["disarm", "open", "work", "pause"]);
-  assert.deepEqual(ids(menuItems(ready, { merge: { refused: true } })), ["clear", "open", "work", "pause"]);
+  assert.deepEqual(ids(menuItems(ready, { paused: true })), ["arm", "rebase", "open", "work", "resume"]);
+  assert.deepEqual(ids(menuItems(ready, { merge: { head: "a" } })), ["disarm", "rebase", "open", "work", "pause"]);
+  assert.deepEqual(ids(menuItems(ready, { merge: { refused: true } })), ["clear", "rebase", "open", "work", "pause"]);
   const blocked = { draft: false, head: "a", fixups: 2, label: "à toi", blocker: { url: "j", step: "jenkins" } };
   assert.deepEqual(ids(menuItems(blocked, {})), ["blocker", "squash", "open", "work", "pause"], "a deliberate menu offers the squash, as the picked row");
   assert.equal(menuItems(blocked, {})[0].label, "Ouvrir le log Jenkins");
   assert.equal(menuItems(blocked, {})[1].label, "Squasher 2 fixup! (push forcé)");
-  assert.deepEqual(ids(menuItems(blocked, { squash: { state: "running" } })), ["blocker", "open", "work", "pause"]);
+  assert.deepEqual(ids(menuItems(blocked, { squash: { state: "running" } })), ["blocker", "open", "work", "pause"], "no url: no rebase");
+  assert.equal(menuItems(ready, {}).find((x) => x.id === "rebase").label, "Rebaser sur la base (push forcé)");
 });
 test("menuItems: a draft left aside can go ready for review, be opened or worked on", () => {
   assert.deepEqual(menuItems({ key: "o/a#1", url: "u", title: "T" }, { aside: true }).map((x) => x.id), ["ready", "open", "work"]);
