@@ -1,7 +1,7 @@
 // node --test ~/.config/herdr-app/mods/pr/model.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { jenkinsBuild, checks, otherChecks, summary, minutes, parseContainers, deploymentsFor, deployKey, watchBranch, remember, clockText, workLook, rowActions, bandStates, nextRound, isDraft, hiddenDraft, sessionOf, watchSections, spaceShowing, realFolder, parseIcons, repoLetter } from "./model.js";
+import { jenkinsBuild, checks, otherChecks, summary, minutes, parseContainers, deploymentsFor, deployKey, watchBranch, remember, clockText, workLook, rowActions, bandStates, nextRound, isDraft, hiddenDraft, sessionOf, watchSections, spaceShowing, realFolder, parseIcons, repoLetter, matchesFilter } from "./model.js";
 
 test("jenkins build url", () => {
   assert.deepEqual(jenkinsBuild("https://jenkins.vidal.net/job/team.software/job/github/job/arthur/job/PR-5459/1/display/redirect"),
@@ -224,4 +224,14 @@ test("repoLetter: a repo without icon shows its first letter, as a space avatar"
   assert.equal(repoLetter("vidal-gpt"), "V");
   assert.equal(repoLetter("softwarevidal/arthur"), "A");
   assert.equal(repoLetter(""), "?");
+});
+test("matchesFilter: every word must appear in the repo, title, space or #number", () => {
+  const e = { title: "Serve a standalone deployment" };
+  assert.equal(matchesFilter("softwarevidal/arthur#5523", e, "multi-url", ""), true);
+  assert.equal(matchesFilter("softwarevidal/arthur#5523", e, "multi-url", "arthur deploy"), true);
+  assert.equal(matchesFilter("softwarevidal/arthur#5523", e, "multi-url", "#5523"), true);
+  assert.equal(matchesFilter("softwarevidal/arthur#5523", e, "multi-url", "5523"), true);
+  assert.equal(matchesFilter("softwarevidal/arthur#5523", e, "multi-url", "MULTI"), true);
+  assert.equal(matchesFilter("softwarevidal/arthur#5523", e, null, "arthur vidal-mcp"), false);
+  assert.equal(matchesFilter("softwarevidal/arthur#5523", {}, null, "serve"), false);
 });

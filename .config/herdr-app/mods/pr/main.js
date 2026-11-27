@@ -1,9 +1,9 @@
 import { View, div, svg, image } from "gpui-kit";
-import { v_flex, h_flex } from "gpui-base";
+import { v_flex, h_flex, InputState, Input, ScrollHandle } from "gpui-base";
 import { spaces, panes, agents, focused, exec, theme, layout, run, shared, setShared, props, appHome, readTextFile, home, settings } from "herdr";
 import { Ci } from "./ci.js";
 import { parseConfig } from "./ci-model.js";
-import { moveSel, jenkinsBuild, checks, otherChecks, summary, minutes, deploymentsFor, parseContainers, watchBranch, remember, clockText, workLook, rowActions, bandStates, nextRound, isDraft, hiddenDraft, sessionOf, watchSections, spaceShowing, realFolder, parseIcons, repoLetter } from "./model.js";
+import { moveSel, jenkinsBuild, checks, otherChecks, summary, minutes, deploymentsFor, parseContainers, watchBranch, remember, clockText, workLook, rowActions, bandStates, nextRound, isDraft, hiddenDraft, sessionOf, watchSections, spaceShowing, realFolder, parseIcons, repoLetter, matchesFilter } from "./model.js";
 
 // How many spaces, checkouts and Jenkins builds the caches keep.
 const KEEP = 30;
@@ -72,6 +72,16 @@ export default class PullRequest extends View {
     }
     // The watch list's keyboard: ⌘⇧U (tabs-jc writes shared("watch-focus")) or a click in the panel gives it the keys.
     this.handle = cx.focus_handle(); this.sel = null; this.focusAsked = null;
+    // The watch list scrolls the picked row into view (its rows are the body's direct children) and filters on what is
+    // typed in its field: repo, title, space or #N. "/" from the list goes to the field, Escape back to the list.
+    this.scroll = ScrollHandle.new();
+    this.query = InputState.new({ placeholder: "Filtrer : dépôt, titre, space, #N  ( / )" });
+    this.queryFocused = false;
+    this.query.on("change", (_e, cx) => { this.sel = null; this.scroll.scroll_to_item(0); cx.notify(); });
+    this.query.on("focus", (_e, cx) => { this.queryFocused = true; cx.notify(); });
+    this.query.on("blur", (_e, cx) => { this.queryFocused = false; cx.notify(); });
+    // Enter in the field: the first match, as a click on its row.
+    this.query.on("submit", () => { const k = this.keys?.[0]; if (k) this.openKey?.(k); });
     this.context = null; this.pr = null; this.build = null; this.error = null; this.loading = false; this.note = null; this.checksOpen = false;
     this.confirms = {}; // action id -> time of its first click (squash pushes with --force: a second click confirms)
     this.deployed = []; this.scan = { at: 0, list: null, pending: null };
@@ -343,7 +353,7 @@ export default class PullRequest extends View {
       this.focusAsked = asked;
       if (asked && Date.now() - asked < 3000) cx.timer.after(30, () => this.handle.focus());
     }
-    const keyboard = this.view === "watch" && shown && this.handle.is_focused();
+    const keyboard = this.view === "watch" && shown && (this.handle.is_focused() || this.queryFocused);
     // Closed while it held the keys (⌘⇧U again, the tab button): give them back to the terminal, as Escape does.
     if (this.view === "watch" && !shown && this.handle.is_focused()) {
       this.sel = null;
@@ -508,17 +518,20 @@ export default class PullRequest extends View {
       if (n >= 1 && n <= 9) setShared("pr-watch", { on: false, prs: {}, error: null, at: 0, ...cur, maxAgents: n });
     };
     const drafts = entries.filter(([, e]) => isDraft(e)).length;
-    // « À toi » first, then one group per repo (model.js watchSections); the keys follow the shown order.
-    const sections = watchSections(entries.filter(([, e]) => !hiddenDraft(e, hideDrafts)), merges, rank);
-    const sorted = sections.flatMap((x) => x.rows);
-    // shortcut: the selected row is not scrolled into view (the rows are not the scroll area's direct children, which
-    // ScrollHandle.scroll_to_item needs); with group headers and ok titles the list does outgrow the panel: give the list
-    // its own scroll handle once picking an off-screen row bites.
+    // « À toi » first, then one group per repo (model.js watchSections), the repos folded under « Rien d'autre pour
+    // toi » unless opened (kept in pr-watch-view) or a filter is typed. The keys follow the shown order.
+    const query = this.query?.value().trim() ?? "";
+    const sections = watchSections(entries.filter(([k, e]) => !hiddenDraft(e, hideDrafts)
+      && (!query || matchesFilter(k, e, spaceShowing(e.work, localSpaces), query))), merges, rank);
+    const mine = sections.find((x) => x.repo === null), rest = sections.filter((x) => x.repo !== null);
+    const restCount = rest.reduce((n, x) => n + x.rows.length, 0);
+    const restOpen = Boolean(query) || Boolean(shared("pr-watch-view")?.restOpen);
+    const sorted = [...(mine?.rows ?? []), ...(restOpen ? rest.flatMap((x) => x.rows) : [])];
     this.keys = sorted.map(([k]) => k); this.byKey = Object.fromEntries(sorted);
+    this.openKey = (k) => { const entry = this.byKey?.[k]; if (entry) open(entry); };
     // Nothing is picked until an arrow key picks it: a click that gave the list the keys must not arm p, t or Enter on a row.
     if (this.sel && !this.keys.includes(this.sel)) this.sel = null;
-    const watch = v_flex().gap(2)
-      .child(h_flex().gap(10).items_center().flex_wrap().text_size(11).text_color(t.muted)
+    const strip = h_flex().gap(10).items_center().flex_wrap().text_size(11).text_color(t.muted)
         .child(h_flex().id("watch-switch").h(24).gap(8).items_center().rounded(6).px(4).text_size(12).text_color(t.foreground).cursor_pointer().hover((s) => s.bg(t.hover))
           .on_click(() => setShared("pr-watch", { on: false, prs: {}, error: null, at: 0, ...reg, on: !reg?.on }))
           .child(dot(reg?.on ? "ok" : "ko")).child(div().child(reg?.on ? "Surveillance active" : "Surveillance coupée")))
@@ -534,15 +547,40 @@ export default class PullRequest extends View {
           .hover((s) => s.bg(t.hover)).tooltip(hideDrafts ? "Afficher les brouillons" : "Masquer les brouillons")
           .on_click(() => setShared("pr-watch-view", { ...(shared("pr-watch-view") ?? {}), hideDrafts: !hideDrafts }))
           .when(hideDrafts, (c) => c.text_color(t.dim))
-          .child(hideDrafts ? `Brouillons masqués (${drafts})` : `Brouillons (${drafts})`))))
-      .when(Boolean(reg?.error), (e) => e.child(div().text_size(11).text_color(t.ansi1).child(reg.error)))
-      .child(v_flex().gap(1).pt(4).children(sections.flatMap((x) => [
-        // « À toi » as a section; a repo keeps its case, as on the rows, GitHub and the spaces.
-        // px(8): the rows' own padding, so headers, icons and the rows' text share one left edge.
-        x.repo === null ? section(`${x.title} (${x.rows.length})`).px(8).text_color(t.blocked)
-          : h_flex().gap(6).items_center().px(8).pt(10).pb(4).text_size(12).font_semibold().text_color(t.dim).child(repoMark(x.repo)).child(x.title),
-        ...x.rows.map((r) => row(r, x.repo === null)),
-      ])));
+          .child(hideDrafts ? `Brouillons masqués (${drafts})` : `Brouillons (${drafts})`)));
+    // The panel's own mouse down takes the keyboard for the list (track_focus below): a click in the field must stop
+    // there, or the list takes the keyboard back right after the field got it and nothing can be typed.
+    const filterField = h_flex().id("watch-filter").gap(6).items_center().mt(8).h(28).px(8).rounded(6).border_1().border_color(this.queryFocused ? t.accent : t.border)
+      .on_mouse_down("left", (_e, cx) => { cx.stop_propagation(); this.query.focus(); })
+      .child(svg("mods/workspace-chrome/search.svg").size(12).flex_none().text_color(t.dim))
+      .child(Input.new(this.query).flex_1().min_w(0).text_size(12).text_color(t.foreground));
+    // The fold of the PRs that wait on nobody but the watch, a colleague or the CI; a typed filter opens it.
+    const toggleRest = () => setShared("pr-watch-view", { ...(shared("pr-watch-view") ?? {}), restOpen: !shared("pr-watch-view")?.restOpen });
+    const restHeader = h_flex().id("watch-rest").gap(6).items_center().px(8).pt(12).pb(4).text_size(11).font_semibold().text_color(t.dim)
+      .when(!query, (e) => e.cursor_pointer().hover((x) => x.text_color(t.foreground)).on_click(toggleRest)
+        .tooltip(restOpen ? "Replier" : "Déplier").accessibility_label(restOpen ? "Replier les autres PR" : "Déplier les autres PR"))
+      .child(svg(`mods/workspace-chrome/chevron-${restOpen ? "down" : "right"}.svg`).size(12).flex_none())
+      .child(`RIEN D'AUTRE POUR TOI (${restCount})`);
+    // Each header and row is a direct child of the scroll area: scroll_to_item reaches the picked row.
+    // « À toi » as a section; a repo keeps its case, as on the rows, GitHub and the spaces.
+    // px(8): the rows' own padding, so headers, icons and the rows' text share one left edge.
+    const items = [
+      ...(mine ? [section(`${mine.title} (${mine.rows.length})`).px(8).text_color(t.blocked), ...mine.rows.map((r) => row(r, true))] : []),
+      ...(restCount ? [restHeader] : []),
+      ...(restOpen ? rest.flatMap((x) => [
+        h_flex().gap(6).items_center().px(8).pt(10).pb(4).text_size(12).font_semibold().text_color(t.dim).child(repoMark(x.repo)).child(x.title),
+        ...x.rows.map((r) => row(r, false)),
+      ]) : []),
+      ...(query && !sections.length ? [div().px(8).pt(12).text_size(12).text_color(t.dim).child(`Aucune PR ne correspond à « ${query} »`)] : []),
+    ];
+    const watch = [strip, filterField, reg?.error ? div().pt(6).text_size(11).text_color(t.ansi1).child(reg.error) : null, div().h(4), ...items].filter(Boolean);
+    // The picked row's index among the body's children (the help, when open, comes first).
+    const itemKeys = [
+      ...(mine ? [null, ...mine.rows.map(([k]) => k)] : []), ...(restCount ? [null] : []),
+      ...(restOpen ? rest.flatMap((x) => [null, ...x.rows.map(([k]) => k)]) : []), ...(query && !sections.length ? [null] : []),
+    ];
+    // Read when the key is handled: an arrow key folds the help first, so it is no longer a child then.
+    const rowIndex = (k) => { const i = itemKeys.indexOf(k); return i < 0 ? null : (this.helpOpen ? 1 : 0) + watch.length - items.length + i; };
 
     // The "?" help: the watch's workflow, its colors and the buttons; the details sit in each tooltip.
     const legend = (items) => v_flex().gap(4).children(items.map(([mark, text]) => h_flex().gap(8).items_start()
@@ -565,7 +603,8 @@ export default class PullRequest extends View {
       .child(section("Clavier"))
       .child(legend([
         ["⌘⇧U", "ouvre la Surveillance et lui donne le clavier (un clic dans le panneau aussi)"],
-        ["↑ ↓", "choisit une PR"],
+        ["↑ ↓", "choisit une PR (la liste défile jusqu'à elle)"],
+        ["/", "va au filtre : dépôt, titre, space ou #N, chaque mot doit y être ; Entrée ouvre la première PR, Échap vide le filtre puis revient à la liste"],
         ["Entrée", "comme un clic sur la ligne : le blocage d'une PR « à toi », sinon l'agent, sinon la PR"],
         ["p", "met la PR en pause ou la reprend"],
         ["t", "ouvre son worktree, comme le bouton terminal"],
@@ -587,12 +626,23 @@ export default class PullRequest extends View {
         .child(h_flex().id("pr-help").w(20).h(20).items_center().justify_center().rounded(10).border_1().border_color(t.border).text_size(11).cursor_pointer()
           .text_color(this.helpOpen ? t.foreground : t.dim).hover((s) => s.bg(t.hover)).tooltip(this.helpOpen ? "Masquer l'aide" : "Aide").accessibility_label(this.helpOpen ? "Masquer l'aide" : "Aide")
           .on_click((_e, cx) => { this.helpOpen = !this.helpOpen; cx.notify(); }).child("?"));
-    const content = this.view === "pr" ? [body] : [this.helpOpen ? help : null, watch].filter(Boolean);
+    const content = this.view === "pr" ? [body] : [this.helpOpen ? help : null, ...watch].filter(Boolean);
     // ↑/↓ pick a row, Enter goes to its agent or PR, p pauses or resumes it, t opens its worktree, Escape gives the keys back.
     const onKey = (e, cx) => {
       const k = e.keystroke, sel = this.sel, entry = sel && this.byKey?.[sel];
+      // Typing in the filter field: its own keys, except Escape (clears it, then back to the list) and ↓ (to the list).
+      if (this.queryFocused) {
+        if (k === "escape" && this.query.value()) this.query.set_value("");
+        else if (k === "escape" || k === "down") { this.handle.focus(); if (k === "down") { this.sel = moveSel(this.keys ?? [], null, 1); const i = rowIndex(this.sel); if (i !== null) this.scroll.scroll_to_item(i); } }
+        else return;
+        cx.stop_propagation(); cx.notify(); return;
+      }
       // The help sits above the list: an arrow key folds it so the picked row stays in view.
-      if (k === "up" || k === "down") { this.sel = moveSel(this.keys ?? [], sel, k === "up" ? -1 : 1); this.helpOpen = false; }
+      if (k === "up" || k === "down") {
+        this.sel = moveSel(this.keys ?? [], sel, k === "up" ? -1 : 1); this.helpOpen = false;
+        const i = rowIndex(this.sel); if (i !== null) this.scroll.scroll_to_item(i);
+      }
+      else if (k === "/") this.query.focus();
       else if (k === "enter" && entry) open(entry);
       else if (k === "p" && entry) togglePause(sel);
       else if (k === "t" && entry) askWork(sel);
@@ -605,7 +655,7 @@ export default class PullRequest extends View {
     return v_flex().id(this.view).size_full().min_h(0).rounded(10).overflow_hidden().bg(t.background).border_1().border_color(keyboard ? t.accent : t.border).text_color(t.foreground).text_size(13)
       .when(this.view === "watch", (e) => e.track_focus(this.handle).on_key_down(onKey).on_mouse_down("left", () => this.handle.focus()))
       .child(header)
-      .child(v_flex().id(`${this.view}-body`).flex_1().min_h(0).overflow_y_scroll().p(14).children(content))
+      .child(v_flex().id(`${this.view}-body`).flex_1().min_h(0).overflow_y_scroll().when(this.view === "watch", (e) => e.track_scroll(this.scroll)).p(14).children(content))
       .when(Boolean(this.note), (e) => e.child(div().px(14).pb(10).text_size(11).text_color(t.muted).child(this.note)));
   }
 }

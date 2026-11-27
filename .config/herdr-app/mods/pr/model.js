@@ -202,3 +202,11 @@ export function parseIcons(stdout, dir) {
 
 // The avatar of a repo without icon: its first letter, as a space's (owner/name: the name's).
 export const repoLetter = (repo) => [...(repo.split("/").pop() ?? "")][0]?.toUpperCase() ?? "?";
+
+// The watch list's filter: every word of query (any case) appears in the PR's repo, title, space or #number.
+// key "owner/repo#N", space: the name of the space showing it, or null.
+export function matchesFilter(key, entry, space, query) {
+  const [repo, number] = key.split("#");
+  const text = `${repo} ${entry.title ?? ""} ${space ?? ""} #${number}`.toLowerCase();
+  return query.toLowerCase().split(/\s+/).filter(Boolean).every((w) => text.includes(w));
+}
