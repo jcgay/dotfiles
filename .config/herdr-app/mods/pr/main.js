@@ -499,7 +499,12 @@ export default class PullRequest extends View {
         .tooltip(blocked(entry) ? BLOCKER_VERB[entry.blocker.step] ?? "Ouvrir le check en échec" : entry.launched ? "Aller à l'agent" : "Ouvrir la PR")
         .on_click(() => open(entry))
         .on_mouse_down("right", (_e, cx) => { cx.stop_propagation(); openRowMenu(k, false); })
-        .child(h_flex().gap(6).items_center()
+        .on_hover((hovered, cx) => {
+          if (hovered) this.hoverKey = k; else if (this.hoverKey === k) this.hoverKey = null;
+          cx.notify();
+        })
+        // min_h: the row keeps its height when its hidden buttons show on hover.
+        .child(h_flex().gap(6).items_center().min_h(24)
           .when(showRepo, (e) => e.child(repoMark(repo)).child(div().text_size(12).font_semibold().child(repo.split("/").pop())))
           // The number always opens the PR, also on a row whose click opens its blocker.
           .child(h_flex().id(`num-${k}`).h(20).px(4).items_center().rounded(4).text_size(12).text_color(t.muted).cursor_pointer().hover((s) => s.bg(t.hover).text_color(t.accent))
@@ -510,8 +515,12 @@ export default class PullRequest extends View {
             .cursor_pointer().hover((x) => x.bg(t.hover).text_color(t.accent)).tooltip("Aller au space").accessibility_label(`Aller au space ${shownIn}`)
             .on_click((_e, cx) => { cx.stop_propagation(); askWork(k); }).child(`space ${shownIn}`)))
           .child(div().flex_1())
-          .child(work(k, entry.work)).child(pause(k)).child(showRepo ? chip(label, look(label)[0], label === "agent en cours").tooltip(LABEL_HELP[label] ?? "")
-            : div().id(`state-${k}`).flex_none().text_size(11).text_color(t.muted).tooltip(LABEL_HELP[label] ?? "").child(label)))
+          // Outside « À toi », ⌨ and pause show on the hovered or picked row, and on a paused one (its ▶ is its state);
+          // the right-click menu and the keys t / p reach them on any row.
+          .when(showRepo || picked || this.hoverKey === k || paused.includes(k), (e) => e.child(work(k, entry.work)).child(pause(k)))
+          // In « À toi » the section already says « à toi »: only another label (a refused merge) gets its chip.
+          .when(showRepo && label !== "à toi", (e) => e.child(chip(label, look(label)[0], label === "agent en cours").tooltip(LABEL_HELP[label] ?? "")))
+          .when(!showRepo, (e) => e.child(div().id(`state-${k}`).flex_none().text_size(11).text_color(t.muted).tooltip(LABEL_HELP[label] ?? "").child(label))))
         // The title is how a PR is found: foreground, its whole text in the tooltip when truncated.
         .when(Boolean(entry.title), (e) => e.child(div().id(`title-${k}`).text_size(13).text_color(t.foreground).truncate().tooltip(entry.title).child(entry.title)))
         // The full band with step names on « À toi » rows and the picked one; a thin bar elsewhere.
