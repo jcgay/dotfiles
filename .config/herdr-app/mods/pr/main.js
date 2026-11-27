@@ -504,7 +504,8 @@ export default class PullRequest extends View {
       const mineRow = showRepo && !picked;
       return v_flex().id(`watch-${k}`).gap(2).rounded(8).px(8).py(7).cursor_pointer().hover((s) => s.bg(t.hover).border_color(picked ? t.accent : t.hover))
         .border_1().border_color(picked ? t.accent : mineRow ? tint(violet, "4d") : t.background).when(picked, (e) => e.bg(t.hover))
-        .when(mineRow, (e) => e.bg(tint(violet, "14")))
+        // mb: two bordered cards one under the other must not touch.
+        .when(mineRow, (e) => e.bg(tint(violet, "14")).mb(6))
         .tooltip(rowTip)
         .on_click(() => open(entry))
         .on_mouse_down("right", (_e, cx) => { cx.stop_propagation(); openRowMenu(k, false); })
@@ -609,7 +610,7 @@ export default class PullRequest extends View {
       .child(Input.new(this.query).flex_1().min_w(0).text_size(12).text_color(t.foreground));
     // The fold of the PRs that wait on nobody but the watch, a colleague or the CI; a typed filter opens it.
     const toggleRest = () => setShared("pr-watch-view", { ...(shared("pr-watch-view") ?? {}), restOpen: !shared("pr-watch-view")?.restOpen });
-    const restHeader = h_flex().id("watch-rest").gap(6).items_center().mt(10).px(8).pt(12).pb(4).border_t(1).border_color(t.border).text_size(12).font_semibold().text_color(t.muted)
+    const restHeader = h_flex().id("watch-rest").gap(6).items_center().mt(14).px(8).pt(12).pb(4).border_t(1).border_color(t.border).text_size(12).font_semibold().text_color(t.muted)
       .when(!query, (e) => e.cursor_pointer().hover((x) => x.text_color(t.foreground)).on_click(toggleRest)
         .tooltip(restOpen ? "Replier" : "Déplier").accessibility_label(restOpen ? "Replier les autres PR" : "Déplier les autres PR"))
       .child(svg(`mods/workspace-chrome/chevron-${restOpen ? "down" : "right"}.svg`).size(12).flex_none())
@@ -620,7 +621,7 @@ export default class PullRequest extends View {
     const asideOpen = Boolean(query) || Boolean(shared("pr-watch-view")?.asideOpen);
     this.asideFirst = aside[0] ?? null;
     const toggleAside = () => setShared("pr-watch-view", { ...(shared("pr-watch-view") ?? {}), asideOpen: !shared("pr-watch-view")?.asideOpen });
-    const asideHeader = h_flex().id("watch-aside").gap(6).items_center().mt(10).px(8).pt(12).pb(4).border_t(1).border_color(t.border).text_size(12).font_semibold().text_color(t.muted)
+    const asideHeader = h_flex().id("watch-aside").gap(6).items_center().mt(14).px(8).pt(12).pb(4).border_t(1).border_color(t.border).text_size(12).font_semibold().text_color(t.muted)
       .when(!query, (e) => e.cursor_pointer().hover((x) => x.text_color(t.foreground)).on_click(toggleAside)
         .tooltip("Brouillons qu'aucun space ne montre : la surveillance ne les suit pas").accessibility_label(asideOpen ? "Replier les brouillons hors surveillance" : "Déplier les brouillons hors surveillance"))
       .child(svg(`mods/workspace-chrome/chevron-${asideOpen ? "down" : "right"}.svg`).size(12).flex_none())
