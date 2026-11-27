@@ -218,11 +218,12 @@ export default class WorkspaceStatus extends View {
       .when(Boolean(space?.branch), el => el.child(label("branch", space.branch)))
       .child(h_flex().gap(6).items_center().child(div().size(6).rounded(3).bg(t.dim)).child(`${list.length} ${list.length === 1 ? "agent" : "agents"}`)
         .when(needs > 0, el => el.child(div().text_color(t.blocked).child(`· ${needs} t'attend${needs > 1 ? "ent" : ""}`))))
-      .when(mine > 0, el => el.child(h_flex().id("yours").gap(6).items_center().text_color(t.blocked).cursor_pointer().hover((s) => s.opacity(0.8))
+      // Violet as « à toi » in the PR panel; red stays for an agent that waits on me.
+      .when(mine > 0, el => el.child(h_flex().id("yours").gap(6).items_center().text_color(t.ansi5).cursor_pointer().hover((s) => s.opacity(0.8))
         .tooltip("Ouvrir la surveillance des PR")
         // Same as ⌘⇧U and the tab button (tabs-jc): the watch list takes the keyboard.
         .on_click(() => { run("layout.select", { stack: "panel-body", child: "watch" }); run("layout.show", { id: "panel" }); setShared("watch-focus", Date.now()); })
-        .child(div().size(6).rounded(3).bg(t.blocked)).child(`${mine} PR à toi`)))
+        .child(div().size(6).rounded(3).bg(t.ansi5)).child(`${mine} PR à toi`)))
       .when(usage.length > 0, el => el.child(h_flex().id("claude-usage").gap(6).items_center()
         .tooltip(usage.map((w) => `Claude ${w.name === "5h" ? "5 heures" : "7 jours"} : ${w.pct} %${w.reset ? ` jusqu'à ${resetLabel(w.reset, now)}` : ""}`).join("\n"))
         // "Claude  5 h 6 % jusqu'à 10:40 · semaine 11 %": a label per window and a separator, not figures run together.

@@ -223,7 +223,9 @@ export default class PullRequest extends View {
       : state === "idle" ? div().size(7).rounded(4).flex_none().border_1().border_color(color ?? t.dim)
       : div().size(7).rounded(4).flex_none().border_1().border_color(t.working).loop("opacity", { from: 0.3, to: 1, period: 1200 });
     // Type roles, shared with the Journal panel: 15 PR title, 13 panel title and base, 12 rows, 11 metadata and labels, 10 band cells.
-    const chip = (text, color) => div().px(6).py(1).rounded(4).border_1().border_color(color).text_size(11).text_color(color).child(text);
+    // filled: an agent at work, as the band's run cell; an outline stays for a wait on a human (the band's wait cell).
+    const chip = (text, color, filled = false) => div().px(6).py(1).rounded(4).border_1().border_color(color).text_size(11)
+      .when(filled, (e) => e.bg(color).text_color(t.background)).when(!filled, (e) => e.text_color(color)).child(text);
     // Asks status-jc for a watch round now (the header's ↻).
     const askRound = () => setShared("pr-watch-now", { at: Date.now() });
     const button = (id, text, onClick, primary) => div().id(id).h(28).px(12).flex().items_center().rounded(7).cursor_pointer().text_size(12)
@@ -366,7 +368,9 @@ export default class PullRequest extends View {
     // The PR watch (status-jc writes it): all PRs, so it shows even without one in this space.
     const reg = shared("pr-watch") ?? null, entries = Object.entries(reg?.prs ?? {});
     // Each label's color, dot and rank: what needs me first, finished PRs last.
-    const looks = { "à toi": [t.blocked, "ko"], erreur: [t.ansi1, "ko"], "pas de clone local": [t.blocked, "ko"],
+    // « à toi » is violet everywhere (chip, section, the band's me cell, the status bar): red is the band's ko, a
+    // failure the watch fixes itself.
+    const looks = { "à toi": [t.ansi5, "ko"], erreur: [t.ansi1, "ko"], "pas de clone local": [t.blocked, "ko"],
       "agent en cours": [t.working, "running"], "en attente": [t.muted, "idle"], brouillon: [t.dim, "idle"], "en pause": [t.dim, "idle"], ok: [t.done, "ok"],
       // The chips of an ok PR (model.js chipLabel): who acts next. Orange as the band's wait cell: a human must act.
       "attend relecture": [t.working, "idle"], "prête à merger": [t.done, "ok"], "squash à venir": [t.muted, "idle"], "merge armé": [t.done, "ok"] };
@@ -502,7 +506,7 @@ export default class PullRequest extends View {
             .cursor_pointer().hover((x) => x.bg(t.hover).text_color(t.accent)).tooltip("Aller au space").accessibility_label(`Aller au space ${shownIn}`)
             .on_click((_e, cx) => { cx.stop_propagation(); askWork(k); }).child(`space ${shownIn}`)))
           .child(div().flex_1())
-          .child(work(k, entry.work)).child(pause(k)).child(chip(label, look(label)[0]).tooltip(LABEL_HELP[label] ?? "")))
+          .child(work(k, entry.work)).child(pause(k)).child(chip(label, look(label)[0], label === "agent en cours").tooltip(LABEL_HELP[label] ?? "")))
         // The title is how a PR is found: foreground, its whole text in the tooltip when truncated.
         .when(Boolean(entry.title), (e) => e.child(div().id(`title-${k}`).text_size(13).text_color(t.foreground).truncate().tooltip(entry.title).child(entry.title)))
         // The full band with step names on « À toi » rows and the picked one; a thin bar elsewhere.
@@ -572,7 +576,7 @@ export default class PullRequest extends View {
     // « À toi » as a section; a repo keeps its case, as on the rows, GitHub and the spaces.
     // px(8): the rows' own padding, so headers, icons and the rows' text share one left edge.
     const items = [
-      ...(mine ? [section(`${mine.title} (${mine.rows.length})`).px(8).text_color(t.blocked), ...mine.rows.map((r) => row(r, true))] : []),
+      ...(mine ? [section(`${mine.title} (${mine.rows.length})`).px(8).text_color(t.ansi5), ...mine.rows.map((r) => row(r, true))] : []),
       ...(restCount ? [restHeader] : []),
       ...(restOpen ? rest.flatMap((x) => [
         h_flex().gap(6).items_center().px(8).pt(10).pb(4).text_size(12).font_semibold().text_color(t.dim).child(repoMark(x.repo)).child(x.title),
