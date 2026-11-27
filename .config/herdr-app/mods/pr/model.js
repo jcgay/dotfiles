@@ -242,7 +242,10 @@ export function menuItems(entry, { merge = null, squash = null, paused = false, 
     can.arm === "refused" && { id: "clear", label: "Effacer le refus du merge" },
     can.squash && { id: "squash", label: `Squasher ${entry.fixups} fixup! (push forcé)` },
     // GitHub rebases the branch on its base (gh pr update-branch --rebase): the watch only does it on a conflict.
-    Boolean(entry.url) && { id: "rebase", label: "Rebaser sur la base (push forcé)" },
+    // Not under a watch agent or a squash: their push (--force-with-lease on the old head) would be refused and the
+    // try lost.
+    Boolean(entry.url) && entry.label !== "agent en cours" && (!squash || squash.state === "error")
+      && { id: "rebase", label: "Rebaser sur la base (push forcé)" },
     ...common,
     paused ? { id: "resume", label: "Reprendre la surveillance" } : { id: "pause", label: "Mettre en pause" },
   ].filter(Boolean);

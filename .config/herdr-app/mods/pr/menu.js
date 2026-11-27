@@ -6,7 +6,7 @@ import { exec, theme, shared, setShared, props, closeOverlay, openOverlay, notif
 import { menuItems } from "./model.js";
 
 const CONFIRM_MS = 4000;
-const FORCED = new Set(["squash", "rebase"]); // force pushes: a second click confirms // as the row's squash link (main.js guarded)
+const FORCED = new Set(["squash", "rebase"]); // force pushes: a second click within CONFIRM_MS confirms, as the row's squash (main.js guarded)
 const blank = { on: false, prs: {}, error: null, at: 0 }; // a registry status-jc has not written yet
 
 // status-jc opens a space in the PR's worktree (opener.js); held: the opening owns the PR's pause.

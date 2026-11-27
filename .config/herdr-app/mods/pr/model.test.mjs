@@ -263,6 +263,10 @@ test("menuItems: a watched row's menu holds its actions, then open, work and pau
   assert.equal(menuItems(blocked, {})[1].label, "Squasher 2 fixup! (push forcé)");
   assert.deepEqual(ids(menuItems(blocked, { squash: { state: "running" } })), ["blocker", "open", "work", "pause"], "no url: no rebase");
   assert.equal(menuItems(ready, {}).find((x) => x.id === "rebase").label, "Rebaser sur la base (push forcé)");
+  const busy = (x) => ids(menuItems(x.entry ?? ready, x)).includes("rebase");
+  assert.equal(busy({ entry: { ...ready, label: "agent en cours" } }), false, "no rebase under a watch agent");
+  assert.equal(busy({ squash: { state: "agent" } }), false, "nor under a squash");
+  assert.equal(busy({ squash: { state: "error" } }), true, "a failed squash holds nothing");
 });
 test("menuItems: a draft left aside can go ready for review, be opened or worked on", () => {
   assert.deepEqual(menuItems({ key: "o/a#1", url: "u", title: "T" }, { aside: true }).map((x) => x.id), ["ready", "open", "work"]);
