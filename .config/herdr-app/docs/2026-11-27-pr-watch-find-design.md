@@ -24,7 +24,7 @@ attend l'approbation d'un collègue.
 ### Un brouillon n'est surveillé que si je travaille dessus
 
 - Un brouillon n'est surveillé que si un space ou une pane Herdr locale montre un worktree sur sa
-  branche (ou son worktree `-watch`). Sinon, `status-jc` le traite comme une PR sortie de la
+  branche. Sinon, `status-jc` le traite comme une PR sortie de la
   surveillance : pas d'agent, pas de squash, pas d'entrée dans `pr-watch`, ne compte pas dans
   « N PR à toi ».
 - Il revient au premier tour où un space le montre ; il ressort au premier tour où plus aucun ne le
