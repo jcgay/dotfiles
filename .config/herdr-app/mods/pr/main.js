@@ -88,7 +88,8 @@ export default class PullRequest extends View {
     this.query.on("focus", (_e, cx) => { this.queryFocused = true; cx.notify(); });
     this.query.on("blur", (_e, cx) => { this.queryFocused = false; cx.notify(); });
     // Enter in the field: the first match, as a click on its row.
-    this.query.on("submit", () => { const k = this.keys?.[0]; if (k) this.openKey?.(k); });
+    // Only left-aside drafts match: Enter opens the first on GitHub (they are out of the arrow keys).
+    this.query.on("submit", () => { const k = this.keys?.[0]; if (k) this.openKey?.(k); else if (this.asideFirst) exec("open", [this.asideFirst.url]); });
     this.context = null; this.pr = null; this.build = null; this.error = null; this.loading = false; this.note = null; this.checksOpen = false;
     this.confirms = {}; // action id -> time of its first click (squash pushes with --force: a second click confirms)
     this.deployed = []; this.scan = { at: 0, list: null, pending: null };
@@ -467,9 +468,10 @@ export default class PullRequest extends View {
       const cell = div().id(`cell-${k}-${label}`).flex_1().min_w(0).h(thin ? 6 : 17).rounded(thin ? 2 : 3).flex().items_center().justify_center().text_size(10);
       if (!state) return cell;
       const s = sessionOf(entry.sessions, label);
-      const tip = [`${label} : ${STATE_HELP[state] ?? state}`, s && `clic : rouvrir la session Claude de ${s.step}`].filter(Boolean).join(" · ");
+      const tip = [`${label} : ${STATE_HELP[state] ?? state}`, s && !thin && `clic : rouvrir la session Claude de ${s.step}`].filter(Boolean).join(" · ");
       return cell.accessibility_label(tip).when(!thin, (e) => e.child(label)).when(thin, (e) => e.tooltip(tip))
-        .when(Boolean(s), (e) => e.cursor_pointer().hover((x) => x.opacity(0.8)).when(!thin, (x) => x.tooltip(`Rouvrir la session Claude de ${s.step}`))
+        // Not on a thin bar: 6 px is no target, and a missed row click reopened an old session. The picked row's full band has it.
+        .when(Boolean(s) && !thin, (e) => e.cursor_pointer().hover((x) => x.opacity(0.8)).tooltip(`Rouvrir la session Claude de ${s.step}`)
           .on_click((_e, cx) => { cx.stop_propagation(); resume(k.split("#")[1], s); }))
         .when(Boolean(fills[state]) && !quiet, (e) => e.bg(fills[state]).text_color(t.background))
         .when(Boolean(fills[state]) && quiet, (e) => e.border_1().border_color(fills[state]).text_color(t.muted))
@@ -493,13 +495,14 @@ export default class PullRequest extends View {
       const folded = entry.label === "ok" && !entry.error && !merges[k]?.refused && !pending(k) && !opens[k]?.error;
       const picked = keyboard && k === this.sel;
       const thin = !(showRepo || picked);
+      const rowTip = blocked(entry) ? BLOCKER_VERB[entry.blocker.step] ?? "Ouvrir le check en échec" : entry.launched ? "Aller à l'agent" : "Ouvrir la PR";
       // « À toi » (showRepo) is the only colored part of the list: a faint violet fill and border. Elsewhere the state is
       // a muted word, the thin band keeps the colors: what waits on someone else must not outshout what waits on me.
       const mineRow = showRepo && !picked;
       return v_flex().id(`watch-${k}`).gap(2).rounded(8).px(8).py(7).cursor_pointer().hover((s) => s.bg(t.hover).border_color(picked ? t.accent : t.hover))
         .border_1().border_color(picked ? t.accent : mineRow ? tint(t.ansi5, "4d") : t.background).when(picked, (e) => e.bg(t.hover))
         .when(mineRow, (e) => e.bg(tint(t.ansi5, "14")))
-        .tooltip(blocked(entry) ? BLOCKER_VERB[entry.blocker.step] ?? "Ouvrir le check en échec" : entry.launched ? "Aller à l'agent" : "Ouvrir la PR")
+        .tooltip(rowTip)
         .on_click(() => open(entry))
         .on_mouse_down("right", (_e, cx) => { cx.stop_propagation(); openRowMenu(k, false); })
         .on_hover((hovered, cx) => {
@@ -510,9 +513,9 @@ export default class PullRequest extends View {
         // meta line (repo in « À toi », #N, space) and, outside « À toi », the thin band on that same line.
         // min_h: the row keeps its height when its hidden buttons show on hover.
         .child(h_flex().gap(6).items_center().min_h(24)
-          // The whole title in the tooltip when truncated.
+          // The title spans most of the row and its tooltip hides the row's: it carries the whole title and the click.
           .child(div().id(`title-${k}`).flex_1().min_w(0).truncate().text_size(13).font_medium()
-            .text_color(entry.title ? t.foreground : t.muted).tooltip(entry.title || "").child(entry.title || `#${number}`))
+            .text_color(entry.title ? t.foreground : t.muted).tooltip([entry.title, `clic : ${rowTip}`].filter(Boolean).join("\n")).child(entry.title || `#${number}`))
           // Outside « À toi », ⌨ and pause show on the hovered or picked row, and on a paused one (its ▶ is its state);
           // the right-click menu and the keys t / p reach them on any row.
           .when(showRepo || picked || this.hoverKey === k || paused.includes(k), (e) => e.child(work(k, entry.work)).child(pause(k)))
@@ -607,6 +610,7 @@ export default class PullRequest extends View {
     // on GitHub or in a space, which brings it back into the watch at the next round. Out of the arrow keys.
     const aside = (reg?.aside ?? []).filter((d) => !query || matchesFilter(d.key, d, null, query));
     const asideOpen = Boolean(query) || Boolean(shared("pr-watch-view")?.asideOpen);
+    this.asideFirst = aside[0] ?? null;
     const toggleAside = () => setShared("pr-watch-view", { ...(shared("pr-watch-view") ?? {}), asideOpen: !shared("pr-watch-view")?.asideOpen });
     const asideHeader = h_flex().id("watch-aside").gap(6).items_center().px(8).pt(12).pb(4).text_size(12).font_semibold().text_color(t.muted)
       .when(!query, (e) => e.cursor_pointer().hover((x) => x.text_color(t.foreground)).on_click(toggleAside)
@@ -633,7 +637,7 @@ export default class PullRequest extends View {
       ...(mine ? [div().px(8).pt(10).pb(6).text_size(13).font_semibold().text_color(t.ansi5).child(`${mine.title} (${mine.rows.length})`), ...mine.rows.map((r) => row(r, true))] : []),
       ...(restCount ? [restHeader] : []),
       ...(restOpen ? rest.flatMap((x) => [
-        h_flex().gap(6).items_center().px(8).pt(10).pb(4).text_size(12).font_semibold().text_color(t.dim).child(repoMark(x.repo)).child(x.title),
+        h_flex().gap(6).items_center().px(8).pt(10).pb(4).text_size(12).font_semibold().text_color(t.muted).child(repoMark(x.repo)).child(x.title),
         ...x.rows.map((r) => row(r, false)),
       ]) : []),
       ...(aside.length ? [asideHeader] : []),
@@ -674,10 +678,12 @@ export default class PullRequest extends View {
       .child(legend([
         ["⌘⇧U", "ouvre la Surveillance et lui donne le clavier (un clic dans le panneau aussi)"],
         ["↑ ↓", "choisit une PR (la liste défile jusqu'à elle)"],
-        ["/", "va au filtre : dépôt, titre, space ou #N, chaque mot doit y être ; Entrée ouvre la première PR, Échap vide le filtre puis revient à la liste"],
+        ["/", "va au filtre : dépôt, titre, space ou #N, chaque mot doit y être ; Entrée ouvre la première PR (sinon le premier brouillon hors surveillance), Échap vide le filtre puis revient à la liste"],
         ["Entrée", "comme un clic sur la ligne : le blocage d'une PR « à toi », sinon l'agent, sinon la PR"],
         ["p", "met la PR en pause ou la reprend"],
         ["t", "ouvre son worktree, comme le bouton terminal"],
+        ["o", "déplie ou replie « Rien d'autre pour toi »"],
+        ["b", "déplie ou replie « Brouillons hors surveillance »"],
         ["Échap", "rend le clavier au terminal"],
       ]))
       .child(div().pt(4).text_color(t.dim).child("Survole un statut ou un bouton pour son détail."));
@@ -713,6 +719,9 @@ export default class PullRequest extends View {
         const i = rowIndex(this.sel); if (i !== null) this.scroll.scroll_to_item(i);
       }
       else if (k === "/") this.query.focus();
+      // The folds from the keyboard; a typed filter keeps both open.
+      else if (k === "o" && !query) toggleRest();
+      else if (k === "b" && !query) toggleAside();
       else if (k === "enter" && entry) open(entry);
       else if (k === "p" && entry) togglePause(sel);
       else if (k === "t" && entry) askWork(sel);
