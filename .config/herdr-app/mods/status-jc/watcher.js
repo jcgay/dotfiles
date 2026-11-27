@@ -1,10 +1,10 @@
 // One round of the PR watch: gh, git and Herdr side effects around the pure decisions of watch.js.
-import { exec, spaces, agents, panes, run, notify, home, shared, setShared } from "herdr";
+import { exec, spaces, agents, panes, machines, run, notify, home, shared, setShared } from "herdr";
 import { randomUUID } from "crypto";
 import { watchPath } from "./open.js";
 import { roundLines, searchLine } from "./journal.js";
 import { appendJournal } from "./journal-file.js";
-import { readHint, searchSince, ownerArgs, signalsOf, withRiskTree, decide, emptyEntry, promptFor, repoOfRemote, undoLaunch, holdingTabs, karadocHeld, karadocHolder, appTaken, closing, stoppedQa, freshTabs, checkoutBases, checkoutsOf, LABELS } from "./watch.js";
+import { readHint, searchSince, ownerArgs, signalsOf, withRiskTree, decide, emptyEntry, promptFor, repoOfRemote, undoLaunch, holdingTabs, karadocHeld, karadocHolder, appTaken, closing, stoppedQa, freshTabs, checkoutBases, checkoutsOf, draftShown, watchedNow, LABELS } from "./watch.js";
 import { bandOf, measure, addSamples, clockOf, workOf } from "./pipeline.js";
 
 const MAX_AGENTS = 3; // default; the PR panel's header sets pr-watch.maxAgents
@@ -47,16 +47,20 @@ async function signals(pr, me, before, trees) {
   }
 }
 
+// Every folder a local space shows: its own and its panes' cwds.
+export function localFolders() {
+  const local = spaces().filter((s) => !s.machine);
+  const tabs = new Set(local.flatMap((s) => s.tabs.map((t) => t.id)));
+  return [...new Set([...local.map((s) => s.folder), ...panes().filter((p) => tabs.has(p.tab)).map((p) => p.cwd)].filter(Boolean))];
+}
+
 // The main checkout of a local clone of repo (owner/name), or null.
 export async function findClone(repo) {
   const name = repo.split("/")[1];
-  const local = spaces().filter((s) => !s.machine);
-  const tabs = new Set(local.flatMap((s) => s.tabs.map((t) => t.id)));
   const watchDir = `${home()}/dev/agents-worktree/${name}`;
   const ls = await exec("find", [watchDir, "-mindepth", "1", "-maxdepth", "1", "-type", "d"]).catch(() => null);
   const folders = [
-    ...local.map((s) => s.folder),
-    ...panes().filter((p) => tabs.has(p.tab)).map((p) => p.cwd),
+    ...localFolders(),
     ...(ls?.stdout.split("\n") ?? []),
     `/Volumes/sourcecode/${name}`,
   ].filter(Boolean);
@@ -244,11 +248,22 @@ async function roundUnderLease(registry, cache, at, owners, leaseId) {
   }
 
   cache.trees ??= {}; // shortcut: never pruned (two shas per push), prune it if the app runs for months
-  const all = await Promise.all(found.map((pr) => signals(pr, cache.me, registry.prs[`${pr.repository.nameWithOwner}#${pr.number}`], cache.trees)));
+  const read = await Promise.all(found.map((pr) => signals(pr, cache.me, registry.prs[`${pr.repository.nameWithOwner}#${pr.number}`], cache.trees)));
   // Rebuilt each round from this round's repos: a repo with no open PR left drops out.
-  const names = [...new Set(all.map((s) => s.repo))];
+  const names = [...new Set(read.map((s) => s.repo))];
   const repos = new Map(await Promise.all(names.map(async (repo) => [repo, await cloneOf(repo, cache.clones ?? new Map())])));
   cache.clones = new Map([...repos].filter(([, r]) => r.clone).map(([repo, r]) => [repo, r.clone]));
+  // A draft no local space or pane shows is left alone, as if merged: no agent, no row, its tabs close (watchedNow).
+  const ready = machines().find((m) => m.name === null)?.layout === "ready";
+  // ~/dev is a symlink: git prints a worktree's resolved path, Herdr may show the space in the other form. Only with a draft.
+  const shown = localFolders();
+  const folders = !read.some((s) => s.draft) ? [] : [...shown, ...(await Promise.all(shown.map((f) => sh("realpath", [f]).then((r) => r.trim()).catch(() => null)))).filter(Boolean)];
+  const all = read.filter((s) => watchedNow(s, { ready, known: s.key in (registry.prs ?? {}), shown: () => draftShown(folders, repos.get(s.repo).worktrees, s.branch) }));
+  // A draft left aside keeps its entry (attempts, sessions, clock) for when a space shows it again: otherwise its fix
+  // agents get a fresh budget each time its space is reopened. Only drafts still open: the map stays bounded.
+  const watched = new Set(all.map((s) => s.key));
+  const hidden = Object.fromEntries(read.filter((s) => s.draft && !watched.has(s.key))
+    .map((s) => [s.key, registry.prs?.[s.key] ?? registry.hidden?.[s.key]]).filter(([, e]) => e));
 
   const roundPrs = new Set(all.map((s) => s.number));
   const karadocPrs = new Set(all.filter((s) => repos.get(s.repo).hasKaradoc).map((s) => s.number));
@@ -267,7 +282,7 @@ async function roundUnderLease(registry, cache, at, owners, leaseId) {
     // Already lost (the reads above took longer): the copy that took it runs the round, this one stops and writes nothing.
     if (!held()) return null;
     setShared(LEASE, { at: Date.now(), id: leaseId });
-    const before = registry.prs[s.key] ?? emptyEntry();
+    const before = registry.prs[s.key] ?? registry.hidden?.[s.key] ?? emptyEntry();
     try {
       const busy = [...new Set([...heldTabs(all), ...launched])];
       const { clone, hasQa, hasDemo, hasCi, hasKaradoc, worktrees } = repos.get(s.repo);
@@ -353,6 +368,6 @@ async function roundUnderLease(registry, cache, at, owners, leaseId) {
   // For the panel's header: the watch agents at the end of the round and the one holding karadoc.
   const busy = [...new Set([...heldTabs(all), ...launched])];
   // journalOn: `on` as this round saw it, so the next round writes a switch made in between.
-  return { ...registry, prs, error: null, searchFails: 0, at, journalOn: registry.on, durations, sonarRepos: [...sonarRepos],
+  return { ...registry, prs, hidden, error: null, searchFails: 0, at, journalOn: registry.on, durations, sonarRepos: [...sonarRepos],
     agents: { busy: busy.length, max: maxAgents() }, karadoc: karadocHolder(busy, karadocPrs, roundPrs) };
 }

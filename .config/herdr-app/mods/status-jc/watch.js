@@ -270,6 +270,21 @@ export function checkoutsOf(porcelain, branch) {
     .filter(Boolean);
 }
 
+// A draft is watched only while a local space or pane shows one of its branch's checkouts (folders: their cwds).
+export function draftShown(folders, porcelain, branch) {
+  const checkouts = checkoutsOf(porcelain, branch);
+  return folders.some((f) => checkouts.some((c) => f === c || f.startsWith(`${c}/`)));
+}
+
+// Whether this round watches PR s. known: it is in the registry; shown(): draftShown for it; ready: the local layout is
+// restored (before, spaces() lacks the restored spaces). A failed read has no draft flag: only a PR already watched keeps
+// its error row, a draft left aside must not come back as « erreur » during a GitHub outage.
+export function watchedNow(s, { ready, known, shown }) {
+  if (s.error) return known;
+  if (!s.draft) return true;
+  return ready ? shown() : known;
+}
+
 // `git reflog show --format=%H|%gs HEAD` of a watch worktree → the commits the watch itself checked out
 // (worktree add, checkout of origin/<branch>): what the agent found, not what it committed.
 export function checkoutBases(reflog, branch) {

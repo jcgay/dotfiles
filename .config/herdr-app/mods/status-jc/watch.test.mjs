@@ -1,7 +1,7 @@
 // node --test ~/.config/herdr-app/mods/status-jc/watch.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { fixups, searchSince, sonarFindings, markers, riskOf, noHuman, withRiskTree, signalsOf, checks, jenkinsBuild, decide, emptyEntry, tabName, LABELS, promptFor, repoOfRemote, undoLaunch, holdingTabs, closing, stoppedQa, freshTabs, FRESH_MS, karadocHeld, appTaken, checkoutBases, checkoutsOf, squashAgentOver, SQUASH_GRACE_MS, KARADOC_MAX_MIN } from "./watch.js";
+import { fixups, searchSince, sonarFindings, markers, riskOf, noHuman, withRiskTree, signalsOf, checks, jenkinsBuild, decide, emptyEntry, tabName, LABELS, promptFor, repoOfRemote, undoLaunch, holdingTabs, closing, stoppedQa, freshTabs, FRESH_MS, karadocHeld, appTaken, checkoutBases, checkoutsOf, draftShown, watchedNow, squashAgentOver, SQUASH_GRACE_MS, KARADOC_MAX_MIN } from "./watch.js";
 
 // Real summaries: arthur#5458 (passed) and arthur#5449 (failed gate).
 const PASSED = `Issues  
@@ -871,4 +871,27 @@ test("parseConfig: missing, unreadable or ownerless config is an error", async (
 test("ownerArgs: one --owner per owner", async () => {
   const { ownerArgs } = await import("./watch.js");
   assert.deepEqual(ownerArgs(["a", "b"]), ["--owner=a", "--owner=b"]);
+});
+
+const WT = "worktree /r/x\nHEAD a\nbranch refs/heads/master\n\nworktree /r/wt/feat-x\nHEAD b\nbranch refs/heads/feat/x\n";
+test("draftShown: a space on the branch's worktree shows the draft", () => assert.equal(draftShown(["/r/wt/feat-x"], WT, "feat/x"), true));
+test("draftShown: a pane in a subfolder of it too", () => assert.equal(draftShown(["/r/wt/feat-x/src"], WT, "feat/x"), true));
+test("draftShown: a sibling folder sharing the prefix does not", () => assert.equal(draftShown(["/r/wt/feat-x2"], WT, "feat/x"), false));
+test("draftShown: the main checkout on another branch does not", () => assert.equal(draftShown(["/r/x"], WT, "feat/x"), false));
+test("draftShown: no checkout of the branch", () => assert.equal(draftShown(["/r/wt/feat-x"], WT, "feat/y"), false));
+test("draftShown: a prunable worktree does not", () => assert.equal(draftShown(["/r/wt/feat-x"], WT.replace("feat/x\n", "feat/x\nprunable gitdir file points to non-existent location\n"), "feat/x"), false));
+
+const yes = () => true, no = () => false;
+test("watchedNow: a ready PR is always watched", () => assert.equal(watchedNow({ draft: false }, { ready: true, known: false, shown: no }), true));
+test("watchedNow: a draft only while a space shows it, once the layout is ready", () => {
+  assert.equal(watchedNow({ draft: true }, { ready: true, known: true, shown: no }), false);
+  assert.equal(watchedNow({ draft: true }, { ready: true, known: false, shown: yes }), true);
+});
+test("watchedNow: before the layout is ready, a draft already watched stays and a new one waits", () => {
+  assert.equal(watchedNow({ draft: true }, { ready: false, known: true, shown: no }), true);
+  assert.equal(watchedNow({ draft: true }, { ready: false, known: false, shown: yes }), false);
+});
+test("watchedNow: a failed read (no draft flag) stays only if the PR was watched", () => {
+  assert.equal(watchedNow({ error: "HTTP 502" }, { ready: true, known: true, shown: no }), true);
+  assert.equal(watchedNow({ error: "HTTP 502" }, { ready: true, known: false, shown: no }), false);
 });
