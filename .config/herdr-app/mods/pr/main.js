@@ -515,9 +515,10 @@ export default class PullRequest extends View {
         // meta line (repo in « À toi », #N, space) and, outside « À toi », the thin band on that same line.
         // min_h: the row keeps its height when its hidden buttons show on hover.
         .child(h_flex().gap(6).items_center().min_h(24)
-          // The title spans most of the row and its tooltip hides the row's: it carries the whole title and the click.
+          // The title spans most of the row and its tooltip hides the row's: the whole title, the click, and the right-click
+          // menu, which nothing else on the row shows.
           .child(div().id(`title-${k}`).flex_1().min_w(0).truncate().text_size(13).font_medium()
-            .text_color(entry.title ? t.foreground : t.muted).tooltip([entry.title, `clic : ${rowTip}`].filter(Boolean).join("\n")).child(entry.title || `#${number}`))
+            .text_color(entry.title ? t.foreground : t.muted).tooltip([entry.title, `clic : ${rowTip}`, "clic droit : toutes ses actions"].filter(Boolean).join("\n")).child(entry.title || `#${number}`))
           // Outside « À toi », ⌨ and pause show on the hovered or picked row, and on a paused one (its ▶ is its state);
           // the right-click menu and the keys t / p reach them on any row.
           .when(showRepo || picked || this.hoverKey === k || paused.includes(k), (e) => e.child(work(k, entry.work)).child(pause(k)))
@@ -628,7 +629,7 @@ export default class PullRequest extends View {
         .tooltip("Ouvrir la PR").on_click(() => exec("open", [d.url]))
         .on_mouse_down("right", (_e, cx) => { cx.stop_propagation(); openRowMenu(d.key, true); })
         .child(repoMark(repo)).child(div().flex_none().text_size(12).text_color(t.muted).child(`${repo.split("/").pop()} #${number}`))
-        .child(div().flex_1().min_w(0).truncate().text_size(12).text_color(t.foreground).child(d.title))
+        .child(div().id(`aside-title-${d.key}`).flex_1().min_w(0).truncate().text_size(12).text_color(t.foreground).tooltip([d.title, "clic droit : ses actions"].filter(Boolean).join("\n")).child(d.title))
         // The space opening (status-jc's opener) can take a while (wt switch) or fail: said on the row.
         .when(pending(d.key), (e) => e.child(div().flex_none().text_size(11).text_color(t.dim).child("ouverture…")))
         .when(Boolean(opens[d.key]?.error) && !pending(d.key), (e) => e.child(div().id(`aside-err-${d.key}`).flex_none().text_size(11).text_color(t.ansi1).tooltip(opens[d.key].error).child("échec")))
