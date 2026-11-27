@@ -490,6 +490,7 @@ export default class PullRequest extends View {
       // A refused merge puts the PR in « À toi »: its row must not fold as a finished one.
       const folded = entry.label === "ok" && !entry.error && !merges[k]?.refused && !pending(k) && !opens[k]?.error;
       const picked = keyboard && k === this.sel;
+      const thin = !(showRepo || picked);
       // « À toi » (showRepo) is the only colored part of the list: a faint violet fill and border. Elsewhere the state is
       // a muted word, the thin band keeps the colors: what waits on someone else must not outshout what waits on me.
       const mineRow = showRepo && !picked;
@@ -503,28 +504,33 @@ export default class PullRequest extends View {
           if (hovered) this.hoverKey = k; else if (this.hoverKey === k) this.hoverKey = null;
           cx.notify();
         })
+        // One shape in every section: the title first (it is how a PR is found), its state at the right; under it the
+        // meta line (repo in « À toi », #N, space) and, outside « À toi », the thin band on that same line.
         // min_h: the row keeps its height when its hidden buttons show on hover.
         .child(h_flex().gap(6).items_center().min_h(24)
-          .when(showRepo, (e) => e.child(repoMark(repo)).child(div().text_size(12).font_semibold().child(repo.split("/").pop())))
-          // The number always opens the PR, also on a row whose click opens its blocker.
-          .child(h_flex().id(`num-${k}`).h(20).px(4).items_center().rounded(4).text_size(12).text_color(t.muted).cursor_pointer().hover((s) => s.bg(t.hover).text_color(t.accent))
-            .tooltip("Ouvrir la PR").accessibility_label(`Ouvrir la PR ${repo.split("/").pop()} #${number}`)
-            .on_click((_e, cx) => { cx.stop_propagation(); exec("open", [entry.url]); }).child(`#${number}`))
-          // Goes to that space, as ⌨ does: a label that names a space must not open the PR.
-          .when(Boolean(shownIn), (e) => e.child(h_flex().id(`space-${k}`).min_w(0).h(20).px(4).items_center().rounded(4).truncate().text_size(11).text_color(t.muted)
-            .cursor_pointer().hover((x) => x.bg(t.hover).text_color(t.accent)).tooltip("Aller au space").accessibility_label(`Aller au space ${shownIn}`)
-            .on_click((_e, cx) => { cx.stop_propagation(); askWork(k); }).child(`space ${shownIn}`)))
-          .child(div().flex_1())
+          // The whole title in the tooltip when truncated.
+          .child(div().id(`title-${k}`).flex_1().min_w(0).truncate().text_size(13).font_medium()
+            .text_color(entry.title ? t.foreground : t.muted).tooltip(entry.title || "").child(entry.title || `#${number}`))
           // Outside « À toi », ⌨ and pause show on the hovered or picked row, and on a paused one (its ▶ is its state);
           // the right-click menu and the keys t / p reach them on any row.
           .when(showRepo || picked || this.hoverKey === k || paused.includes(k), (e) => e.child(work(k, entry.work)).child(pause(k)))
           // In « À toi » the section already says « à toi »: only another label (a refused merge) gets its chip.
           .when(showRepo && label !== "à toi", (e) => e.child(chip(label, look(label)[0], label === "agent en cours").tooltip(LABEL_HELP[label] ?? "")))
           .when(!showRepo, (e) => e.child(div().id(`state-${k}`).flex_none().text_size(11).text_color(t.muted).tooltip(LABEL_HELP[label] ?? "").child(label))))
-        // The title is how a PR is found: foreground, its whole text in the tooltip when truncated.
-        .when(Boolean(entry.title), (e) => e.child(div().id(`title-${k}`).text_size(13).text_color(t.foreground).truncate().tooltip(entry.title).child(entry.title)))
-        // The full band with step names on « À toi » rows and the picked one; a thin bar elsewhere.
-        .when(Array.isArray(entry.band), (e) => e.child(band(k, entry, !(showRepo || picked))))
+        .child(h_flex().gap(4).items_center().min_h(20)
+          .when(showRepo, (e) => e.child(repoMark(repo)).child(div().flex_none().pl(2).text_size(12).text_color(t.muted).child(repo.split("/").pop())))
+          // The number always opens the PR, also on a row whose click opens its blocker.
+          .child(h_flex().id(`num-${k}`).flex_none().h(20).px(4).items_center().rounded(4).text_size(12).text_color(t.muted).cursor_pointer().hover((s) => s.bg(t.hover).text_color(t.accent))
+            .tooltip("Ouvrir la PR").accessibility_label(`Ouvrir la PR ${repo.split("/").pop()} #${number}`)
+            .on_click((_e, cx) => { cx.stop_propagation(); exec("open", [entry.url]); }).child(`#${number}`))
+          // Goes to that space, as ⌨ does: a label that names a space must not open the PR.
+          .when(Boolean(shownIn), (e) => e.child(h_flex().id(`space-${k}`).min_w(0).h(20).px(4).items_center().rounded(4).truncate().text_size(11).text_color(t.muted)
+            .cursor_pointer().hover((x) => x.bg(t.hover).text_color(t.accent)).tooltip("Aller au space").accessibility_label(`Aller au space ${shownIn}`)
+            .on_click((_e, cx) => { cx.stop_propagation(); askWork(k); }).child(`space ${shownIn}`)))
+          // The thin bar says how far the PR went; min_w keeps its nine cells readable next to a long space name.
+          .when(thin && Array.isArray(entry.band), (e) => e.child(h_flex().flex_1().min_w(120).pl(8).child(band(k, entry, true).flex_1()))))
+        // The full band with step names on « À toi » rows and the picked one.
+        .when(!thin && Array.isArray(entry.band), (e) => e.child(band(k, entry, false)))
         .when(Boolean(why) && !folded, (e) => e.child(div().text_size(11).text_color(t.dim).child(why)))
         .when(actions.length > 0, (e) => e.child(h_flex().gap(12).flex_wrap().pt(2).children(actions)))
         .when(Boolean(merges[k]?.refused && merges[k]?.error), (e) => e.child(div().text_size(11).text_color(t.ansi1).child(`merge refusé : ${merges[k].error}`)))

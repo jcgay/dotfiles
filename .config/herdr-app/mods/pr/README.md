@@ -33,21 +33,19 @@ Surveillance des PR               tour dans 1 min  [rafraîchir]  ?
 ● Surveillance active  [−] Agents 2/3 [+]  karadoc pris (#5471 qa)
 [⌕ Filtrer (/) : dépôt, titre, space, #N            ]
 À toi (1)                                                ← ce que toi seul peux débloquer
-arthur #5480                         [terminal] [pause] [à toi]
-  Corrige le tri des ordonnances
+Corrige le tri des ordonnances          [terminal] [pause]   ← le titre d'abord, fond violet pâle
+  arthur #5480
   [git][jenk][sonar][rev][qa][demo][risk][appr][merge]
   Jenkins encore en échec après 2 corrections
   Ouvrir le log Jenkins
 › Rien d'autre pour toi (2)                              ← replié par défaut ; déplié :
 arthur                                                   ← un groupe par dépôt
-#5471  space export-pdf              [terminal] [pause] [agent en cours]
-  Ajoute l'export PDF des ordonnances                    ← le titre, en avant
-  ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬                   ← la bande, fine hors À toi et ligne choisie
-  qa depuis 12 min · prête à approuver dans ~35 min · agent qa lancé sur 1a2b3c4d
+Ajoute l'export PDF des ordonnances       agent en cours ← l'état en mot gris ; icônes au survol
+  #5471  space export-pdf  ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬           ← la bande fine sur la ligne du numéro
+  qa depuis 12 min · prête à approuver dans ~35 min
 ordostruct
-#74                                  [terminal] [pause] [attend relecture]   ← qui agit ensuite
-  Ajoute la posologie pédiatrique
-  ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+Ajoute la posologie pédiatrique         attend relecture ← qui agit ensuite
+  #74  ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
   Merger quand tout est vert                             ← les actions qui s'appliquent
 ```
 
@@ -55,7 +53,7 @@ ordostruct
 - **Bandeau** : l'interrupteur, les agents de surveillance occupés sur leur maximum (3 par défaut, de 1 à 9 avec − et +), et l'onglet qui tient karadoc seulement quand il est pris.
 - **?** dans l'en-tête de la Surveillance déplie une aide : les neuf étapes dans l'ordre, les couleurs, les boutons et le clavier. Chaque statut a aussi son infobulle.
 - **Brouillons (N)** dans le bandeau masque les brouillons (il devient « Brouillons masqués (N) ») (en pause compris, sauf ceux « à toi », « erreur » ou « pas de clone local ») et les réaffiche ; le choix est gardé dans `shared("pr-watch-view")`, que `status-jc` ne réécrit pas.
-- **Titre** en couleur de texte, au-dessus de la bande : c'est par lui qu'on reconnaît une PR ; son infobulle donne le titre entier quand il est tronqué.
+- **Une seule forme de ligne** dans toutes les sections : le **titre** en premier (c'est par lui qu'on reconnaît une PR ; son infobulle donne le titre entier quand il est tronqué), l'état à droite ; dessous, la ligne du numéro (précédé du dépôt dans À toi, suivi du space) et, hors À toi et ligne choisie, la bande fine sur cette même ligne. La bande entière, avec le nom des étapes, a sa propre ligne dans À toi et sur la ligne choisie.
 - **Bande d'étapes**, en entier (nom de chaque étape) sur les lignes de À toi et sur la ligne choisie au clavier, ailleurs une barre fine de 6 px sans les noms : mêmes cases, couleurs et clics, l'étape et son état en infobulle. Calculée par `status-jc` : vert fait, orange clignotant en cours (agent, CI, merge armé), orange fixe en attente d'une approbation humaine, rouge en échec que la surveillance corrige, violet à toi, gris à venir, pointillé jamais fait dans ce repo (pas de CI, de Sonar, de qa ou de `## Demo`). Un brouillon n'a que git, jenk et sonar ; une PR en pause a sa bande en contours (les étapes faites gardent leur teinte, rien ne clignote). Un clic sur une case d'agent (git, jenk, sonar, rev, qa, demo, risk) rouvre sa dernière session Claude : l'onglet `⟳` tant que l'agent tourne, sinon un onglet `↺ #N <étape>` qui lance `claude --resume` dans le worktree où il a tourné (`status-jc` lance chaque agent avec `--session-id` et garde l'id dans `entry.sessions`).
 - **Clavier** : ouvert par `⌘⇧U`, le bouton ou « N PR à toi » de la barre d'état (chacun écrit `shared("watch-focus")`), ou après un clic dans le panneau, la liste prend le clavier, et le cadre du panneau passe en couleur d'accent. ↑/↓ choisit une PR (cadre en couleur d'accent), Entrée va à son agent ou ouvre la PR, `p` la met en pause ou la reprend, `t` ouvre son worktree, Échap rend le clavier au terminal affiché (`pane.focus`). Aucune PR n'est choisie avant une flèche : Entrée, `p` et `t` ne font rien tant qu'une flèche n'a pas désigné une ligne, et une flèche replie l'aide pour que la ligne reste visible. Fermer le panneau pendant qu'il a le clavier le rend aussi au terminal. Un panneau rouvert par un changement de space ne prend pas le clavier.
 - Une PR **à toi** abandonnée sur Jenkins ou Sonar ouvre au clic ce qui bloque (la console du build, ou l'analyse Sonar : `entry.blocker`, publié par `status-jc`), avec le verbe « Ouvrir le log Jenkins » ou « Ouvrir l'analyse Sonar » sous la ligne. Son numéro ouvre toujours la PR. Sans blocage connu (conflit, worktree occupé…), le clic reste l'agent ou la PR.
@@ -70,7 +68,7 @@ ordostruct
 - Une PR **ok** replie son explication (sauf si son merge armé a été refusé : elle est alors dans À toi) ; son titre reste, c'est par lui qu'on la retrouve. Tout revient dès que son étiquette change. Le statut est porté par la puce seule (plus de point à gauche), et l'explication d'une PR « à toi » ne répète plus « dépend de toi ».
 - La ligne du dessous commence par l'étape en cours et sa durée, puis l'estimation « prête à approuver dans ~X » (médiane des passages précédents, rien avant 3 mesures), ou « dépend de toi ».
 - **Actions**, en toutes lettres sous la ligne, seulement quand elles s'appliquent : **Passer prête pour review** (brouillon : `gh pr ready`, comme le bouton **Prête pour review** de Pull request, puis un tour : ses reviews partent sans attendre les 2 min), **Squasher N fixup!** (en dernier et en gris : un push forcé ; seulement sur un brouillon, une PR approuvée ou la ligne choisie au clavier, car avant l'approbation il efface les « changements depuis la dernière revue » du relecteur ; le panneau Pull request le garde à tout moment ; sans clic, la surveillance attend l'approbation ; un premier clic la change en « Confirmer le push forcé » pendant 4 s, un second la lance), **Merger quand tout est vert**, **Désarmer le merge**, ou **Effacer le refus du merge** sous l'erreur de GitHub.
-- Les icônes à droite du nom : **terminal** (« Travailler dessus », voir plus haut) et **pause / lecture**. Toujours visibles dans À toi ; ailleurs seulement sur la ligne survolée ou choisie au clavier, et sur une PR en pause (son ▶ dit son état). Le clic droit et les touches `t` / `p` les atteignent sur toute ligne. Le terminal est pâli quand son worktree n'existe pas encore, a une pastille quand un space le montre déjà.
+- Les icônes à droite du titre : **terminal** (« Travailler dessus », voir plus haut) et **pause / lecture**. Toujours visibles dans À toi ; ailleurs seulement sur la ligne survolée ou choisie au clavier, et sur une PR en pause (son ▶ dit son état). Le clic droit et les touches `t` / `p` les atteignent sur toute ligne. Le terminal est pâli quand son worktree n'existe pas encore, a une pastille quand un space le montre déjà.
 
 - La ligne **Build** n'existe que si un check de la PR pointe vers un build Jenkins. l'icône de document ouvre la console, la flèche circulaire relance (`jk run rerun`) et n'apparaît que sur un build terminé qui n'a pas réussi. Hors VPN : « Jenkins injoignable (VPN ?) ».
 - **Checks** ne compte pas le check du build affiché dans Build, sauf hors VPN (Build ne connaît alors pas son résultat) ; un autre job Jenkins y reste. La ligne disparaît s'il ne reste aucun check. Dépliée ou repliée, elle le reste d'un espace à l'autre.
