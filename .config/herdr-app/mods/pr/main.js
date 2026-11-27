@@ -3,7 +3,7 @@ import { v_flex, h_flex, InputState, Input, ScrollHandle } from "gpui-base";
 import { spaces, panes, agents, focused, exec, theme, layout, run, shared, setShared, props, appHome, readTextFile, home, settings } from "herdr";
 import { Ci } from "./ci.js";
 import { parseConfig } from "./ci-model.js";
-import { moveSel, jenkinsBuild, checks, otherChecks, summary, minutes, deploymentsFor, parseContainers, watchBranch, remember, clockText, workLook, rowActions, bandStates, nextRound, isDraft, hiddenDraft, sessionOf, watchSections, spaceShowing, realFolder, parseIcons, repoLetter, matchesFilter } from "./model.js";
+import { moveSel, jenkinsBuild, checks, otherChecks, summary, minutes, deploymentsFor, parseContainers, watchBranch, remember, clockText, workLook, rowActions, bandStates, nextRound, isDraft, hiddenDraft, sessionOf, watchSections, spaceShowing, realFolder, parseIcons, repoLetter, matchesFilter, chipLabel } from "./model.js";
 
 // How many spaces, checkouts and Jenkins builds the caches keep.
 const KEEP = 30;
@@ -20,7 +20,7 @@ const STEP_HELP = {
   qa: "un agent qa teste la PR pour y trouver des bugs (si le skill qa est dans le clone)",
   demo: "/pr-demo : une démo postée sur la PR (si AGENTS.md ou CLAUDE.md a une section ## Demo)",
   risk: "/pr-risk : le risque de la PR et s'il faut une revue humaine",
-  appr: "ton approbation sur GitHub (inutile quand pr-risk demande 0 revue humaine sur ce code), puis le squash des fixup!",
+  appr: "l'approbation d'un relecteur sur GitHub (inutile quand pr-risk demande 0 revue humaine sur ce code), puis le squash des fixup!",
   merge: "le merge armé (« Merger quand tout est vert ») : rebase and merge dès que tout est vert",
 };
 const STATE_HELP = {
@@ -36,7 +36,11 @@ const LABEL_HELP = {
   "en attente": "rien à lancer pour l'instant : CI en cours, GitHub qui calcule, agents tous pris…",
   brouillon: "brouillon : seuls git, la CI et Sonar sont surveillés, pas de revue ; un brouillon qu'aucun space ne montre n'est pas surveillé",
   "en pause": "en pause : rien n'est lancé (le bouton lecture reprend)",
-  ok: "la surveillance a tout fait : reste ton approbation ou le merge",
+  ok: "la surveillance a tout fait",
+  "attend relecture": "la surveillance a tout fait ; un relecteur doit approuver la PR sur GitHub",
+  "prête à merger": "approuvée (ou pr-risk : 0 revue humaine), CI verte : reste le merge (« Merger quand tout est vert » l'arme)",
+  "squash à venir": "approuvée : la surveillance squashe ses fixup! au prochain tour, puis elle sera prête à merger",
+  "merge armé": "le merge part dès que tous les checks sont verts",
 };
 
 function location() {
@@ -363,7 +367,9 @@ export default class PullRequest extends View {
     const reg = shared("pr-watch") ?? null, entries = Object.entries(reg?.prs ?? {});
     // Each label's color, dot and rank: what needs me first, finished PRs last.
     const looks = { "à toi": [t.blocked, "ko"], erreur: [t.ansi1, "ko"], "pas de clone local": [t.blocked, "ko"],
-      "agent en cours": [t.working, "running"], "en attente": [t.muted, "idle"], brouillon: [t.dim, "idle"], "en pause": [t.dim, "idle"], ok: [t.done, "ok"] };
+      "agent en cours": [t.working, "running"], "en attente": [t.muted, "idle"], brouillon: [t.dim, "idle"], "en pause": [t.dim, "idle"], ok: [t.done, "ok"],
+      // The chips of an ok PR (model.js chipLabel): who acts next. Orange as the band's wait cell: a human must act.
+      "attend relecture": [t.working, "idle"], "prête à merger": [t.done, "ok"], "squash à venir": [t.muted, "idle"], "merge armé": [t.done, "ok"] };
     const look = (l) => looks[l] ?? [t.dim, "idle"];
     // A label this table lacks (renamed in status-jc, which the panel cannot import) goes last.
     const rank = (l) => { const i = Object.keys(looks).indexOf(l); return i < 0 ? Infinity : i; };
@@ -472,7 +478,7 @@ export default class PullRequest extends View {
       .children(bandStates(entry.band, merges[k]).map((state, i) => cellOf(k, entry, STEPS[i], state, paused.includes(k), thin)));
     // showRepo: in « À toi », PRs of several repos; in a repo's group its header names it.
     const row = ([k, entry], showRepo) => {
-      const [color] = look(entry.label), [repo, number] = k.split("#");
+      const [repo, number] = k.split("#"), label = chipLabel(entry, merges[k]);
       // The chip carries the status; "dépend de toi" would only repeat « à toi ».
       const why = [entry.clock?.yours ? null : clockText(entry.clock, Date.now()), entry.why].filter(Boolean).join(" · ");
       const actions = actionsOf(k, entry), shownIn = spaceShowing(entry.work, localSpaces);
@@ -495,7 +501,7 @@ export default class PullRequest extends View {
             .cursor_pointer().hover((x) => x.bg(t.hover).text_color(t.accent)).tooltip("Aller au space").accessibility_label(`Aller au space ${shownIn}`)
             .on_click((_e, cx) => { cx.stop_propagation(); askWork(k); }).child(`space ${shownIn}`)))
           .child(div().flex_1())
-          .child(work(k, entry.work)).child(pause(k)).child(chip(entry.label ?? "", color).tooltip(LABEL_HELP[entry.label] ?? "")))
+          .child(work(k, entry.work)).child(pause(k)).child(chip(label, look(label)[0]).tooltip(LABEL_HELP[label] ?? "")))
         // The title is how a PR is found: foreground, its whole text in the tooltip when truncated.
         .when(Boolean(entry.title), (e) => e.child(div().id(`title-${k}`).text_size(13).text_color(t.foreground).truncate().tooltip(entry.title).child(entry.title)))
         // The full band with step names on « À toi » rows and the picked one; a thin bar elsewhere.

@@ -1,7 +1,7 @@
 // node --test ~/.config/herdr-app/mods/pr/model.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { jenkinsBuild, checks, otherChecks, summary, minutes, parseContainers, deploymentsFor, deployKey, watchBranch, remember, clockText, workLook, rowActions, bandStates, nextRound, isDraft, hiddenDraft, sessionOf, watchSections, spaceShowing, realFolder, parseIcons, repoLetter, matchesFilter } from "./model.js";
+import { jenkinsBuild, checks, otherChecks, summary, minutes, parseContainers, deploymentsFor, deployKey, watchBranch, remember, clockText, workLook, rowActions, bandStates, nextRound, isDraft, hiddenDraft, sessionOf, watchSections, spaceShowing, realFolder, parseIcons, repoLetter, matchesFilter, chipLabel } from "./model.js";
 
 test("jenkins build url", () => {
   assert.deepEqual(jenkinsBuild("https://jenkins.vidal.net/job/team.software/job/github/job/arthur/job/PR-5459/1/display/redirect"),
@@ -234,4 +234,15 @@ test("matchesFilter: every word must appear in the repo, title, space or #number
   assert.equal(matchesFilter("softwarevidal/arthur#5523", e, "multi-url", "MULTI"), true);
   assert.equal(matchesFilter("softwarevidal/arthur#5523", e, null, "arthur vidal-mcp"), false);
   assert.equal(matchesFilter("softwarevidal/arthur#5523", {}, null, "serve"), false);
+});
+test("chipLabel: an ok PR says who acts next, from its band's appr cell and its armed merge", () => {
+  const band = (appr) => ["ok", "ok", "ok", "ok", "ok", "ok", "ok", appr, "todo"];
+  assert.equal(chipLabel({ label: "ok", band: band("wait") }, null), "attend relecture");
+  assert.equal(chipLabel({ label: "ok", band: band("ok") }, null), "prête à merger");
+  assert.equal(chipLabel({ label: "ok", band: band("todo"), fixups: 2 }, null), "squash à venir");
+  assert.equal(chipLabel({ label: "ok", band: band("ok") }, { head: "a" }), "merge armé");
+  assert.equal(chipLabel({ label: "ok", band: band("ok") }, { refused: true }), "prête à merger");
+  assert.equal(chipLabel({ label: "ok", band: band("todo") }, null), "ok");
+  assert.equal(chipLabel({ label: "ok" }, null), "ok");
+  assert.equal(chipLabel({ label: "en attente", band: band("wait") }, null), "en attente");
 });

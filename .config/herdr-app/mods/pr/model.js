@@ -210,3 +210,15 @@ export function matchesFilter(key, entry, space, query) {
   const text = `${repo} ${entry.title ?? ""} ${space ?? ""} #${number}`.toLowerCase();
   return query.toLowerCase().split(/\s+/).filter(Boolean).every((w) => text.includes(w));
 }
+
+// The chip of a watched PR. status-jc's « ok » means the watch has nothing left to do; the chip says who acts next,
+// read from the band's appr cell (pipeline.js bandOf: wait = a reviewer must approve) and the PR's armed merge.
+export function chipLabel(entry, merge) {
+  if (entry.label !== "ok") return entry.label ?? "";
+  if (merge && !merge.refused) return "merge armé";
+  const appr = Array.isArray(entry.band) && entry.band.length === 9 ? entry.band[7] : null;
+  if (appr === "wait") return "attend relecture";
+  if (appr === "ok") return "prête à merger";
+  if (appr === "todo" && entry.fixups > 0) return "squash à venir";
+  return "ok";
+}
